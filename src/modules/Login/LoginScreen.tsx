@@ -2,33 +2,36 @@ import React, { useState } from "react";
 
 // ─── LOGIN CREDENTIALS ────────────────────────────────────────────────────────
 // In production these are validated server-side via Supabase Auth / Cognito.
-const VALID_USERS: Record<string, string> = {
-  'raviboorla': 'strat101.1',
-  'stratadmin': 'Stratadmin.1',
-};
+import { supabase } from '../../lib/supabase';
 
-interface LoginScreenProps {
-  onLogin: (uid: string) => void;
-}
-
-export default function LoginScreen({ onLogin }: LoginScreenProps) {
-  const [uid,     setUid]     = useState('');
-  const [pwd,     setPwd]     = useState('');
-  const [err,     setErr]     = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const attempt = () => {
-    setErr(''); setLoading(true);
-    setTimeout(() => {
-      const expected = VALID_USERS[uid.trim().toLowerCase()];
-      if(expected && pwd === expected){
-        onLogin(uid.trim().toLowerCase());
-      } else {
-        setErr('Invalid User ID or Password. Please try again.');
-        setLoading(false);
-      }
-    }, 900);
+const attempt = async () => {
+  setErr(''); setLoading(true);
+  
+  // Map username → email (in production, query tenant_users table instead)
+  const emailMap: Record<string, string> = {
+    'stratadmin': 'stratadmin@strat101.com',
+    'raviboorla':  'raviboorla@strat101.com',
   };
+  
+  const email = emailMap[uid.trim().toLowerCase()];
+  if (!email) {
+    setErr('Invalid User ID or Password.');
+    setLoading(false);
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: pwd,
+  });
+
+  if (error) {
+    setErr('Invalid User ID or Password. Please try again.');
+    setLoading(false);
+  } else {
+    onLogin(uid.trim().toLowerCase());
+  }
+};
 
   return (
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 45%,#0f2744 100%)',fontFamily:'system-ui,sans-serif'}}>
