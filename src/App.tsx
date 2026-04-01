@@ -98,16 +98,31 @@ function Workspace({ loggedUser, isAdmin, features, previewTenant, onExitPreview
   const rmDep   = (did:string)=>setItems(p=>p.map(i=>i.id===sel?stamp({...i,dependencies:i.dependencies.filter((d:string)=>d!==did)}):i));
 
   const MAX_ATTACHMENT_BYTES=10*1024*1024;
-  const addFile=(f:File)=>{
-    if(!f||!sel) return;
-    if(f.size>MAX_ATTACHMENT_BYTES){
-      const mb=(f.size/1048576).toFixed(1);
-      setItems(p=>p.map(i=>i.id===sel?{...i,_uploadError:`"${f.name}" is ${mb} MB — max 10 MB.`}:i));
-      setTimeout(()=>setItems(p=>p.map(i=>i.id===sel?{...i,_uploadError:undefined}:i)),6000);
-      return;
-    }
-    setItems(p=>p.map(i=>i.id===sel?stamp({...i,attachments:[...i.attachments,{name:f.name,size:f.size<1048576?Math.round(f.size/1024)+' KB':(f.size/1048576).toFixed(1)+' MB',ext:f.name.split('.').pop()?.toLowerCase()||'',uploadedAt:td()}]}):i));
-  };
+  // In App.tsx addFile function:
+const addFile = async (f: File) => {
+  if (!f || !sel || !tenantId) return;
+  if (f.size > MAX_ATTACHMENT_BYTES) { /* existing size check */ return; }
+
+  const path = `${tenantId}/${sel}/${Date.now()}_${f.name}`;
+  
+  const { error: uploadErr } = await supabase.storage
+    .from('attachments')
+    .upload(path, f);
+
+  if (uploadErr) { console.error(uploadErr); return; }
+
+  const { error: dbErr } = await supabase.from('attachments').insert({
+    item_id:      sel,
+    tenant_id:    tenantId,
+    name:         f.name,
+    size:         f.size < 1048576 
+                    ? Math.round(f.size/1024) + ' KB' 
+                    : (f.size/1048576).toFixed(1) + ' MB',
+    ext:          f.name.split('.').pop()?.toLowerCase(),
+    storage_path: path,
+    uploaded_at:  new Date().toISOString(),
+  });
+};
 
   const rmFile     = (idx:number)=>setItems(p=>p.map(i=>i.id===sel?stamp({...i,attachments:i.attachments.filter((_:any,j:number)=>j!==idx)}):i));
   const addComment = (text:string)=>{ if(!sel||!text.trim()) return; const c={id:gId(),text:text.trim(),ts:tsNow()}; setItems(p=>p.map(i=>i.id===sel?stamp({...i,comments:[c,...i.comments]}):i)); };
