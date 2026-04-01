@@ -6,6 +6,7 @@ import { mkBlank, gId, tsNow, td } from "./utils";
 import { TenantFeatures, Tenant } from "./types";
 import { isAdminUser, DEFAULT_TENANTS } from "./adminData";
 import { supabase } from "./lib/supabase";
+import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
 
 // ─── Modules ──────────────────────────────────────────────────────────────────
 import LoginScreen   from "./modules/Login/LoginScreen";
@@ -166,8 +167,8 @@ async function syncLinks(itemId: string, newLinks: string[], tenantId: string): 
     .or(`from_id.eq.${itemId},to_id.eq.${itemId}`)
     .eq('tenant_id', tenantId);
 
-  const currentSet = new Set(
-    (existing ?? []).map((l: any) => l.from_id === itemId ? l.to_id : l.from_id)
+  const currentSet = new Set<string>(
+    (existing ?? []).map((l: any) => (l.from_id === itemId ? l.to_id : l.from_id) as string)
   );
   const newSet = new Set(newLinks);
 
@@ -194,7 +195,7 @@ async function syncDeps(itemId: string, newDeps: string[], tenantId: string): Pr
     .select('depends_on')
     .eq('item_id', itemId);
 
-  const currentSet = new Set((existing ?? []).map((d: any) => d.depends_on));
+  const currentSet = new Set<string>((existing ?? []).map((d: any) => d.depends_on as string));
   const newSet     = new Set(newDeps);
 
   const toRemove = [...currentSet].filter(id => !newSet.has(id));
@@ -691,7 +692,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   useEffect(() => {
     if (isAdmin) { setTenantId(null); return; }
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       if (!user) return;
       supabase
         .from('tenant_users')
@@ -699,8 +700,8 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         .eq('auth_user_id', user.id)
         .eq('active', true)
         .single()
-        .then(({ data }) => {
-          if (data?.tenant_id) setTenantId(data.tenant_id);
+        .then(({ data }: { data: any }) => {
+          if (data?.tenant_id) setTenantId(data.tenant_id as string);
         });
     });
   }, [isAdmin]);
@@ -766,7 +767,7 @@ export default function App() {
   const [checking,   setChecking]   = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       if (session?.user) {
         setLoggedUser(resolveUsername(session.user.email ?? ''));
         setLoggedIn(true);
@@ -774,7 +775,7 @@ export default function App() {
       setChecking(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       if (session?.user) {
         setLoggedUser(resolveUsername(session.user.email ?? ''));
         setLoggedIn(true);
