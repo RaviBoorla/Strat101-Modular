@@ -34,7 +34,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   const [features, setFeatures] = useState<TenantFeatures>(ALL_FEATURES);
 
   const [items, setItems]          = useState<any[]>([]);
-  const [view,  setView]           = useState('kanban');
+  const [view,  setView]           = useState(isAdmin ? 'admin' : 'kanban');
   const [workItemFilter, setWIF]   = useState('all');
   const [sel,   setSel]            = useState<string|null>(null);
   const [dtab,  setDtab]           = useState('overview');
