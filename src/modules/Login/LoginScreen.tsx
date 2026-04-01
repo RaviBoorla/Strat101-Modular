@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { supabase } from "../../lib/supabase";
 
-// ─── LOGIN CREDENTIALS ────────────────────────────────────────────────────────
-// In production these are validated server-side via Supabase Auth / Cognito.
-const VALID_USERS: Record<string, string> = {
-  'raviboorla': 'strat101.1',
-  'stratadmin': 'Stratadmin.1',
+// ── Username → email mapping ───────────────────────────────────────────────
+// Maps the short username the user types to their Supabase Auth email.
+// In a fully dynamic system you would query tenant_users by username instead.
+const USERNAME_TO_EMAIL: Record<string, string> = {
+  'stratadmin': 'stratadmin@strat101.com',
+  'raviboorla':  'raviboorla@strat101.com',
 };
 
 interface LoginScreenProps {
@@ -17,17 +19,29 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [err,     setErr]     = useState('');
   const [loading, setLoading] = useState(false);
 
-  const attempt = () => {
+  const attempt = async () => {
+    const username = uid.trim().toLowerCase();
+    if (!username || !pwd.trim()) return;
+
     setErr(''); setLoading(true);
-    setTimeout(() => {
-      const expected = VALID_USERS[uid.trim().toLowerCase()];
-      if(expected && pwd === expected){
-        onLogin(uid.trim().toLowerCase());
-      } else {
-        setErr('Invalid User ID or Password. Please try again.');
-        setLoading(false);
-      }
-    }, 900);
+
+    // Resolve email from username
+    const email = USERNAME_TO_EMAIL[username];
+    if (!email) {
+      setErr('Invalid User ID or Password. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    // Authenticate with Supabase
+    const { error } = await supabase.auth.signInWithPassword({ email, password: pwd });
+
+    if (error) {
+      setErr('Invalid User ID or Password. Please try again.');
+      setLoading(false);
+    } else {
+      onLogin(username);
+    }
   };
 
   return (
@@ -55,7 +69,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               Transform strategy<br/>into <span style={{color:'#60a5fa'}}>execution</span>
             </h1>
             <p style={{color:'#94a3b8',fontSize:14,lineHeight:1.7,maxWidth:400,marginBottom:32}}>
-              Strat101.com connects vision to delivery — linking OKRs, programmes, projects and tasks in a single intelligent workspace powered by AI.
+              Strat101.com connects vision to delivery — linking OKRs, programs, projects and tasks in a single intelligent workspace powered by AI.
             </p>
             <div style={{display:'flex',gap:20,flexWrap:'wrap'}}>
               {[['🔭','Vision to Subtask'],['🤖','AI Assist'],['📊','Live Reports'],['🗂️','Kanban Boards']].map(([icon,label])=>(
@@ -88,11 +102,17 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 onFocus={e=>e.target.style.borderColor='#3b82f6'} onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
             </div>
 
-            {err&&<div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,padding:'9px 12px',color:'#fca5a5',fontSize:12,marginBottom:16}}>{err}</div>}
+            {err && (
+              <div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,padding:'9px 12px',color:'#fca5a5',fontSize:12,marginBottom:16}}>
+                {err}
+              </div>
+            )}
 
-            <button onClick={attempt} disabled={loading||!uid.trim()||!pwd.trim()}
+            <button
+              onClick={attempt}
+              disabled={loading || !uid.trim() || !pwd.trim()}
               style={{width:'100%',padding:'12px',borderRadius:10,border:'none',cursor:loading||!uid.trim()||!pwd.trim()?'not-allowed':'pointer',background:loading?'#334155':'linear-gradient(135deg,#2563eb,#4f46e5)',color:'white',fontSize:13,fontWeight:700,boxShadow:loading?'none':'0 4px 14px rgba(37,99,235,0.45)',transition:'all 0.15s',opacity:uid.trim()&&pwd.trim()?1:0.5}}>
-              {loading?'Signing in…':'Sign In →'}
+              {loading ? 'Signing in\u2026' : 'Sign In \u2192'}
             </button>
           </div>
         </div>
@@ -100,12 +120,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
       {/* Footer */}
       <div style={{padding:'14px 32px',background:'#a3bbff',borderTop:'1px solid #7a9ee8',display:'flex',justifyContent:'center',alignItems:'center',gap:16}}>
-        <span style={{color:'#0c2040',fontSize:11,fontWeight:600}}>®Strat101.com</span>
+        <span style={{color:'#0c2040',fontSize:11,fontWeight:600}}>\u00aeStrat101.com</span>
         <span style={{color:'#4a6a9e'}}>|</span>
-        <span style={{color:'#0c2040',fontSize:11}}>©Copyright 2026. All rights Reserved.</span>
+        <span style={{color:'#0c2040',fontSize:11}}>\u00a9Copyright 2026. All rights Reserved.</span>
         <span style={{color:'#4a6a9e'}}>|</span>
         <a href="mailto:Support@Strat101.com" style={{color:'#0c2040',fontSize:11,textDecoration:'none',fontWeight:600}}>Support@Strat101.com</a>
       </div>
     </div>
   );
-};
+}
