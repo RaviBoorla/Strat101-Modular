@@ -5,6 +5,7 @@ import { TYPES } from "./constants";
 import { mkBlank, gId, tsNow, td } from "./utils";
 import { TenantFeatures, Tenant } from "./types";
 import { isAdminUser, DEFAULT_TENANTS } from "./adminData";
+import { supabase } from "./lib/supabase";
 
 // ─── Modules ──────────────────────────────────────────────────────────────────
 import LoginScreen   from "./modules/Login/LoginScreen";
@@ -32,17 +33,17 @@ function PreviewBanner({ tenant, onExit }: { tenant: Tenant; onExit: () => void 
       <span style={{ fontSize:14 }}>👁️</span>
       <span style={{ fontSize:12, fontWeight:600, color:'#92400e' }}>
         Previewing: <strong>{tenant.name}</strong>
-        &nbsp;·&nbsp;
+        &nbsp;&middot;&nbsp;
         {Object.entries(tenant.features).filter(([,v])=>v).map(([k])=>k).join(', ')} enabled
       </span>
       <button onClick={onExit} style={{ marginLeft:'auto', padding:'4px 12px', borderRadius:6, border:'1px solid #f59e0b', background:'white', color:'#92400e', fontSize:11, fontWeight:700, cursor:'pointer' }}>
-        ← Back to Admin
+        &larr; Back to Admin
       </button>
     </div>
   );
 }
 
-// ─── WORKSPACE (the main app for any logged-in user) ─────────────────────────
+// ─── WORKSPACE ────────────────────────────────────────────────────────────────
 function Workspace({ loggedUser, isAdmin, features, previewTenant, onExitPreview }: {
   loggedUser:     string;
   isAdmin:        boolean;
@@ -97,32 +98,17 @@ function Workspace({ loggedUser, isAdmin, features, previewTenant, onExitPreview
   const addDep  = (toId:string)=>{ if(!sel||toId===sel) return; setItems(p=>p.map(i=>i.id===sel&&!i.dependencies.includes(toId)?stamp({...i,dependencies:[...i.dependencies,toId]}):i)); setLinkDlg(null); };
   const rmDep   = (did:string)=>setItems(p=>p.map(i=>i.id===sel?stamp({...i,dependencies:i.dependencies.filter((d:string)=>d!==did)}):i));
 
-  const MAX_ATTACHMENT_BYTES=10*1024*1024;
-  // In App.tsx addFile function:
-const addFile = async (f: File) => {
-  if (!f || !sel || !tenantId) return;
-  if (f.size > MAX_ATTACHMENT_BYTES) { /* existing size check */ return; }
-
-  const path = `${tenantId}/${sel}/${Date.now()}_${f.name}`;
-  
-  const { error: uploadErr } = await supabase.storage
-    .from('attachments')
-    .upload(path, f);
-
-  if (uploadErr) { console.error(uploadErr); return; }
-
-  const { error: dbErr } = await supabase.from('attachments').insert({
-    item_id:      sel,
-    tenant_id:    tenantId,
-    name:         f.name,
-    size:         f.size < 1048576 
-                    ? Math.round(f.size/1024) + ' KB' 
-                    : (f.size/1048576).toFixed(1) + ' MB',
-    ext:          f.name.split('.').pop()?.toLowerCase(),
-    storage_path: path,
-    uploaded_at:  new Date().toISOString(),
-  });
-};
+  const MAX_ATTACHMENT_BYTES = 10*1024*1024;
+  const addFile=(f:File)=>{
+    if(!f||!sel) return;
+    if(f.size>MAX_ATTACHMENT_BYTES){
+      const mb=(f.size/1048576).toFixed(1);
+      setItems(p=>p.map(i=>i.id===sel?{...i,_uploadError:`"${f.name}" is ${mb} MB \u2014 max 10 MB.`}:i));
+      setTimeout(()=>setItems(p=>p.map(i=>i.id===sel?{...i,_uploadError:undefined}:i)),6000);
+      return;
+    }
+    setItems(p=>p.map(i=>i.id===sel?stamp({...i,attachments:[...i.attachments,{name:f.name,size:f.size<1048576?Math.round(f.size/1024)+' KB':(f.size/1048576).toFixed(1)+' MB',ext:f.name.split('.').pop()?.toLowerCase()||'',uploadedAt:td()}]}):i));
+  };
 
   const rmFile     = (idx:number)=>setItems(p=>p.map(i=>i.id===sel?stamp({...i,attachments:i.attachments.filter((_:any,j:number)=>j!==idx)}):i));
   const addComment = (text:string)=>{ if(!sel||!text.trim()) return; const c={id:gId(),text:text.trim(),ts:tsNow()}; setItems(p=>p.map(i=>i.id===sel?stamp({...i,comments:[c,...i.comments]}):i)); };
@@ -140,7 +126,6 @@ const addFile = async (f: File) => {
 
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{fontFamily:'system-ui,sans-serif',fontSize:'13px',background:'#f1f5f9'}}>
-      {/* Preview banner shown when admin is previewing a tenant */}
       {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
 
       <TopNav view={view} setView={goView} items={items} onNavItem={id=>{nav(id);}}
@@ -164,7 +149,7 @@ const addFile = async (f: File) => {
                 <div style={{fontSize:48}}>🔒</div>
                 <div style={{fontSize:15,fontWeight:700,color:'#374151'}}>Module Not Enabled</div>
                 <div style={{fontSize:12,color:'#94a3b8',textAlign:'center',maxWidth:300,lineHeight:1.6}}>
-                  This module is disabled for this tenant. Enable it in the Admin Console → Features.
+                  This module is disabled for this tenant. Enable it in the Admin Console \u2192 Features.
                 </div>
               </div>
             )}
@@ -184,11 +169,12 @@ const addFile = async (f: File) => {
 
       <footer style={{background:'#a3bbff',borderTop:'1px solid #7a9ee8',padding:'3px 16px',display:'flex',alignItems:'center',justifyContent:'center',gap:12,flexShrink:0}}>
         <span style={{fontSize:11,color:'#0c2d4a',letterSpacing:'0.02em'}}>
-          ®Strat101.com  |  ©Copyright 2026. All rights Reserved.  |  Contact: <a href="mailto:Support@Strat101.com" style={{color:'#0c2d4a',textDecoration:'none',fontWeight:600}}>Support@Strat101.com</a>
+          \u00aeStrat101.com  |  \u00a9Copyright 2026. All rights Reserved.  |  Contact:{' '}
+          <a href="mailto:Support@Strat101.com" style={{color:'#0c2d4a',textDecoration:'none',fontWeight:600}}>Support@Strat101.com</a>
         </span>
       </footer>
 
-      <input ref={fileRef} type="file" className="hidden" onChange={e=>{if(e.target.files?.[0])addFile(e.target.files[0]);e.target.value='';}}/>
+      <input ref={fileRef} type="file" className="hidden" onChange={e=>{if(e.target.files?.[0])addFile(e.target.files[0]);e.target.value='';}}/> 
       {form&&<ItemForm item={form} onSave={upsert} onClose={()=>setForm(null)} onAutoSave={form._autoSave?liveUpsert:null}/>}
       {linkDlg&&selected&&<LinkDlg mode={linkDlg} selected={selected} allItems={items} q={linkQ} onQ={setLinkQ} onLink={linkDlg==='link'?addLink:addDep} onClose={()=>setLinkDlg(null)}/>}
       {cmdOpen&&<CommandPalette items={items} onNav={id=>{nav(id);setCmdOpen(false);}} onClose={()=>setCmdOpen(false)}/>}
@@ -196,39 +182,40 @@ const addFile = async (f: File) => {
   );
 }
 
-// ─── APP MAIN (routing: admin console vs workspace vs preview) ────────────────
+// ─── APP MAIN ─────────────────────────────────────────────────────────────────
 function AppMain({ loggedUser }: { loggedUser: string }) {
   const isAdmin = isAdminUser(loggedUser);
-
-  // Admin starts on admin console; regular users go straight to the workspace
-  const [screen, setScreen] = useState<'admin'|'workspace'>(isAdmin ? 'admin' : 'workspace');
+  const [screen,        setScreen]        = useState<'admin'|'workspace'>(isAdmin ? 'admin' : 'workspace');
   const [previewTenant, setPreviewTenant] = useState<Tenant|null>(null);
 
-  // When admin previews a tenant, switch to workspace mode with that tenant's features
-  const handlePreview = (tenant: Tenant) => {
-    setPreviewTenant(tenant);
-    setScreen('workspace');
-  };
+  const handlePreview     = (tenant: Tenant) => { setPreviewTenant(tenant); setScreen('workspace'); };
+  const handleExitPreview = ()                => { setPreviewTenant(null);  setScreen('admin');     };
 
-  const handleExitPreview = () => {
-    setPreviewTenant(null);
-    setScreen('admin');
-  };
-
-  // Feature set: preview tenant's features if in preview, else all-on for workspace
   const features: TenantFeatures = previewTenant ? previewTenant.features : ALL_FEATURES;
 
-  if(screen==='admin') {
+  // Sign out handler
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    // onAuthStateChange in App root will set loggedIn=false automatically
+  };
+
+  if (screen === 'admin') {
     return (
       <div className="flex flex-col h-screen overflow-hidden" style={{fontFamily:'system-ui,sans-serif'}}>
-        {/* Minimal admin top bar */}
         <div style={{background:'#1e293b',padding:'0 20px',height:44,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <div style={{width:26,height:26,borderRadius:6,background:'linear-gradient(135deg,#f59e0b,#ef4444)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13}}>⚙️</div>
             <span style={{fontSize:13,fontWeight:700,color:'white',letterSpacing:'-0.2px'}}>Strat101 Admin</span>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <span style={{fontSize:11,color:'#94a3b8'}}>Logged in as <strong style={{color:'#fbbf24'}}>{loggedUser}</strong></span>
+          <div style={{display:'flex',alignItems:'center',gap:16}}>
+            <span style={{fontSize:11,color:'#94a3b8'}}>
+              Logged in as <strong style={{color:'#fbbf24'}}>{loggedUser}</strong>
+            </span>
+            <button
+              onClick={handleSignOut}
+              style={{fontSize:11,color:'#94a3b8',background:'rgba(255,255,255,0.07)',border:'1px solid rgba(255,255,255,0.12)',borderRadius:6,padding:'4px 10px',cursor:'pointer'}}>
+              Sign out
+            </button>
           </div>
         </div>
         <div style={{flex:1,overflow:'hidden'}}>
@@ -256,9 +243,66 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 }
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
+// Checks for an existing Supabase session on page load so the user stays
+// logged in after a refresh without re-entering their credentials.
 export default function App() {
   const [loggedIn,   setLoggedIn]   = useState(false);
   const [loggedUser, setLoggedUser] = useState('');
-  if(!loggedIn) return <LoginScreen onLogin={u=>{ setLoggedIn(true); setLoggedUser(u); }}/>;
+  const [checking,   setChecking]   = useState(true);   // true while session check runs
+
+  useEffect(() => {
+    // 1. Check for an existing session immediately (handles page refresh)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const username = resolveUsername(session.user.email ?? '');
+        setLoggedUser(username);
+        setLoggedIn(true);
+      }
+      setChecking(false);
+    });
+
+    // 2. Listen for future sign-in / sign-out events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const username = resolveUsername(session.user.email ?? '');
+        setLoggedUser(username);
+        setLoggedIn(true);
+      } else {
+        setLoggedIn(false);
+        setLoggedUser('');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Show a blank screen while the session check is in progress to avoid a
+  // login screen flash for users who are already authenticated.
+  if (checking) {
+    return (
+      <div style={{minHeight:'100vh',background:'#0e1f35',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{textAlign:'center'}}>
+          <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:16,margin:'0 auto 14px',boxShadow:'0 4px 16px rgba(37,99,235,0.4)'}}>SA</div>
+          <div style={{fontSize:12,color:'#475569'}}>Loading\u2026</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loggedIn) {
+    return <LoginScreen onLogin={u => { setLoggedIn(true); setLoggedUser(u); }}/>;
+  }
+
   return <AppMain loggedUser={loggedUser}/>;
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+// Reverse-map Supabase email back to the short username used throughout the app.
+// In Phase 10, this can be replaced with a DB lookup against tenant_users.
+function resolveUsername(email: string): string {
+  const map: Record<string, string> = {
+    'stratadmin@strat101.com': 'stratadmin',
+    'raviboorla@strat101.com': 'raviboorla',
+  };
+  return map[email.toLowerCase()] ?? email.split('@')[0];
 }
