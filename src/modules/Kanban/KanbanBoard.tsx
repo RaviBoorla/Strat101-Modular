@@ -249,7 +249,7 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
           </div>
 
           <div className="relative">
-            <button ref={fieldBtnRef} onClick={() => setShowFieldConfig(o => !o)}
+            <button ref={fieldBtnRef} onClick={() => setShowFieldConfig((o: boolean) => !o)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${showFieldConfig?'bg-blue-600 text-white border-blue-600':'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
               style={{ fontSize:12 }}>
               ⚙️ Fields <span className={`text-xs rounded-full px-1 ${showFieldConfig?'bg-blue-500':'bg-gray-100 text-gray-500'}`}>{visFields.size}/{FIELD_DEFS.length}</span>
