@@ -448,56 +448,115 @@ function Workspace({
     }
   };
 
-  // ── File attachment ───────────────────────────────────────────────────────────
-  const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+  // ── File attachment — Phase 9: Supabase Storage ──────────────────────────────
+  const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;   // 10 MB hard limit
+
   const addFile = async (f: File) => {
     if (!f || !sel) return;
+
+    // Size guard — show inline error on the item card
     if (f.size > MAX_ATTACHMENT_BYTES) {
       const mb = (f.size / 1048576).toFixed(1);
-      setItems(p => p.map(i => i.id === sel
-        ? { ...i, _uploadError: `"${f.name}" is ${mb} MB \u2014 max 10 MB.` } : i));
+      setItems(p => p.map(i =>
+        i.id === sel ? { ...i, _uploadError: `"${f.name}" is ${mb} MB — max 10 MB.` } : i
+      ));
       setTimeout(() =>
-        setItems(p => p.map(i => i.id === sel ? { ...i, _uploadError: undefined } : i)), 6000);
+        setItems(p => p.map(i =>
+          i.id === sel ? { ...i, _uploadError: undefined } : i
+        )), 6000);
       return;
     }
 
     const sizeLabel = f.size < 1048576
       ? Math.round(f.size / 1024) + ' KB'
       : (f.size / 1048576).toFixed(1) + ' MB';
-    const ext = f.name.split('.').pop()?.toLowerCase() || '';
+    const ext    = f.name.split('.').pop()?.toLowerCase() ?? '';
     const newAtt = { name: f.name, size: sizeLabel, ext, uploadedAt: td() };
 
-    // Optimistic local update
-    const selItem = items.find(i => i.id === sel);
-    if (selItem) {
-      setItems(p => p.map(i => i.id === sel
-        ? stamp({ ...i, attachments: [...i.attachments, newAtt] }) : i));
+    // 1. Optimistic local update so the UI feels instant
+    setItems(p => p.map(i =>
+      i.id === sel ? stamp({ ...i, attachments: [...i.attachments, newAtt] }) : i
+    ));
+
+    if (!tenantId) return;   // no DB operations in preview mode
+
+    // 2. Upload file bytes to Supabase Storage bucket "attachments"
+    //    Path format: {tenantId}/{itemId}/{timestamp}_{filename}
+    //    Row-level security on the bucket restricts access to the owning tenant.
+    const storagePath = `${tenantId}/${sel}/${Date.now()}_${f.name}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from('attachments')
+      .upload(storagePath, f, {
+        cacheControl: '3600',
+        upsert:       false,   // never silently overwrite
+      });
+
+    if (uploadErr) {
+      // Roll back optimistic update and surface the error
+      console.error('Storage upload error:', uploadErr.message);
+      setItems(p => p.map(i =>
+        i.id === sel
+          ? {
+              ...stamp({ ...i, attachments: i.attachments.filter((a: any) => a.name !== f.name) }),
+              _uploadError: `Upload failed: ${uploadErr.message}`,
+            }
+          : i
+      ));
+      setTimeout(() =>
+        setItems(p => p.map(i =>
+          i.id === sel ? { ...i, _uploadError: undefined } : i
+        )), 6000);
+      return;
     }
 
-    // Persist to Supabase Storage + attachments table
-    if (tenantId) {
-      const path = `${tenantId}/${sel}/${Date.now()}_${f.name}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('attachments').upload(path, f);
-      if (!uploadErr) {
-        await supabase.from('attachments').insert({
-          item_id: sel, tenant_id: tenantId,
-          name: f.name, size: sizeLabel, ext,
-          storage_path: path, uploaded_at: new Date().toISOString(),
-        });
-      } else {
-        console.error('Upload error:', uploadErr.message);
-      }
+    // 3. Record metadata in the attachments table so it survives a page reload
+    const { error: dbErr } = await supabase.from('attachments').insert({
+      item_id:      sel,
+      tenant_id:    tenantId,
+      name:         f.name,
+      size:         sizeLabel,
+      ext,
+      storage_path: storagePath,
+      uploaded_at:  new Date().toISOString(),
+    });
+
+    if (dbErr) {
+      console.error('Attachment DB insert error:', dbErr.message);
+      // File is in Storage but metadata failed — log and continue.
+      // The next full refresh() will pick it up or it can be re-linked manually.
     }
   };
 
+  // rmFile — removes from local state, Storage bucket, and attachments table
   const rmFile = async (idx: number) => {
     const selItem = items.find(i => i.id === sel);
     if (!selItem) return;
-    setItems(p => p.map(i => i.id === sel
-      ? stamp({ ...i, attachments: i.attachments.filter((_: any, j: number) => j !== idx) }) : i));
-    // In a full implementation, also delete from storage and the attachments table here
+
+    const att = selItem.attachments[idx];
+
+    // Optimistic removal
+    setItems(p => p.map(i =>
+      i.id === sel
+        ? stamp({ ...i, attachments: i.attachments.filter((_: any, j: number) => j !== idx) })
+        : i
+    ));
+
+    if (!tenantId || !att) return;
+
+    // Delete from Storage if we have a path
+    if (att.storagePath) {
+      await supabase.storage.from('attachments').remove([att.storagePath]);
+    }
+
+    // Delete metadata row — match by item_id + name since we may not have the row id
+    await supabase.from('attachments')
+      .delete()
+      .eq('item_id',   sel)
+      .eq('tenant_id', tenantId)
+      .eq('name',      att.name);
   };
+
 
   // ── Comments ──────────────────────────────────────────────────────────────────
   const addComment = async (text: string) => {
