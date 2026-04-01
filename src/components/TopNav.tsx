@@ -174,7 +174,7 @@ export default function TopNav({ view, setView, items, onNavItem, onCreateNew, w
           }}>SA</div>
           {!isMobile && <div>
             <div style={{ fontWeight:900, fontSize:14, color:'#0c2d4a', letterSpacing:'-0.3px', lineHeight:1 }}>Strat101.com</div>
-            <div style={{ fontSize:8, color:'#1a5276', letterSpacing:'0.04em', marginTop:1 }}>ENABLING TRANSFORMATION</div>
+            <div style={{ fontSize:8, color:'#1a5276', letterSpacing:'0.04em', marginTop:1 }}>ENABLING TRANSFORMATION JOURNEYS</div>
           </div>}
         </div>
 
