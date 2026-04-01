@@ -172,7 +172,7 @@ function HNode({ item, allItems, selectedId, ancestorIds, onNav, depth, visited 
         <div className={`flex-1 flex items-start gap-1.5 px-2 py-1.5 rounded-lg my-0.5 transition-colors ${rowBg}`}>
           <div className="shrink-0 mt-0.5" style={{ width:14, textAlign:'center' }}>
             {hasKids
-              ? <button onClick={() => setOpen(o => !o)} className="text-gray-400 hover:text-blue-500 font-bold transition-colors" style={{ fontSize:10, lineHeight:1 }}>{open?'▼':'▶'}</button>
+              ? <button onClick={() => setOpen((o: boolean) => !o)} className="text-gray-400 hover:text-blue-500 font-bold transition-colors" style={{ fontSize:10, lineHeight:1 }}>{open?'▼':'▶'}</button>
               : <span className={`${isSel?'text-blue-400':'text-gray-300'}`} style={{ fontSize:8 }}>●</span>}
           </div>
           <div className="flex-1 min-w-0">
