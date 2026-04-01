@@ -141,8 +141,8 @@ export default function TopNav({ view, setView, items, onNavItem, onCreateNew, w
 
   const handleNavClick = (id: string) => {
     if(id==='kanban'||id==='bot'||id==='reports'){ setWiOpen(false); setCreate(false); setView(id); }
-    else if(id==='workitems'){ setCreate(false); setWiOpen(o => !o); setView('workitems'); setWorkItemFilter('all'); }
-    else if(id==='create'){ setWiOpen(false); setCreate(o => !o); }
+    else if(id==='workitems'){ setCreate(false); setWiOpen((o: boolean) => !o); setView('workitems'); setWorkItemFilter('all'); }
+    else if(id==='create'){ setWiOpen(false); setCreate((o: boolean) => !o); }
   };
 
   const isActive = (id: string) => {
