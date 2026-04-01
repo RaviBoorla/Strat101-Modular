@@ -16,26 +16,26 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapRef  = useRef<HTMLDivElement>(null);
 
-  const results = useMemo(() => {
+  const results = useMemo(()=>{
     if(!q.trim()) return items.slice(0,12);
     return items.map(i=>({...i,_s:fuzzyScore(i,q)})).filter(i=>i._s>0).sort((a,b)=>b._s-a._s).slice(0,14);
-  }, [q, items]);
+  },[q,items]);
 
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if(wrapRef.current&&!wrapRef.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{ if(wrapRef.current&&!wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[]);
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); inputRef.current?.focus(); setOpen(true); } };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, []);
+  useEffect(()=>{
+    const h=(e:KeyboardEvent)=>{ if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); inputRef.current?.focus(); setOpen(true); } };
+    window.addEventListener('keydown',h);
+    return ()=>window.removeEventListener('keydown',h);
+  },[]);
 
-  const pick = (id: string) => { onNav(id); setQ(''); setOpen(false); };
+  const pick=(id:string)=>{ onNav(id); setQ(''); setOpen(false); };
 
-  const onKey = (e: React.KeyboardEvent) => {
+  const onKey=(e:React.KeyboardEvent)=>{
     if(!open) return;
     if(e.key==='ArrowDown'){ e.preventDefault(); setCursor(c=>Math.min(c+1,results.length-1)); }
     else if(e.key==='ArrowUp'){ e.preventDefault(); setCursor(c=>Math.max(c-1,0)); }
@@ -47,17 +47,14 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
     <div ref={wrapRef} style={{position:'relative'}}>
       <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 8px',background:'rgba(255,255,255,0.72)',border:'1px solid rgba(0,0,0,0.12)',borderRadius:6,width:200,boxShadow:open?'0 0 0 2px #93c5fd':'none',transition:'box-shadow 0.15s'}}>
         <span style={{fontSize:12,color:'#64748b',flexShrink:0}}>🔍</span>
-        <input ref={inputRef} value={q}
-          onChange={e=>{setQ(e.target.value);setCursor(0);setOpen(true);}}
-          onFocus={()=>setOpen(true)} onKeyDown={onKey}
-          placeholder="Search…"
+        <input ref={inputRef} value={q} onChange={e=>{setQ(e.target.value);setCursor(0);setOpen(true);}} onFocus={()=>setOpen(true)} onKeyDown={onKey} placeholder="Search…"
           style={{flex:1,border:'none',outline:'none',background:'transparent',fontSize:12,color:'#1e293b'}}/>
         {q
           ? <button onClick={()=>{setQ('');setOpen(false);}} style={{border:'none',background:'none',cursor:'pointer',color:'#94a3b8',fontSize:13,lineHeight:1,padding:0}}>×</button>
           : <kbd style={{background:'rgba(0,0,0,0.07)',borderRadius:3,padding:'1px 4px',fontSize:9,color:'#64748b',fontFamily:'monospace',flexShrink:0}}>⌘K</kbd>
         }
       </div>
-      {open && results.length>0 && (
+      {open&&results.length>0&&(
         <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,background:'white',borderRadius:8,border:'1px solid #e2e8f0',boxShadow:'0 6px 20px rgba(0,0,0,0.1)',zIndex:100,overflow:'hidden',minWidth:280}}>
           <div style={{maxHeight:320,overflowY:'auto'}}>
             {results.map((it,idx)=>(
@@ -77,26 +74,26 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
 
 // ─── TOP NAV BAR ─────────────────────────────────────────────────────────────
 interface TopNavProps {
-  view:               string;
-  setView:            (view: string) => void;
-  items:              any[];
-  onNavItem:          (id: string) => void;
-  onCreateNew:        (type: string) => void;
-  workItemFilter:     string;
-  setWorkItemFilter:  (filter: string) => void;
-  onNew:              () => void;
-  loggedUser:         string;
-  isAdmin:            boolean;
-  features:           TenantFeatures;
+  view:              string;
+  setView:           (view: string) => void;
+  items:             any[];
+  onNavItem:         (id: string) => void;
+  onCreateNew:       (type: string) => void;
+  workItemFilter:    string;
+  setWorkItemFilter: (filter: string) => void;
+  onNew:             () => void;
+  loggedUser:        string;
+  isAdmin:           boolean;   // kept for API compatibility — not used in nav
+  features:          TenantFeatures;
 }
 
 export default function TopNav({
   view, setView, items, onNavItem, onCreateNew,
   workItemFilter, setWorkItemFilter, onNew,
-  loggedUser, isAdmin, features,
+  loggedUser, features,
 }: TopNavProps) {
-  const [wiOpen,      setWiOpen]   = useState(false);
-  const [createOpen,  setCreate]   = useState(false);
+  const [wiOpen,     setWiOpen]   = useState(false);
+  const [createOpen, setCreate]   = useState(false);
   const [mobileMenuOpen, setMobileMenu] = useState(false);
   const isWI = view==='workitems';
   const isLV = TYPES.includes(view);
@@ -104,7 +101,7 @@ export default function TopNav({
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<640);
   const [isTablet, setIsTablet] = useState(()=>window.innerWidth<900);
   useEffect(()=>{
-    const onResize = ()=>{ setIsMobile(window.innerWidth<640); setIsTablet(window.innerWidth<900); };
+    const onResize=()=>{ setIsMobile(window.innerWidth<640); setIsTablet(window.innerWidth<900); };
     window.addEventListener('resize',onResize);
     return ()=>window.removeEventListener('resize',onResize);
   },[]);
@@ -113,12 +110,12 @@ export default function TopNav({
 
   const navRef = useRef<HTMLElement>(null);
   useEffect(()=>{
-    const h=(e:MouseEvent)=>{if(navRef.current&&!navRef.current.contains(e.target as Node)){setWiOpen(false);setCreate(false);setMobileMenu(false);}};
+    const h=(e:MouseEvent)=>{ if(navRef.current&&!navRef.current.contains(e.target as Node)){ setWiOpen(false); setCreate(false); setMobileMenu(false); } };
     document.addEventListener('mousedown',h);
     return ()=>document.removeEventListener('mousedown',h);
   },[]);
 
-  // Build nav items — only show enabled feature modules
+  // Only show enabled feature modules — no Admin button here
   const NAV_ITEMS = [
     ...(features.kanban    ? [{id:'kanban',    label:'Kanban',     icon:'🗂️'}] : []),
     ...(features.workitems ? [{id:'workitems', label:'Work Items', icon:'📦'}] : []),
@@ -127,24 +124,22 @@ export default function TopNav({
     ...(features.reports   ? [{id:'reports',   label:'Reports',    icon:'📈'}] : []),
   ];
 
-  const handleNavClick = (id: string) => {
-    if(id==='kanban'||id==='bot'||id==='reports'||id==='admin'){ setWiOpen(false); setCreate(false); setView(id); }
+  const handleNavClick=(id:string)=>{
+    if(id==='kanban'||id==='bot'||id==='reports'){ setWiOpen(false); setCreate(false); setView(id); }
     else if(id==='workitems'){ setCreate(false); setWiOpen((o:boolean)=>!o); setView('workitems'); setWorkItemFilter('all'); }
     else if(id==='create'){ setWiOpen(false); setCreate((o:boolean)=>!o); }
   };
 
-  const isActive = (id: string) => {
+  const isActive=(id:string)=>{
     if(id==='workitems') return isWI;
     if(id==='create')    return createOpen;
     return view===id;
   };
 
-  // Initials for avatar
   const initials = loggedUser.slice(0,2).toUpperCase();
 
   return (
     <header ref={navRef} style={{background:'#a3bbff',borderBottom:'1px solid #7a9ee8',boxShadow:'0 1px 4px rgba(0,80,140,0.12)',flexShrink:0,zIndex:40,position:'relative'}}>
-      {/* Main nav row */}
       <div style={{display:'flex',alignItems:'center',padding:'0 12px',height:44,gap:2}}>
 
         {/* Brand */}
@@ -220,21 +215,6 @@ export default function TopNav({
               )}
             </div>
           ))}
-
-          {/* Admin button — only for admin users, always visible regardless of feature toggles */}
-          {isAdmin && (
-            <button onClick={()=>handleNavClick('admin')} style={{
-              display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:6,border:'1px solid',cursor:'pointer',
-              marginLeft:8,fontSize:isTablet?11:12,fontWeight:700,
-              background:view==='admin'?'rgba(239,68,68,0.15)':'rgba(255,255,255,0.25)',
-              color:view==='admin'?'#991b1b':'#7f1d1d',
-              borderColor:view==='admin'?'rgba(239,68,68,0.4)':'rgba(180,40,40,0.25)',
-              transition:'all 0.15s',
-            }}>
-              <span style={{fontSize:13}}>⚙️</span>
-              {!isTablet&&<span>Admin</span>}
-            </button>
-          )}
         </nav>}
 
         {/* Mobile nav */}
@@ -247,28 +227,21 @@ export default function TopNav({
               </button>
             </div>
           ))}
-          {isAdmin&&(
-            <button onClick={()=>handleNavClick('admin')} style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'4px 8px',borderRadius:6,border:'none',cursor:'pointer',gap:2,background:view==='admin'?'rgba(239,68,68,0.15)':'transparent'}}>
-              <span style={{fontSize:16}}>⚙️</span>
-              <span style={{fontSize:8,fontWeight:700,color:'#7f1d1d',lineHeight:1}}>Admin</span>
-            </button>
-          )}
         </nav>}
 
-        {/* Right-side controls */}
+        {/* Right controls */}
         <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',paddingLeft:10,borderLeft:'1px solid rgba(0,60,120,0.2)'}}>
           <InlineSearch items={items} onNav={onNavItem}/>
           {!isTablet&&<div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',background:'rgba(255,255,255,0.45)',border:'1px solid rgba(0,60,120,0.18)',borderRadius:6,fontSize:11,color:'#0c2d4a',fontWeight:600,whiteSpace:'nowrap'}}>
             <span style={{fontSize:11}}>📅</span>{dateStr}
           </div>}
-          {/* User avatar */}
-          <div style={{display:'flex',alignItems:'center',gap:5,padding:'3px 8px 3px 4px',background:isAdmin?'rgba(254,226,226,0.7)':'rgba(255,255,255,0.45)',border:`1px solid ${isAdmin?'rgba(239,68,68,0.3)':'rgba(0,60,120,0.18)'}`,borderRadius:14,cursor:'pointer'}}>
-            <div style={{width:22,height:22,borderRadius:'50%',background:isAdmin?'linear-gradient(135deg,#ef4444,#7c3aed)':'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:800,fontSize:10,letterSpacing:'0.5px',flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:5,padding:'3px 8px 3px 4px',background:'rgba(255,255,255,0.45)',border:'1px solid rgba(0,60,120,0.18)',borderRadius:14,cursor:'pointer'}}>
+            <div style={{width:22,height:22,borderRadius:'50%',background:'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:800,fontSize:10,letterSpacing:'0.5px',flexShrink:0}}>
               {initials}
             </div>
             <div style={{lineHeight:1}}>
               <div style={{fontSize:11,fontWeight:700,color:'#0c2d4a'}}>{loggedUser}</div>
-              <div style={{fontSize:9,color:isAdmin?'#991b1b':'#1a5276'}}>{isAdmin?'⚙️ Admin':'Logged In'}</div>
+              <div style={{fontSize:9,color:'#1a5276'}}>Logged In</div>
             </div>
           </div>
         </div>
@@ -279,7 +252,7 @@ export default function TopNav({
         <span style={{fontSize:11,color:'#0c3d6e'}}>Strat101.com</span>
         <span style={{fontSize:11,color:'#0e5280'}}>›</span>
         <span style={{fontSize:11,fontWeight:600,color:'#051e36'}}>
-          {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':view==='admin'?'⚙️ Admin Console':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i} ${TC[workItemFilter]?.l}s`):`${TC[view]?.i} ${TC[view]?.l}s`}
+          {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i} ${TC[workItemFilter]?.l}s`):`${TC[view]?.i} ${TC[view]?.l}s`}
         </span>
         {(isLV||isWI)&&(
           <>
