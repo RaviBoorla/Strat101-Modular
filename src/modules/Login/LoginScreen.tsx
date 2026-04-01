@@ -2,36 +2,33 @@ import React, { useState } from "react";
 
 // ─── LOGIN CREDENTIALS ────────────────────────────────────────────────────────
 // In production these are validated server-side via Supabase Auth / Cognito.
-import { supabase } from '../../lib/supabase';
-
-const attempt = async () => {
-  setErr(''); setLoading(true);
-  
-  // Map username → email (in production, query tenant_users table instead)
-  const emailMap: Record<string, string> = {
-    'stratadmin': 'stratadmin@strat101.com',
-    'raviboorla':  'raviboorla@strat101.com',
-  };
-  
-  const email = emailMap[uid.trim().toLowerCase()];
-  if (!email) {
-    setErr('Invalid User ID or Password.');
-    setLoading(false);
-    return;
-  }
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password: pwd,
-  });
-
-  if (error) {
-    setErr('Invalid User ID or Password. Please try again.');
-    setLoading(false);
-  } else {
-    onLogin(uid.trim().toLowerCase());
-  }
+const VALID_USERS: Record<string, string> = {
+  'raviboorla': 'strat101.1',
+  'stratadmin': 'Stratadmin.1',
 };
+
+interface LoginScreenProps {
+  onLogin: (uid: string) => void;
+}
+
+export default function LoginScreen({ onLogin }: LoginScreenProps) {
+  const [uid,     setUid]     = useState('');
+  const [pwd,     setPwd]     = useState('');
+  const [err,     setErr]     = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const attempt = () => {
+    setErr(''); setLoading(true);
+    setTimeout(() => {
+      const expected = VALID_USERS[uid.trim().toLowerCase()];
+      if(expected && pwd === expected){
+        onLogin(uid.trim().toLowerCase());
+      } else {
+        setErr('Invalid User ID or Password. Please try again.');
+        setLoading(false);
+      }
+    }, 900);
+  };
 
   return (
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 45%,#0f2744 100%)',fontFamily:'system-ui,sans-serif'}}>
@@ -40,7 +37,7 @@ const attempt = async () => {
         <div style={{width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:14,boxShadow:'0 4px 12px rgba(37,99,235,0.5)'}}>SA</div>
         <div>
           <div style={{color:'#0c2040',fontWeight:900,fontSize:18,letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
-          <div style={{color:'#1a3a6e',fontSize:9,letterSpacing:'0.1em',marginTop:2}}>ENABLING TRANSFORMATION JOURNEYS</div>
+          <div style={{color:'#1a3a6e',fontSize:9,letterSpacing:'0.1em',marginTop:2}}>ENABLING TRANSFORMATION</div>
         </div>
       </div>
 
@@ -111,4 +108,4 @@ const attempt = async () => {
       </div>
     </div>
   );
-}
+};
