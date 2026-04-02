@@ -4,8 +4,11 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { TYPES } from "./constants";
 import { mkBlank, gId, tsNow, td } from "./utils";
 import { TenantFeatures, Tenant } from "./types";
-import { isAdminUser, DEFAULT_TENANTS } from "./adminData";
+import { isAdminUser } from "./adminData";
 import { supabase } from "./lib/supabase";
+// Diagnostic — log Supabase config on every page load
+console.log('[INIT] VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL?.slice(0, 40) ?? 'NOT SET');
+console.log('[INIT] ANON KEY set:', !!import.meta.env.VITE_SUPABASE_ANON_KEY);
 import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
 
 // ─── Modules ──────────────────────────────────────────────────────────────────
@@ -119,6 +122,7 @@ async function loadItems(tenantId: string): Promise<any[]> {
 
 // Write one item to Supabase (insert or update)
 async function persistItem(item: any, tenantId: string): Promise<void> {
+  console.log('[DB] persistItem called — tenantId:', tenantId, '| itemId:', item.id, '| type:', item.type, '| title:', item.title);
   const { error } = await supabase.from('work_items').upsert({
     id:               item.id,
     tenant_id:        tenantId,
@@ -149,7 +153,11 @@ async function persistItem(item: any, tenantId: string): Promise<void> {
     updated_at:       new Date().toISOString(),
     updated_by:       item.updatedBy        || null,
   });
-  if (error) console.error('persistItem error:', error.message);
+  if (error) {
+    console.error('[DB] persistItem FAILED:', error.message, '| code:', error.code, '| details:', error.details, '| hint:', error.hint);
+  } else {
+    console.log('[DB] persistItem SUCCESS — item saved to Supabase');
+  }
 }
 
 // Hard-delete one item (links/deps/attachments/comments cascade in the DB)
@@ -328,14 +336,18 @@ function Workspace({
 
   // Optimistic local update + DB write
   const applyAndPersist = async (updated: any) => {
+    console.log('[APP] applyAndPersist — tenantId:', tenantId, '| item:', updated.id);
     setItems(p => p.some(x => x.id === updated.id)
       ? p.map(x => x.id === updated.id ? updated : x)
       : [...p, updated]
     );
     if (tenantId) {
+      console.log('[APP] tenantId is set — writing to Supabase');
       await persistItem(updated, tenantId);
       await syncLinks(updated.id, updated.links, tenantId);
       await syncDeps (updated.id, updated.dependencies, tenantId);
+    } else {
+      console.warn('[APP] tenantId is NULL — skipping Supabase write. Set BYPASS_TENANT_ID in App.tsx.');
     }
   };
 
@@ -596,6 +608,37 @@ function Workspace({
     (view === 'bot'      && !features.bot)      ||
     (isWorkItems         && !features.workitems);
 
+  // ── No tenant warning — shows when bypass is active but BYPASS_TENANT_ID is empty
+  if (!tenantId && !loading) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden" style={{fontFamily:'system-ui,sans-serif',fontSize:'13px',background:'#f1f5f9'}}>
+        <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}}
+          onCreateNew={()=>{}} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
+          onNew={()=>{}} loggedUser={loggedUser} isAdmin={false} features={features}/>
+        <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div style={{maxWidth:480,textAlign:'center',padding:32}}>
+            <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+            <div style={{fontSize:16,fontWeight:700,color:'#dc2626',marginBottom:8}}>Tenant ID not configured</div>
+            <div style={{fontSize:13,color:'#374151',lineHeight:1.7,marginBottom:24}}>
+              Work items cannot be saved because <code style={{background:'#f1f5f9',padding:'1px 6px',borderRadius:4,fontSize:12}}>BYPASS_TENANT_ID</code> is empty in <code style={{background:'#f1f5f9',padding:'1px 6px',borderRadius:4,fontSize:12}}>App.tsx</code>.
+            </div>
+            <div style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:10,padding:16,textAlign:'left',fontSize:12,color:'#374151'}}>
+              <div style={{fontWeight:700,marginBottom:8,color:'#111827'}}>Fix in 2 steps:</div>
+              <div style={{marginBottom:6}}><strong>1.</strong> Run in Supabase SQL Editor:</div>
+              <code style={{display:'block',background:'#1e293b',color:'#93c5fd',padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:11}}>
+                SELECT id FROM public.tenants WHERE slug = 'strat101';
+              </code>
+              <div style={{marginBottom:6}}><strong>2.</strong> Paste the UUID into <code style={{background:'#f1f5f9',padding:'1px 4px',borderRadius:3}}>App.tsx</code>:</div>
+              <code style={{display:'block',background:'#1e293b',color:'#93c5fd',padding:'8px 12px',borderRadius:6,fontSize:11}}>
+                const BYPASS_TENANT_ID = 'your-uuid-here';
+              </code>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Loading splash ────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -679,18 +722,19 @@ function Workspace({
 // ═══════════════════════════════════════════════════════════════════════════════
 // APP MAIN — resolves tenant ID from Supabase, then renders admin or workspace
 // ═══════════════════════════════════════════════════════════════════════════════
-function AppMain({ loggedUser }: { loggedUser: string }) {
+function AppMain({ loggedUser, bypassTenantId = null }: { loggedUser: string; bypassTenantId?: string | null }) {
   const isAdmin = isAdminUser(loggedUser);
 
   const [screen,        setScreen]        = useState<'admin'|'workspace'>(isAdmin ? 'admin' : 'workspace');
   const [previewTenant, setPreviewTenant] = useState<Tenant | null>(null);
-  const [tenantId,      setTenantId]      = useState<string | null>(null);
+  const [tenantId,      setTenantId]      = useState<string | null>(bypassTenantId);
 
   // ── Resolve the tenant ID for this user from Supabase ───────────────────────
   // stratadmin has no tenant — they operate across all tenants.
   // Regular users are linked to exactly one tenant in tenant_users.
   useEffect(() => {
     if (isAdmin) { setTenantId(null); return; }
+    if (bypassTenantId) return;   // already set from bypass — skip DB lookup
 
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       if (!user) return;
@@ -701,7 +745,12 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         .eq('active', true)
         .single()
         .then(({ data }: { data: any }) => {
-          if (data?.tenant_id) setTenantId(data.tenant_id as string);
+          if (data?.tenant_id) {
+            console.log('[AUTH] tenantId resolved from DB:', data.tenant_id);
+            setTenantId(data.tenant_id as string);
+          } else {
+            console.warn('[AUTH] No tenant_users row found for this auth user. tenantId will be null.');
+          }
         });
     });
   }, [isAdmin]);
@@ -735,7 +784,6 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         </div>
         <div style={{ flex:1, overflow:'hidden' }}>
           <AdminPanel
-            initialTenants={DEFAULT_TENANTS}
             loggedUser={loggedUser}
             onPreviewTenant={handlePreview}
           />
@@ -765,14 +813,18 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 // Temporarily bypass the login screen for testing.
 // To restore login: remove the bypass line and uncomment the full App function.
 // BYPASS: set to '' to re-enable login, or 'stratadmin' for admin console.
-const BYPASS_USER = 'raviboorla';
-const BYPASS_TENANT_ID = 'c48b765e-860c-401f-82b5-9c6e1e61a40a';
-
+// ─── LOGIN BYPASS CONFIG ───────────────────────────────────────────────────────
+// Set BYPASS_USER to '' to re-enable the real login screen.
+// Get BYPASS_TENANT_ID from Supabase SQL Editor:
+//   SELECT id FROM public.tenants WHERE slug = 'strat101';
+// Without BYPASS_TENANT_ID set, work items WILL NOT save to Supabase.
+const BYPASS_USER      = 'raviboorla';
+const BYPASS_TENANT_ID = '';   // ← paste strat101 tenant UUID here
 
 export default function App() {
   // ── TEMPORARY BYPASS — remove this block to re-enable login ─────────────
   if (BYPASS_USER) {
-    return <AppMain loggedUser={BYPASS_USER}/>;
+    return <AppMain loggedUser={BYPASS_USER} bypassTenantId={BYPASS_TENANT_ID || null}/>;
   }
   // ── END BYPASS ────────────────────────────────────────────────────────────
 
