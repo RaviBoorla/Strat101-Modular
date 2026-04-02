@@ -214,7 +214,7 @@ function UserForm({user,tenantName,onSave,onClose}:{user:TenantUser|null;tenantN
   };
 
   return(
-    <Modal title={user?`Edit \u2014 ${user.fullName}`:`New User \u00b7 ${tenantName}`} onClose={onClose}>
+    <Modal title={user?`Edit \u2014 ${user.fullName}`:`New User | ${tenantName}`} onClose={onClose}>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         <FL label="Username"><input value={username} onChange={e=>setUsername(e.target.value)} style={inp} autoFocus placeholder="e.g. john.doe"/></FL>
         <FL label="Full Name"><input value={fullName} onChange={e=>setFullName(e.target.value)} style={inp} placeholder="e.g. John Doe"/></FL>
@@ -316,9 +316,9 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
                     {u.mustChangePwd&&<Pill label="Pwd Reset Pending" color="#d97706" bg="#fffbeb"/>}
                   </div>
                   <div style={{fontSize:10,color:'#94a3b8'}}>
-                    @{u.username}{u.email?` \u00b7 ${u.email}`:''}
-                    {u.lastLogin&&<span> \u00b7 Last login: {u.lastLogin}</span>}
-                    {!u.lastLogin&&<span style={{color:'#fca5a5'}}> \u00b7 Never logged in</span>}
+                    @{u.username}{u.email?` | ${u.email}`:''}
+                    {u.lastLogin&&<span> | Last login: {u.lastLogin}</span>}
+                    {!u.lastLogin&&<span style={{color:'#fca5a5'}}> | Never logged in</span>}
                   </div>
                 </div>
                 <div style={{display:'flex',gap:5,flexShrink:0}}>
@@ -421,7 +421,7 @@ function SubscriptionTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>v
           <div style={{fontSize:13,fontWeight:700,color:ss.color}}>{ss.label}</div>
           <div style={{fontSize:11,color:'#64748b',marginTop:1}}>
             {sub.status==='trialling'&&sub.trialEnd?`Trial ends ${sub.trialEnd}`:''}
-            {sub.status==='active'?`Renews ${sub.currentPeriodEnd} \u00b7 ${fmtGBP(monthlyPrice)}/mo`:''}
+            {sub.status==='active'?`Renews ${sub.currentPeriodEnd} | ${fmtGBP(monthlyPrice)}/mo`:''}
             {sub.status==='past_due'?'Payment failed \u2014 action required':''}
           </div>
         </div>
@@ -566,7 +566,7 @@ function InvoicesTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}
                   <span style={{fontSize:12,fontWeight:700,color:'#111827',fontFamily:'monospace'}}>{fmtGBP(inv.amount)}</span>
                   <Pill label={inv.status} color={is.color} bg={is.bg}/>
                 </div>
-                <div style={{fontSize:10,color:'#94a3b8'}}>{inv.period} \u00b7 Issued {inv.date} \u00b7 #{inv.id.slice(-6).toUpperCase()}</div>
+                <div style={{fontSize:10,color:'#94a3b8'}}>{inv.period} | Issued {inv.date} | #{inv.id.slice(-6).toUpperCase()}</div>
               </div>
               <select value={inv.status} onChange={e=>updateStatus(inv.id,e.target.value as Invoice['status'])}
                 style={{...sel,width:'auto',fontSize:11,padding:'4px 8px',color:is.color,background:is.bg,border:`1px solid ${is.color}44`}}>
@@ -599,7 +599,7 @@ function ManageDrawer({tenant,onClose,onUpdate}:{tenant:Tenant;onClose:()=>void;
           <div>
             <div style={{fontSize:14,fontWeight:700,color:'#111827'}}>{tenant.name}</div>
             <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>
-              {tenant.users.length} users \u00b7 {FEATURE_DEFS.filter(f=>tenant.features[f.key]).length}/{FEATURE_DEFS.length} modules \u00b7{' '}
+              {tenant.users.length} users | {FEATURE_DEFS.filter(f=>tenant.features[f.key]).length}/{FEATURE_DEFS.length} modules |{' '}
               <span style={{color:SUB_STATUS_STYLE[tenant.subscription.status].color,fontWeight:600}}>
                 {SUB_STATUS_STYLE[tenant.subscription.status].label}
               </span>
@@ -690,9 +690,9 @@ function TenantRow({tenant,onEdit,onToggleActive,onPreview,onManage}:{tenant:Ten
         </div>
         <div style={{fontSize:11,color:'#94a3b8'}}>
           <code style={{fontFamily:'monospace',background:'#f1f5f9',padding:'0 4px',borderRadius:3,fontSize:10}}>{tenant.slug}</code>
-          &nbsp;\u00b7&nbsp;{tenant.users.length} user{tenant.users.length!==1?'s':''}
-          &nbsp;\u00b7&nbsp;{enabledCount}/{FEATURE_DEFS.length} modules
-          &nbsp;\u00b7&nbsp;{tenant.subscription.itemCount} items
+          &nbsp;|&nbsp;{tenant.users.length} user{tenant.users.length!==1?'s':''}
+          &nbsp;|&nbsp;{enabledCount}/{FEATURE_DEFS.length} modules
+          &nbsp;|&nbsp;{tenant.subscription.itemCount} items
         </div>
       </div>
       <div style={{display:'flex',gap:3,flexShrink:0}}>
