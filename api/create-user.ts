@@ -70,32 +70,41 @@ export default async function handler(req: Request): Promise<Response> {
     const inviteData = await inviteRes.json();
 
     if (!inviteRes.ok) {
-      // If user already exists, try sending a recovery email instead
+      // If user already exists, look up their UUID and send recovery email
       if (inviteData.code === 'email_exists' || inviteData.msg?.includes('already')) {
+        // Get the existing user's UUID from the admin list endpoint
+        const listRes  = await fetch(
+          `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(email)}&page=1&per_page=1`,
+          { method: 'GET', headers: adminHeaders }
+        );
+        const listData = await listRes.json();
+        const existingId = listData?.users?.[0]?.id ?? null;
+
+        // Send password reset so user can access their account
         const recoverRes = await fetch(
           `${supabaseUrl}/auth/v1/admin/generate_link`,
           {
             method: 'POST',
             headers: adminHeaders,
             body: JSON.stringify({
-              type:  'recovery',
+              type:    'recovery',
               email,
               options: { redirect_to: `${appUrl}/` },
             }),
           }
         );
         const recoverData = await recoverRes.json();
-        if (recoverRes.ok) {
-          return new Response(
-            JSON.stringify({
-              id:         recoverData.user?.id ?? null,
-              email,
-              inviteSent: true,
-              message:    `Password reset email sent to ${email}`,
-            }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } }
-          );
-        }
+        return new Response(
+          JSON.stringify({
+            id:         existingId ?? recoverData.user?.id ?? null,
+            email,
+            inviteSent: recoverRes.ok,
+            message:    recoverRes.ok
+              ? `Password reset email sent to ${email}`
+              : `User already exists but email could not be sent.`,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
       }
       return new Response(
         JSON.stringify({ error: inviteData.msg ?? inviteData.message ?? inviteData.error_description ?? 'Failed to send invite.' }),
