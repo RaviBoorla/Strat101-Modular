@@ -31,6 +31,7 @@ export interface TenantUser {
   lastLoginIp?:    string;
   loginHistory?:   LoginEvent[];
   tempPassword?:   string;   // set on new user creation or password reset
+  sendInvite?:     boolean;  // if true, edge function sends password setup email
   passwordResetAt?: string;
   mustChangePwd?:  boolean;
 }
