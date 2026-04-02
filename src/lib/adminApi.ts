@@ -82,20 +82,23 @@ export async function saveTenant(tenant: Tenant): Promise<void> {
     feat_reports:   tenant.features.reports,
   });
 
-  if (error) console.error('saveTenant error:', error.message);
+  if (error) console.error('[adminApi] saveTenant FAILED:', error.message, '| code:', error.code, '| hint:', error.hint);
+  else console.log('[adminApi] saveTenant SUCCESS — id:', tenant.id);
 }
 
 /** Soft-delete: set active = false rather than hard-deleting */
 export async function suspendTenant(id: string, active: boolean): Promise<void> {
   const { error } = await supabase
     .from('tenants').update({ active }).eq('id', id);
-  if (error) console.error('suspendTenant error:', error.message);
+  if (error) console.error('[adminApi] suspendTenant FAILED:', error.message);
+  else console.log('[adminApi] suspendTenant SUCCESS — id:', id, 'active:', active);
 }
 
 /** Hard-delete a tenant (cascades to users, items, invoices via FK) */
 export async function deleteTenant(id: string): Promise<void> {
   const { error } = await supabase.from('tenants').delete().eq('id', id);
-  if (error) console.error('deleteTenant error:', error.message);
+  if (error) console.error('[adminApi] deleteTenant FAILED:', error.message);
+  else console.log('[adminApi] deleteTenant SUCCESS — id:', id);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -119,13 +122,15 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
     password_reset_at:user.passwordResetAt || null,
     must_change_pwd:  user.mustChangePwd   ?? false,
   });
-  if (error) console.error('saveUser error:', error.message);
+  if (error) console.error('[adminApi] saveUser FAILED:', error.message, '| code:', error.code);
+  else console.log('[adminApi] saveUser SUCCESS — username:', user.username);
 }
 
 /** Hard-delete a user from a tenant */
 export async function deleteUser(userId: string): Promise<void> {
   const { error } = await supabase.from('tenant_users').delete().eq('id', userId);
-  if (error) console.error('deleteUser error:', error.message);
+  if (error) console.error('[adminApi] deleteUser FAILED:', error.message);
+  else console.log('[adminApi] deleteUser SUCCESS — id:', userId);
 }
 
 /**
