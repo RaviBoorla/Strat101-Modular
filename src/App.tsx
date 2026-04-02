@@ -761,7 +761,19 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // APP ROOT — session management (unchanged from Phase 6)
 // ═══════════════════════════════════════════════════════════════════════════════
+// ─── LOGIN BYPASS ─────────────────────────────────────────────────────────────
+// Temporarily bypass the login screen for testing.
+// To restore login: remove the bypass line and uncomment the full App function.
+// BYPASS: set to '' to re-enable login, or 'stratadmin' for admin console.
+const BYPASS_USER = 'stratadmin';
+
 export default function App() {
+  // ── TEMPORARY BYPASS — remove this block to re-enable login ─────────────
+  if (BYPASS_USER) {
+    return <AppMain loggedUser={BYPASS_USER}/>;
+  }
+  // ── END BYPASS ────────────────────────────────────────────────────────────
+
   const [loggedIn,   setLoggedIn]   = useState(false);
   const [loggedUser, setLoggedUser] = useState('');
   const [checking,   setChecking]   = useState(true);
@@ -793,7 +805,7 @@ export default function App() {
       <div style={{ minHeight:'100vh', background:'#0e1f35', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div style={{ textAlign:'center' }}>
           <div style={{ width:44, height:44, borderRadius:12, background:'linear-gradient(135deg,#2563eb,#4f46e5)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:900, fontSize:16, margin:'0 auto 14px', boxShadow:'0 4px 16px rgba(37,99,235,0.4)' }}>SA</div>
-          <div style={{ fontSize:12, color:'#475569' }}>Loading\u2026</div>
+          <div style={{ fontSize:12, color:'#475569' }}>Loading…</div>
         </div>
       </div>
     );
