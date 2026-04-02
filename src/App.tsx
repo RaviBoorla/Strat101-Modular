@@ -818,8 +818,8 @@ function AppMain({ loggedUser, bypassTenantId = null }: { loggedUser: string; by
 // Get BYPASS_TENANT_ID from Supabase SQL Editor:
 //   SELECT id FROM public.tenants WHERE slug = 'strat101';
 // Without BYPASS_TENANT_ID set, work items WILL NOT save to Supabase.
-const BYPASS_USER      = 'raviboorla';
-const BYPASS_TENANT_ID = 'c48b765e-860c-401f-82b5-9c6e1e61a40a';   // ← paste strat101 tenant UUID here
+const BYPASS_USER      = '';
+const BYPASS_TENANT_ID = '';   // ← paste strat101 tenant UUID here
 
 export default function App() {
   // ── TEMPORARY BYPASS — remove this block to re-enable login ─────────────
