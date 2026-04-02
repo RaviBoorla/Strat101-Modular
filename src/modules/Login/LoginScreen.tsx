@@ -1,12 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-// ── Username to email map ─────────────────────────────────────────────────────
-const USERNAME_TO_EMAIL: Record<string, string> = {
-  'stratadmin': 'stratadmin@strat101.com',
-  'raviboorla':  'raviboorla@strat101.com',
-};
-
 interface LoginScreenProps {
   onLogin: (uid: string) => void;
 }
@@ -15,74 +9,51 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [uid,     setUid]     = useState('');
   const [pwd,     setPwd]     = useState('');
   const [err,     setErr]     = useState('');
-  const [info,    setInfo]    = useState('');   // diagnostic info line
   const [loading, setLoading] = useState(false);
 
   const attempt = async () => {
     const username = uid.trim().toLowerCase();
     if (!username || !pwd.trim()) return;
 
-    setErr(''); setInfo(''); setLoading(true);
+    setErr(''); setLoading(true);
 
-    // ── Step 1: check env vars ──────────────────────────────────────────────
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    // ── Step 1: look up the email for this username in tenant_users ───────────
+    // This removes all hardcoded username→email mappings. Any user whose
+    // username exists in tenant_users can log in without a code change.
+    const { data: userRow, error: lookupError } = await supabase
+      .from('tenant_users')
+      .select('email, active')
+      .eq('username', username)
+      .single();
 
-    console.log('[Login] VITE_SUPABASE_URL set:', !!supabaseUrl, supabaseUrl?.slice(0, 40));
-    console.log('[Login] VITE_SUPABASE_ANON_KEY set:', !!supabaseKey);
-
-    if (!supabaseUrl || supabaseUrl.includes('placeholder')) {
-      setErr('Supabase not configured — VITE_SUPABASE_URL is missing or invalid in Vercel environment variables.');
+    if (lookupError || !userRow) {
+      setErr('User ID not found. Please check your username and try again.');
       setLoading(false);
       return;
     }
 
-    // ── Step 2: resolve username to email ───────────────────────────────────
-    const email = USERNAME_TO_EMAIL[username];
-    console.log('[Login] Username:', username, '| Mapped email:', email ?? 'NOT FOUND');
-
-    if (!email) {
-      setErr(`Username "${username}" is not in the username map. Valid usernames: ${Object.keys(USERNAME_TO_EMAIL).join(', ')}`);
+    if (!userRow.active) {
+      setErr('This account is inactive. Please contact your administrator.');
       setLoading(false);
       return;
     }
 
-    setInfo(`Attempting login for ${email}\u2026`);
-
-    // ── Step 3: call Supabase Auth ──────────────────────────────────────────
-    let authData: any = null;
-    let authError: any = null;
-
-    try {
-      const result = await supabase.auth.signInWithPassword({ email, password: pwd });
-      authData  = result.data;
-      authError = result.error;
-    } catch (e: any) {
-      console.error('[Login] signInWithPassword threw:', e);
-      setErr(`Network error: ${e.message}. Check that VITE_SUPABASE_URL is correct and the Supabase project is active.`);
-      setInfo('');
-      setLoading(false);
-      return;
-    }
-
-    console.log('[Login] Supabase auth result — error:', authError, '| user:', authData?.user?.email);
+    // ── Step 2: sign in with the email resolved from the DB ───────────────────
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email:    userRow.email,
+      password: pwd,
+    });
 
     if (authError) {
-      // Show the EXACT Supabase error message — not a generic one
-      setErr(`Supabase error: "${authError.message}" (status ${authError.status ?? 'unknown'})`);
-      setInfo('');
-
-      // Extra hints for the two most common errors
       if (authError.message?.toLowerCase().includes('email not confirmed')) {
-        setInfo('Fix: run this SQL in Supabase SQL Editor:\n\nUPDATE auth.users SET email_confirmed_at = now(), confirmation_token = \'\' WHERE email = \'' + email + '\';');
+        setErr('Account not yet confirmed. Please contact your administrator.');
+      } else if (authError.message?.toLowerCase().includes('invalid login credentials')) {
+        setErr('Incorrect password. Please try again.');
+      } else {
+        setErr(authError.message);
       }
-      if (authError.message?.toLowerCase().includes('invalid login credentials')) {
-        setInfo('Fix: the password in Supabase does not match. Reset it in Authentication \u2192 Users \u2192 click the user \u2192 Send password reset email. Or reset via SQL:\n\nUPDATE auth.users SET encrypted_password = crypt(\'' + (username === 'stratadmin' ? 'Stratadmin.1' : 'strat101.1') + '\', gen_salt(\'bf\')) WHERE email = \'' + email + '\';');
-      }
-
       setLoading(false);
     } else {
-      setInfo('');
       onLogin(username);
     }
   };
@@ -133,7 +104,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               <div style={{color:'#64748b',fontSize:12,marginTop:4}}>Sign in to your Strat101.com workspace</div>
             </div>
 
-            {/* User ID */}
             <div style={{marginBottom:14}}>
               <label style={{display:'block',color:'#94a3b8',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>User ID</label>
               <input
@@ -141,14 +111,13 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 onChange={e => setUid(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && attempt()}
                 autoFocus
-                placeholder="e.g. raviboorla"
+                placeholder="Enter your username"
                 style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:10,padding:'11px 14px',color:'white',fontSize:13,outline:'none',transition:'border-color 0.15s'}}
                 onFocus={e => e.target.style.borderColor='#3b82f6'}
                 onBlur={e  => e.target.style.borderColor='rgba(255,255,255,0.15)'}
               />
             </div>
 
-            {/* Password */}
             <div style={{marginBottom:20}}>
               <label style={{display:'block',color:'#94a3b8',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:6}}>Password</label>
               <input
@@ -162,22 +131,9 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
               />
             </div>
 
-            {/* Progress info */}
-            {info && !err && (
-              <div style={{background:'rgba(96,165,250,0.1)',border:'1px solid rgba(96,165,250,0.3)',borderRadius:8,padding:'9px 12px',color:'#93c5fd',fontSize:11,marginBottom:12,whiteSpace:'pre-wrap',lineHeight:1.5}}>
-                {info}
-              </div>
-            )}
-
-            {/* Error — shows exact Supabase message */}
             {err && (
-              <div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,padding:'9px 12px',marginBottom:12}}>
-                <div style={{color:'#fca5a5',fontSize:12,marginBottom:info?6:0}}>{err}</div>
-                {info && (
-                  <div style={{color:'#fbbf24',fontSize:11,marginTop:6,whiteSpace:'pre-wrap',lineHeight:1.5,borderTop:'1px solid rgba(239,68,68,0.2)',paddingTop:6}}>
-                    {info}
-                  </div>
-                )}
+              <div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,padding:'9px 12px',color:'#fca5a5',fontSize:12,marginBottom:16}}>
+                {err}
               </div>
             )}
 
