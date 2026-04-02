@@ -187,14 +187,16 @@ function LoginHistoryModal({user,onClose}:{user:TenantUser;onClose:()=>void}){
 // ── USER FORM ────────────────────────────────────────────────────────────────
 function UserForm({user,tenantName,onSave,onClose}:{user:TenantUser|null;tenantName:string;onSave:(u:TenantUser)=>void;onClose:()=>void}){
   const isNew = !user;
-  const [username,  setUsername]  = useState(user?.username??'');
-  const [fullName,  setFullName]  = useState(user?.fullName??'');
-  const [email,     setEmail]     = useState(user?.email??'');
-  const [password,  setPassword]  = useState('');
-  const [role,      setRole]      = useState<UserRole>(user?.role??'viewer');
-  const [active,    setActive]    = useState(user?.active??true);
+  const [username,    setUsername]    = useState(user?.username??'');
+  const [fullName,    setFullName]    = useState(user?.fullName??'');
+  const [email,       setEmail]       = useState(user?.email??'');
+  const [password,    setPassword]    = useState('');
+  const [sendInvite,  setSendInvite]  = useState(true);
+  const [role,        setRole]        = useState<UserRole>(user?.role??'viewer');
+  const [active,      setActive]      = useState(user?.active??true);
 
-  const canSave = username.trim() && fullName.trim() && email.trim() && (!isNew || password.length >= 8);
+  const canSave = username.trim() && fullName.trim() && email.trim()
+    && (!isNew || sendInvite || password.length >= 8);
 
   const save = () => {
     if (!canSave) return;
@@ -203,8 +205,9 @@ function UserForm({user,tenantName,onSave,onClose}:{user:TenantUser|null;tenantN
       : {
           id: gId(), username:username.trim(), fullName:fullName.trim(),
           email:email.trim(), role, active, createdAt:td(),
-          tempPassword: password,   // passed to saveUser → edge function
-          mustChangePwd: true,
+          tempPassword:  sendInvite ? undefined : password,
+          mustChangePwd: !sendInvite,
+          sendInvite,
         };
     onSave(u);
   };
@@ -215,26 +218,51 @@ function UserForm({user,tenantName,onSave,onClose}:{user:TenantUser|null;tenantN
         <FL label="Username"><input value={username} onChange={e=>setUsername(e.target.value)} style={inp} autoFocus placeholder="e.g. john.doe"/></FL>
         <FL label="Full Name"><input value={fullName} onChange={e=>setFullName(e.target.value)} style={inp} placeholder="e.g. John Doe"/></FL>
       </div>
-      <FL label="Email"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} style={inp} placeholder="e.g. john@company.com"/></FL>
+      <FL label="Email Address"><input type="email" value={email} onChange={e=>setEmail(e.target.value)} style={inp} placeholder="e.g. john@company.com"/></FL>
+
       {isNew && (
-        <FL label="Initial Password">
-          <input type="password" value={password} onChange={e=>setPassword(e.target.value)} style={inp} placeholder="Min. 8 characters"/>
-          <div style={{fontSize:10,color:'#94a3b8',marginTop:3}}>User will be prompted to change this on first login.</div>
-        </FL>
+        <>
+          {/* Invite toggle */}
+          <div style={{padding:'12px 14px',background:'#f8fafc',borderRadius:8,border:'1px solid #e2e8f0',marginTop:4}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:sendInvite?0:10}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:600,color:'#111827'}}>Send invitation email</div>
+                <div style={{fontSize:11,color:'#64748b',marginTop:2}}>
+                  {sendInvite
+                    ? 'User receives an email with a link to set their own password.'
+                    : 'Set a temporary password and share it with the user manually.'}
+                </div>
+              </div>
+              <Toggle on={sendInvite} onToggle={()=>setSendInvite((v:boolean)=>!v)}/>
+            </div>
+            {!sendInvite && (
+              <div style={{marginTop:10}}>
+                <FL label="Temporary Password">
+                  <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
+                    style={inp} placeholder="Min. 8 characters"/>
+                </FL>
+              </div>
+            )}
+          </div>
+        </>
       )}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <FL label="Role"><select value={role} onChange={e=>setRole(e.target.value as UserRole)} style={sel}><option value="admin">Admin</option><option value="editor">Editor</option><option value="viewer">Viewer</option></select></FL>
-        <FL label="Status"><div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}><Toggle on={active} onToggle={()=>setActive((a:boolean)=>!a)}/><span style={{fontSize:12,color:active?'#16a34a':'#94a3b8',fontWeight:600}}>{active?'Active':'Inactive'}</span></div></FL>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:4}}>
+        <FL label="Role"><select value={role} onChange={e=>setRole(e.target.value as UserRole)} style={sel}>
+          <option value="admin">Admin</option>
+          <option value="editor">Editor</option>
+          <option value="viewer">Viewer</option>
+        </select></FL>
+        <FL label="Status"><div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+          <Toggle on={active} onToggle={()=>setActive((a:boolean)=>!a)}/>
+          <span style={{fontSize:12,color:active?'#16a34a':'#94a3b8',fontWeight:600}}>{active?'Active':'Inactive'}</span>
+        </div></FL>
       </div>
-      {isNew && (
-        <div style={{padding:'10px 12px',background:'#eff6ff',borderRadius:8,border:'1px solid #bfdbfe',fontSize:11,color:'#1e40af',marginTop:4}}>
-          A Supabase auth account will be created automatically with the email and password above.
-        </div>
-      )}
+
       <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:12}}>
         <button onClick={onClose} style={{padding:'7px 14px',borderRadius:7,border:'1px solid #e2e8f0',background:'white',fontSize:12,cursor:'pointer',color:'#374151'}}>Cancel</button>
         <button onClick={save} disabled={!canSave} style={{padding:'7px 14px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer',opacity:canSave?1:0.4}}>
-          {user ? 'Save' : 'Add User & Create Login'}
+          {user ? 'Save Changes' : sendInvite ? 'Add User & Send Invite' : 'Add User & Set Password'}
         </button>
       </div>
     </Modal>
