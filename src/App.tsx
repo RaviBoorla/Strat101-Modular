@@ -766,7 +766,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 // To restore login: remove the bypass line and uncomment the full App function.
 // BYPASS: set to '' to re-enable login, or 'stratadmin' for admin console.
 const BYPASS_USER = 'raviboorla';
-const BYPASS_TENANT_ID = 'f7ce5f79-9ea2-42cf-872e-88e0e7968b90';
+const BYPASS_TENANT_ID = 'c48b765e-860c-401f-82b5-9c6e1e61a40a';
 
 
 export default function App() {
