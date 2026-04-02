@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { TYPES } from "./constants";
 import { mkBlank, gId, tsNow, td } from "./utils";
 import { TenantFeatures, Tenant } from "./types";
-import { isAdminUser } from "./adminData";
+import { isGlobalAdminUser } from "./globalAdminData";
 import { supabase } from "./lib/supabase";
 import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
 
@@ -13,8 +13,8 @@ import WorkItemsView, { ListView } from "./modules/WorkItems/WorkItemsView";
 import KanbanBoard   from "./modules/Kanban/KanbanBoard";
 import ItemForm, { LinkDlg } from "./modules/Create/ItemForm";
 import ReportBuilder from "./modules/Reports/ReportBuilder";
-import AdminPanel       from "./modules/Admin/AdminPanel";
-import TenantAdminPanel from "./modules/Admin/TenantAdminPanel";
+import GlobalAdminPanel from "./modules/Admin/GlobalAdminPanel";
+import LocalAdminPanel from "./modules/Admin/LocalAdminPanel";
 
 import TopNav         from "./components/TopNav";
 import DetailPanel    from "./components/DetailPanel";
@@ -203,10 +203,10 @@ function PreviewBanner({ tenant, onExit }: { tenant: Tenant; onExit: () => void 
 // ─── WORKSPACE ────────────────────────────────────────────────────────────────
 
 function Workspace({
-  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut, userRole = 'editor',
+  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut, userRole = 'editor', onSwitchToAdmin, onOpenGlobalAdmin, onOpenLocalAdmin,
 }: {
   loggedUser: string; isAdmin: boolean; features: TenantFeatures;
-  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void; userRole?: string;
+  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void; userRole?: string; onSwitchToAdmin?: () => void; onOpenGlobalAdmin?: () => void; onOpenLocalAdmin?: () => void;
 }) {
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -412,7 +412,7 @@ function Workspace({
         {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
         <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}} onCreateNew={()=>{}}
           workItemFilter={workItemFilter} setWorkItemFilter={setWIF} onNew={()=>{}}
-          loggedUser={loggedUser} isAdmin={false} features={features} onSignOut={onSignOut} isViewer={isViewer}/>
+          loggedUser={loggedUser} isAdmin={isAdmin} features={features} onSignOut={onSignOut} isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}/>
         <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{ textAlign:'center' }}>
             <div style={{ fontSize:32, marginBottom:12 }}>&#9203;</div>
@@ -446,7 +446,7 @@ function Workspace({
                 <div style={{ fontSize:48 }}>&#128274;</div>
                 <div style={{ fontSize:15, fontWeight:700, color:'#374151' }}>Module Not Enabled</div>
                 <div style={{ fontSize:12, color:'#94a3b8', textAlign:'center', maxWidth:300, lineHeight:1.6 }}>
-                  This module is disabled for this tenant. Enable it in Super Admin Console \u2192 Features.
+                  This module is disabled for this tenant. Enable it in Global Admin Console \u2192 Features.
                 </div>
               </div>
             )}
@@ -480,7 +480,7 @@ function Workspace({
 // ─── APP MAIN ─────────────────────────────────────────────────────────────────
 
 function AppMain({ loggedUser }: { loggedUser: string }) {
-  const isAdmin = isAdminUser(loggedUser);
+  const isAdmin = isGlobalAdminUser(loggedUser);
   const [screen,         setScreen]         = useState<'admin'|'workspace'>(isAdmin ? 'admin' : 'workspace');
   const [previewTenant,  setPreviewTenant]  = useState<Tenant | null>(null);
   const [tenantId,       setTenantId]       = useState<string | null>(null);
@@ -522,58 +522,97 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
     });
   }, [isAdmin]);
 
-  const handlePreview     = (tenant: Tenant) => { setPreviewTenant(tenant); setScreen('workspace'); };
-  const handleExitPreview = ()                => { setPreviewTenant(null);  setScreen('admin');     };
+  const [globalAdminDrawerOpen,        setGlobalAdminDrawerOpen]        = useState(false);
+  const [tenantGlobalAdminDrawerOpen,  setLocalGlobalAdminDrawerOpen]  = useState(false);
 
-  const features: TenantFeatures      = previewTenant ? previewTenant.features : tenantFeatures;
-  const activeTenantId: string | null = previewTenant ? previewTenant.id : tenantId;
+  const features: TenantFeatures      = tenantFeatures;
+  const activeTenantId: string | null = tenantId;
   const handleSignOut = async () => { await supabase.auth.signOut(); };
 
-  // ── Route: Tenant Admin ────────────────────────────────────────────────────
-  if (!isAdmin && userRole === 'tenant_admin' && tenantId) {
-    return (
-      <TenantAdminPanel
-        loggedUser={loggedUser}
-        tenantId={tenantId}
-        onSignOut={handleSignOut}
-      />
-    );
-  }
-
-  if (screen === 'admin') {
-    return (
-      <div className="flex flex-col h-screen overflow-hidden" style={{ fontFamily:'system-ui,sans-serif' }}>
-        <div style={{ background:'#1e293b', padding:'0 20px', height:44, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div style={{ width:26, height:26, borderRadius:6, background:'linear-gradient(135deg,#f59e0b,#ef4444)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>&#9881;&#65039;</div>
-            <span style={{ fontSize:13, fontWeight:700, color:'white', letterSpacing:'-0.2px' }}>Super Super Admin Console</span>
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-            <span style={{ fontSize:11, color:'#94a3b8' }}>
-              Logged in as <strong style={{ color:'#fbbf24' }}>{loggedUser}</strong>
-            </span>
-            <button onClick={handleSignOut}
-              style={{ fontSize:11, color:'#94a3b8', background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:6, padding:'4px 10px', cursor:'pointer' }}>
-              Sign out
-            </button>
-          </div>
-        </div>
-        <div style={{ flex:1, overflow:'hidden' }}>
-          <AdminPanel loggedUser={loggedUser} onPreviewTenant={handlePreview}/>
-        </div>
-      </div>
-    );
-  }
-
+  // Everyone defaults to workspace — admin panels are drawers
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden" style={{ position:'relative' }}>
       <Workspace
-        loggedUser={loggedUser} isAdmin={isAdmin}
-        features={features} previewTenant={previewTenant}
-        onExitPreview={handleExitPreview} tenantId={activeTenantId}
+        loggedUser={loggedUser}
+        isAdmin={isAdmin}
+        features={features}
+        previewTenant={null}
+        onExitPreview={() => {}}
+        tenantId={activeTenantId}
         onSignOut={handleSignOut}
         userRole={userRole}
+        onOpenGlobalAdmin={isAdmin ? () => setGlobalAdminDrawerOpen(true) : undefined}
+        onOpenLocalAdmin={(userRole === 'local_admin' || isAdmin) && tenantId
+          ? () => setLocalGlobalAdminDrawerOpen(true) : undefined}
       />
+
+      {/* Global Admin Drawer */}
+      {isAdmin && globalAdminDrawerOpen && (
+        <GlobalAdminDrawer
+          loggedUser={loggedUser}
+          onClose={() => setGlobalAdminDrawerOpen(false)}
+        />
+      )}
+
+      {/* Local Admin Drawer */}
+      {(userRole === 'local_admin' || isAdmin) && tenantGlobalAdminDrawerOpen && tenantId && (
+        <LocalGlobalAdminDrawer
+          loggedUser={loggedUser}
+          tenantId={tenantId}
+          onClose={() => setLocalGlobalAdminDrawerOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Thin wrapper components for the drawers ───────────────────────────────────
+function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClose: () => void }) {
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex' }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.4)' }}/>
+      {/* Drawer */}
+      <div style={{ width:'min(820px,95vw)', height:'100%', background:'#f8fafc',
+        boxShadow:'-8px 0 40px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        <div style={{ background:'#0f172a', padding:'0 16px', height:44, display:'flex',
+          alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:14 }}>⚡</span>
+            <span style={{ fontSize:13, fontWeight:700, color:'white' }}>Global Admin</span>
+          </div>
+          <button onClick={onClose} style={{ color:'#94a3b8', background:'none', border:'none',
+            fontSize:20, cursor:'pointer', lineHeight:1, padding:'4px 8px' }}>×</button>
+        </div>
+        <div style={{ flex:1, overflow:'hidden' }}>
+          <GlobalAdminPanel loggedUser={loggedUser} onPreviewTenant={() => {}} embedded={true}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LocalGlobalAdminDrawer({ loggedUser, tenantId, onClose }:
+  { loggedUser: string; tenantId: string; onClose: () => void }) {
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex' }}>
+      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.4)' }}/>
+      <div style={{ width:'min(680px,95vw)', height:'100%', background:'#f8fafc',
+        boxShadow:'-8px 0 40px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        <div style={{ background:'#0f172a', padding:'0 16px', height:44, display:'flex',
+          alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:14 }}>🏢</span>
+            <span style={{ fontSize:13, fontWeight:700, color:'white' }}>Local Admin</span>
+          </div>
+          <button onClick={onClose} style={{ color:'#94a3b8', background:'none', border:'none',
+            fontSize:20, cursor:'pointer', lineHeight:1, padding:'4px 8px' }}>×</button>
+        </div>
+        <div style={{ flex:1, overflow:'hidden' }}>
+          <LocalAdminPanel loggedUser={loggedUser} tenantId={tenantId}
+            onSignOut={async () => {}} onSwitchToWorkspace={onClose} embedded={true}/>
+        </div>
+      </div>
     </div>
   );
 }
