@@ -480,10 +480,10 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   const [screen,        setScreen]        = useState<'admin'|'workspace'>(isAdmin ? 'admin' : 'workspace');
   const [previewTenant, setPreviewTenant] = useState<Tenant | null>(null);
   const [tenantId,      setTenantId]      = useState<string | null>(null);
+  const [tenantFeatures, setTenantFeatures] = useState<TenantFeatures>(ALL_FEATURES);
 
   useEffect(() => {
-    // Always resolve tenantId for ALL users including admin.
-    // Admin needs a tenantId for their own workspace when not in preview mode.
+    // Resolve tenantId AND tenant features for ALL users including admin.
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
       console.log('[TENANT] getUser result — uid:', user?.id, '| email:', user?.email);
       if (!user) { console.warn('[TENANT] no auth user — tenantId stays null'); return; }
@@ -493,11 +493,30 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         .eq('auth_user_id', user.id)
         .eq('active', true)
         .single()
-        .then(({ data, error }: { data: any; error: any }) => {
+        .then(async ({ data, error }: { data: any; error: any }) => {
           console.log('[TENANT] tenant_users lookup — data:', data, '| error:', error);
           if (data?.tenant_id) {
             console.log('[TENANT] resolved tenantId:', data.tenant_id);
             setTenantId(data.tenant_id as string);
+
+            // Load actual tenant features from the tenants table
+            const { data: tenant } = await supabase
+              .from('tenants')
+              .select('feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports')
+              .eq('id', data.tenant_id)
+              .single();
+
+            if (tenant) {
+              const features: TenantFeatures = {
+                kanban:    tenant.feat_kanban    ?? true,
+                workitems: tenant.feat_workitems ?? true,
+                create:    tenant.feat_create    ?? true,
+                bot:       tenant.feat_bot       ?? true,
+                reports:   tenant.feat_reports   ?? true,
+              };
+              console.log('[TENANT] features loaded:', features);
+              setTenantFeatures(features);
+            }
           } else {
             console.warn('[TENANT] no tenant_users row found for auth_user_id:', user.id);
           }
@@ -508,7 +527,8 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   const handlePreview     = (tenant: Tenant) => { setPreviewTenant(tenant); setScreen('workspace'); };
   const handleExitPreview = ()                => { setPreviewTenant(null);  setScreen('admin');     };
 
-  const features: TenantFeatures      = previewTenant ? previewTenant.features : ALL_FEATURES;
+  // Use preview tenant features if previewing, otherwise use real tenant features
+  const features: TenantFeatures      = previewTenant ? previewTenant.features : tenantFeatures;
   const activeTenantId: string | null = previewTenant ? previewTenant.id : tenantId;
 
   const handleSignOut = async () => { await supabase.auth.signOut(); };
