@@ -739,7 +739,7 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
     } catch(e:any) {
       console.error('[AdminPanel] fetchTenants failed:', e.message);
       setDbError(e.message);
-      // Do NOT fall back to seed data — show the real error
+      // Do NOT fall back to seed data - show the real error
     } finally {
       setDbLoading(false);
     }
@@ -764,11 +764,13 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
         .select('id, name, slug, approval_requested_at, requested_by')
         .eq('approval_status', 'pending')
         .order('approval_requested_at', { ascending: true });
-      const { data: featReqs } = await supabase
+      const { data: featReqs, error: featErr } = await supabase
         .from('feature_requests')
         .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
+      if (featErr) console.error('[AdminPanel] feature_requests query failed:', featErr.message);
+      else console.log('[AdminPanel] feature_requests pending:', featReqs?.length ?? 0);
       setPending([
         ...(users    ?? []).map((u:any) => ({ ...u, _type:'user'    })),
         ...(newTenants ?? []).map((t:any) => ({ ...t, _type:'tenant'  })),
@@ -832,7 +834,7 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
     if(managing?.id===t.id) setManaging(t);
   };
 
-  // ── Tenant mutations — write to DB then update local state ─────────────────
+  // ── Tenant mutations - write to DB then update local state ─────────────────
   const updateTenant = async (t:Tenant) => {
     applyUpdate(t);
     await apiSaveTenant(t);
@@ -851,7 +853,7 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
     await apiDeleteTenant(id);
   };
 
-  // ── Toggle active / suspend — dedicated API call ───────────────────────────
+  // ── Toggle active / suspend - dedicated API call ───────────────────────────
   const toggleActive = async (t:Tenant) => {
     const updated = {...t, active:!t.active};
     applyUpdate(updated);
@@ -880,15 +882,15 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
       )}
       {dbError && (
         <div style={{padding:'8px 20px',background:'#fef2f2',borderBottom:'1px solid #fecaca',fontSize:12,color:'#dc2626',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-          <span>⚠</span> {dbError} — showing cached data.
+          <span>⚠</span> {dbError} - showing cached data.
           <button onClick={reload} style={{marginLeft:8,padding:'2px 10px',borderRadius:5,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:11,cursor:'pointer'}}>Retry</button>
         </div>
       )}
 
       <div style={{background:'white',borderBottom:'1px solid #e2e8f0',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div>
-          <div style={{fontSize:15,fontWeight:700,color:'#111827'}}>Admin Console</div>
-          <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>Logged in as <strong style={{color:'#374151'}}>{loggedUser}</strong> · {tenants.length} tenants · {totalUsers} users</div>
+          <div style={{fontSize:15,fontWeight:700,color:'#111827'}}>Super Admin Console</div>
+          <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>Logged in as <strong style={{color:'#374151'}}>{loggedUser}</strong> | {tenants.length} tenants | {totalUsers} users</div>
         </div>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
           <button onClick={()=>setActiveTab('tenants')}
