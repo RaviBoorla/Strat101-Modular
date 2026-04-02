@@ -111,24 +111,28 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
   // via the server-side Edge Function which holds the service role key.
   let authUserId = user.authUserId ?? null;
 
-  if (!authUserId && user.email && user.tempPassword) {
+  const isNewUser = !authUserId && !!user.email;
+  if (isNewUser) {
     try {
       const res = await fetch('/api/create-user', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email:    user.email,
-          password: user.tempPassword,
-          username: user.username,
-          fullName: user.fullName,
+          email:      user.email,
+          password:   user.tempPassword ?? undefined,
+          username:   user.username,
+          fullName:   user.fullName,
+          sendInvite: user.sendInvite ?? true,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        console.error('[adminApi] create-user edge function failed:', data.error);
+        console.error('[adminApi] create-user failed:', data.error);
       } else {
         authUserId = data.id;
-        console.log('[adminApi] auth user created — id:', authUserId);
+        console.log('[adminApi] auth user created — id:', authUserId,
+          '| invite sent:', data.inviteSent);
+        if (data.message) console.log('[adminApi]', data.message);
       }
     } catch (e: any) {
       console.error('[adminApi] create-user fetch error:', e.message);
