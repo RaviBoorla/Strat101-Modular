@@ -429,7 +429,8 @@ function Workspace({
       <TopNav view={view} setView={goView} items={items} onNavItem={id => nav(id)}
         onCreateNew={createAndOpen} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
         onNew={() => !isViewer && isListView && setForm(mkBlank(view, items))}
-        loggedUser={loggedUser} isAdmin={false} features={features} onSignOut={onSignOut}/>
+        loggedUser={loggedUser} isAdmin={isAdmin} features={features} onSignOut={onSignOut}
+        isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}/>
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 overflow-auto">
@@ -523,7 +524,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   }, [isAdmin]);
 
   const [globalAdminDrawerOpen,        setGlobalAdminDrawerOpen]        = useState(false);
-  const [tenantGlobalAdminDrawerOpen,  setLocalGlobalAdminDrawerOpen]  = useState(false);
+  const [localAdminDrawerOpen,         setLocalAdminDrawerOpen]         = useState(false);
 
   const features: TenantFeatures      = tenantFeatures;
   const activeTenantId: string | null = tenantId;
@@ -543,7 +544,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         userRole={userRole}
         onOpenGlobalAdmin={isAdmin ? () => setGlobalAdminDrawerOpen(true) : undefined}
         onOpenLocalAdmin={(userRole === 'local_admin' || isAdmin) && tenantId
-          ? () => setLocalGlobalAdminDrawerOpen(true) : undefined}
+          ? () => setLocalAdminDrawerOpen(true) : undefined}
       />
 
       {/* Global Admin Drawer */}
@@ -555,11 +556,11 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
       )}
 
       {/* Local Admin Drawer */}
-      {(userRole === 'local_admin' || isAdmin) && tenantGlobalAdminDrawerOpen && tenantId && (
-        <LocalGlobalAdminDrawer
+      {(userRole === 'local_admin' || isAdmin) && localAdminDrawerOpen && tenantId && (
+        <LocalAdminDrawer
           loggedUser={loggedUser}
           tenantId={tenantId}
-          onClose={() => setLocalGlobalAdminDrawerOpen(false)}
+          onClose={() => setLocalAdminDrawerOpen(false)}
         />
       )}
     </div>
@@ -592,7 +593,7 @@ function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClos
   );
 }
 
-function LocalGlobalAdminDrawer({ loggedUser, tenantId, onClose }:
+function LocalAdminDrawer({ loggedUser, tenantId, onClose }:
   { loggedUser: string; tenantId: string; onClose: () => void }) {
   return (
     <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex' }}>
