@@ -13,16 +13,18 @@ export function isGlobalAdminUser(username: string): boolean {
 
 // Plan limits — mirrors what is enforced in the DB and displayed in admin UI
 export const PLAN_LIMITS = {
-  starter:    { items: 100,   users: 5,   aiCalls: 0    },
-  pro:        { items: 1000,  users: 25,  aiCalls: 500  },
-  enterprise: { items: 9999,  users: 999, aiCalls: 9999 },
+  Lite:       { items: 100,   users: 5,   aiCalls: 0    },
+  Starter:    { items: 300,   users: 7,   aiCalls: 0    },
+  Pro:        { items: 1000,  users: 25,  aiCalls: 999  },
+  Enterprise: { items: 9999,  users: 100, aiCalls: 4999 },
 };
 
 // Monthly price in GBP pence
 export const PLAN_PRICE: Record<string, number> = {
-  starter:    4900,
-  pro:        14900,
-  enterprise: 49900,
+  Lite:       0
+  Starter:    9,
+  Pro:        15,
+  Enterprise: 18,
 };
 
 // Satisfy TypeScript imports that reference Tenant type from this file
