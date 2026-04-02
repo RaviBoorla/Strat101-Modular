@@ -85,12 +85,13 @@ interface TopNavProps {
   loggedUser:        string;
   isAdmin:           boolean;   // kept for API compatibility — not used in nav
   features:          TenantFeatures;
+  onSignOut:         () => void;
 }
 
 export default function TopNav({
   view, setView, items, onNavItem, onCreateNew,
   workItemFilter, setWorkItemFilter, onNew,
-  loggedUser, features,
+  loggedUser, features, onSignOut,
 }: TopNavProps) {
   const [wiOpen,     setWiOpen]   = useState(false);
   const [createOpen, setCreate]   = useState(false);
@@ -235,14 +236,21 @@ export default function TopNav({
           {!isTablet&&<div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',background:'rgba(255,255,255,0.45)',border:'1px solid rgba(0,60,120,0.18)',borderRadius:6,fontSize:11,color:'#0c2d4a',fontWeight:600,whiteSpace:'nowrap'}}>
             <span style={{fontSize:11}}>📅</span>{dateStr}
           </div>}
-          <div style={{display:'flex',alignItems:'center',gap:5,padding:'3px 8px 3px 4px',background:'rgba(255,255,255,0.45)',border:'1px solid rgba(0,60,120,0.18)',borderRadius:14,cursor:'pointer'}}>
-            <div style={{width:22,height:22,borderRadius:'50%',background:'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:800,fontSize:10,letterSpacing:'0.5px',flexShrink:0}}>
-              {initials}
-            </div>
-            <div style={{lineHeight:1}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#0c2d4a'}}>{loggedUser}</div>
-              <div style={{fontSize:9,color:'#1a5276'}}>Logged In</div>
-            </div>
+          <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+            <button
+              onClick={onSignOut}
+              title="Sign out"
+              style={{display:'flex',alignItems:'center',gap:5,padding:'3px 8px 3px 4px',background:'rgba(255,255,255,0.45)',border:'1px solid rgba(0,60,120,0.18)',borderRadius:14,cursor:'pointer',transition:'background 0.15s'}}
+              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.7)';}}
+              onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.45)';}}>
+              <div style={{width:22,height:22,borderRadius:'50%',background:'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:800,fontSize:10,letterSpacing:'0.5px',flexShrink:0}}>
+                {initials}
+              </div>
+              <div style={{lineHeight:1}}>
+                <div style={{fontSize:11,fontWeight:700,color:'#0c2d4a'}}>{loggedUser}</div>
+                <div style={{fontSize:9,color:'#dc2626',fontWeight:600}}>Sign out</div>
+              </div>
+            </button>
           </div>
         </div>
       </div>
