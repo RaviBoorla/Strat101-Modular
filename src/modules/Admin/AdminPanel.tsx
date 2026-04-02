@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "../../lib/supabase";
 import { Tenant, TenantUser, TenantFeatures, FeatureKey, UserRole, Subscription, Invoice, SubStatus } from "../../types";
 import { gId, td, tsNow } from "../../utils";
 import { PLAN_LIMITS, PLAN_PRICE } from "../../adminData";
@@ -12,6 +13,9 @@ import {
   recordPasswordReset as apiRecordPasswordReset,
   saveInvoice   as apiSaveInvoice,
   updateInvoiceStatus as apiUpdateInvoiceStatus,
+  fetchApprovals,
+  approveRequest as apiApprove,
+  rejectRequest  as apiReject,
 } from "../../lib/adminApi";
 
 const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
@@ -710,6 +714,103 @@ function TenantRow({tenant,onEdit,onToggleActive,onPreview,onManage}:{tenant:Ten
   );
 }
 
+// ─── APPROVALS PANEL ─────────────────────────────────────────────────────────
+function ApprovalsPanel({ loggedUser }: { loggedUser: string }) {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [notes,    setNotes]    = useState('');
+  const [rejecting,setRejecting]= useState<string|null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setRequests(await fetchApprovals());
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const approve = async (id: string) => {
+    await apiApprove(id, loggedUser);
+    await load();
+  };
+
+  const reject = async (id: string) => {
+    await apiReject(id, loggedUser, notes);
+    setRejecting(null); setNotes('');
+    await load();
+  };
+
+  if (loading) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:40,color:'#64748b',fontSize:13}}>
+      Loading approvals…
+    </div>
+  );
+
+  if (requests.length === 0) return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:40,gap:12}}>
+      <div style={{fontSize:40}}>✅</div>
+      <div style={{fontSize:14,fontWeight:600,color:'#374151'}}>No pending approvals</div>
+      <div style={{fontSize:12,color:'#94a3b8'}}>All requests have been reviewed.</div>
+    </div>
+  );
+
+  return (
+    <div style={{padding:16,display:'flex',flexDirection:'column',gap:12}}>
+      {requests.map(r=>(
+        <div key={r.id} style={{background:'white',borderRadius:10,border:'1px solid #e2e8f0',padding:16,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+            <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
+              <div style={{width:40,height:40,borderRadius:10,background:r.type==='new_tenant'?'linear-gradient(135deg,#7c3aed,#4f46e5)':'linear-gradient(135deg,#0284c7,#2563eb)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:18,flexShrink:0}}>
+                {r.type==='new_tenant'?'🏢':'👤'}
+              </div>
+              <div>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                  <span style={{fontSize:13,fontWeight:700,color:'#111827'}}>{r.full_name}</span>
+                  <span style={{padding:'1px 8px',borderRadius:99,fontSize:10,fontWeight:600,background:r.type==='new_tenant'?'#f3e8ff':'#e0f2fe',color:r.type==='new_tenant'?'#7c3aed':'#0284c7'}}>
+                    {r.type==='new_tenant'?'New Workspace':'Join Workspace'}
+                  </span>
+                </div>
+                <div style={{fontSize:12,color:'#374151',marginBottom:2}}>
+                  <strong>Username:</strong> {r.username} &nbsp;·&nbsp; <strong>Email:</strong> {r.email}
+                </div>
+                <div style={{fontSize:12,color:'#374151',marginBottom:2}}>
+                  <strong>Company:</strong> {r.company_name}
+                </div>
+                <div style={{fontSize:11,color:'#94a3b8'}}>
+                  Requested {new Date(r.requested_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}
+                </div>
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8,flexShrink:0}}>
+              <button onClick={()=>approve(r.id)}
+                style={{padding:'6px 14px',borderRadius:7,border:'none',background:'#16a34a',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                ✓ Approve
+              </button>
+              <button onClick={()=>setRejecting(r.id)}
+                style={{padding:'6px 14px',borderRadius:7,border:'1px solid #fca5a5',background:'#fef2f2',color:'#dc2626',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                ✗ Reject
+              </button>
+            </div>
+          </div>
+          {rejecting===r.id && (
+            <div style={{marginTop:12,padding:12,background:'#fef2f2',borderRadius:8,border:'1px solid #fecaca'}}>
+              <div style={{fontSize:11,color:'#dc2626',fontWeight:600,marginBottom:6}}>Reason for rejection (optional)</div>
+              <input value={notes} onChange={e=>setNotes(e.target.value)}
+                placeholder="e.g. Unable to verify company details"
+                style={{width:'100%',boxSizing:'border-box',padding:'8px 10px',borderRadius:6,border:'1px solid #fecaca',fontSize:12,outline:'none',marginBottom:8}}/>
+              <div style={{display:'flex',gap:8}}>
+                <button onClick={()=>reject(r.id)} style={{padding:'6px 14px',borderRadius:6,border:'none',background:'#dc2626',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>Confirm Reject</button>
+                <button onClick={()=>{setRejecting(null);setNotes('');}} style={{padding:'6px 14px',borderRadius:6,border:'1px solid #e2e8f0',background:'white',fontSize:12,cursor:'pointer'}}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+
 // ── ADMIN PANEL ROOT ─────────────────────────────────────────────────────────
 export interface AdminPanelProps {
   loggedUser:      string;
@@ -726,6 +827,12 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
   const [filterSub,  setFilterSub]  = useState('all');
   const [dbLoading,  setDbLoading]  = useState(true);
   const [dbError,    setDbError]    = useState<string|null>(null);
+  const [activeTab,  setActiveTab]  = useState<'tenants'|'approvals'>('tenants');
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    fetchApprovals().then(reqs => setPendingCount(reqs.length));
+  }, []);
 
   // ── Load live data from Supabase on mount ──────────────────────────────────
   const reload = useCallback(async () => {
@@ -743,6 +850,61 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // ── Pending approvals ──────────────────────────────────────────────────────
+  const [pending,     setPending]     = useState<any[]>([]);
+  const [pendingLoad, setPendingLoad] = useState(false);
+
+  const loadPending = useCallback(async () => {
+    setPendingLoad(true);
+    try {
+      const { data: users } = await supabase
+        .from('tenant_users')
+        .select('id, username, full_name, email, role, approval_requested_at, tenant_id, tenants(name,slug)')
+        .eq('approval_status', 'pending')
+        .order('approval_requested_at', { ascending: true });
+      const { data: newTenants } = await supabase
+        .from('tenants')
+        .select('id, name, slug, approval_requested_at, requested_by')
+        .eq('approval_status', 'pending')
+        .order('approval_requested_at', { ascending: true });
+      setPending([
+        ...(users ?? []).map((u:any) => ({ ...u, _type:'user' })),
+        ...(newTenants ?? []).map((t:any) => ({ ...t, _type:'tenant' })),
+      ]);
+    } finally { setPendingLoad(false); }
+  }, []);
+
+  useEffect(() => { loadPending(); }, [loadPending]);
+
+  const approveUser = async (userId: string) => {
+    const now = new Date().toISOString();
+    const user = pending.find((p:any) => p.id === userId && p._type === 'user');
+    await supabase.from('tenant_users').update({
+      approval_status:'approved', active:true,
+      approval_actioned_at:now, approval_actioned_by:loggedUser,
+    }).eq('id', userId);
+    if (user?.tenant_id) {
+      const { data:t } = await supabase.from('tenants').select('approval_status').eq('id',user.tenant_id).single();
+      if (t?.approval_status === 'pending') {
+        await supabase.from('tenants').update({ approval_status:'approved', active:true }).eq('id', user.tenant_id);
+      }
+    }
+    await Promise.all([loadPending(), reload()]);
+  };
+
+  const rejectUser = async (userId: string) => {
+    await supabase.from('tenant_users').update({
+      approval_status:'rejected', active:false,
+      approval_actioned_at:new Date().toISOString(), approval_actioned_by:loggedUser,
+    }).eq('id', userId);
+    await loadPending();
+  };
+
+  const approveTenant = async (tenantId: string) => {
+    await supabase.from('tenants').update({ approval_status:'approved', active:true }).eq('id', tenantId);
+    await Promise.all([loadPending(), reload()]);
+  };
 
   // ── Optimistic update helper ───────────────────────────────────────────────
   const applyUpdate = (t:Tenant) => {
@@ -808,9 +970,21 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
           <div style={{fontSize:15,fontWeight:700,color:'#111827'}}>Admin Console</div>
           <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>Logged in as <strong style={{color:'#374151'}}>{loggedUser}</strong> · {tenants.length} tenants · {totalUsers} users</div>
         </div>
-        <button onClick={()=>setEditing('new')} style={{padding:'7px 14px',borderRadius:8,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>+ New Tenant</button>
+        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+          <button onClick={()=>setActiveTab('tenants')}
+            style={{padding:'6px 12px',borderRadius:7,border:'none',background:activeTab==='tenants'?'#2563eb':'rgba(37,99,235,0.1)',color:activeTab==='tenants'?'white':'#2563eb',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+            Tenants
+          </button>
+          <button onClick={()=>setActiveTab('approvals')}
+            style={{padding:'6px 12px',borderRadius:7,border:'none',background:activeTab==='approvals'?'#dc2626':'rgba(220,38,38,0.1)',color:activeTab==='approvals'?'white':'#dc2626',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+            Approvals
+            {pending.length>0&&<span style={{background:'white',color:'#dc2626',borderRadius:99,padding:'1px 6px',fontSize:10,fontWeight:700}}>{pending.length}</span>}
+          </button>
+          {activeTab==='tenants'&&<button onClick={()=>setEditing('new')} style={{padding:'6px 12px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>+ New Tenant</button>}
+        </div>
       </div>
 
+      {activeTab==='tenants'&&<>
       <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10,padding:'14px 20px 0',flexShrink:0}}>
         {[
           {label:'Tenants',     value:String(tenants.length), color:'#2563eb'},
@@ -829,7 +1003,7 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
       <div style={{flex:1,overflowY:'auto',padding:'14px 20px'}}>
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12,flexWrap:'wrap'}}>
           <div style={{fontSize:12,fontWeight:600,color:'#374151',flex:1}}>Tenants ({filtered.length})</div>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search\u2026"
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search…"
             style={{border:'1px solid #e2e8f0',borderRadius:7,padding:'5px 10px',fontSize:12,outline:'none',width:140}}/>
           <select value={filterPlan} onChange={e=>setFilterPlan(e.target.value)} style={{...sel,width:'auto',fontSize:11,padding:'5px 8px'}}>
             <option value="all">All Plans</option>
@@ -860,6 +1034,71 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
           </div>
         }
       </div>
+      </>
+      }
+
+      {activeTab==='approvals'&&(
+        <div style={{flex:1,overflowY:'auto',padding:'20px'}}>
+          {pendingLoad?(
+            <div style={{textAlign:'center',padding:40,color:'#94a3b8',fontSize:13}}>Loading…</div>
+          ):pending.length===0?(
+            <div style={{textAlign:'center',padding:60}}>
+              <div style={{fontSize:40,marginBottom:12}}>✅</div>
+              <div style={{fontSize:14,fontWeight:600,color:'#374151',marginBottom:6}}>No pending approvals</div>
+              <div style={{fontSize:12,color:'#94a3b8'}}>All account requests have been reviewed.</div>
+            </div>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',gap:10,maxWidth:720}}>
+              {pending.map((item:any)=>(
+                <div key={item.id} style={{background:'white',border:'1px solid #e2e8f0',borderRadius:10,padding:'14px 16px',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+                  <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                        <span style={{fontSize:18}}>{item._type==='user'?'👤':'🏢'}</span>
+                        <span style={{fontSize:13,fontWeight:700,color:'#111827'}}>
+                          {item._type==='user'?`${item.full_name} (@${item.username})`:`New Company: ${item.name}`}
+                        </span>
+                        <span style={{padding:'2px 8px',borderRadius:999,background:'#fef3c7',color:'#92400e',fontSize:10,fontWeight:700}}>PENDING</span>
+                      </div>
+                      {item._type==='user'&&(
+                        <div style={{fontSize:12,color:'#64748b',display:'flex',flexDirection:'column',gap:3}}>
+                          <span>📧 {item.email}</span>
+                          <span>🏢 Company: {item.tenants?.name??'Unknown'}</span>
+                          <span>📅 Requested: {item.approval_requested_at?new Date(item.approval_requested_at).toLocaleString():'Unknown'}</span>
+                        </div>
+                      )}
+                      {item._type==='tenant'&&(
+                        <div style={{fontSize:12,color:'#64748b',display:'flex',flexDirection:'column',gap:3}}>
+                          <span>👤 Requested by: {item.requested_by}</span>
+                          <span>📅 Requested: {item.approval_requested_at?new Date(item.approval_requested_at).toLocaleString():'Unknown'}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{display:'flex',gap:8,flexShrink:0,marginTop:4}}>
+                      {item._type==='user'&&<>
+                        <button onClick={()=>approveUser(item.id)}
+                          style={{padding:'6px 14px',borderRadius:7,border:'none',background:'#16a34a',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                          ✔ Approve
+                        </button>
+                        <button onClick={()=>rejectUser(item.id)}
+                          style={{padding:'6px 14px',borderRadius:7,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                          ✘ Reject
+                        </button>
+                      </>}
+                      {item._type==='tenant'&&(
+                        <button onClick={()=>approveTenant(item.id)}
+                          style={{padding:'6px 14px',borderRadius:7,border:'none',background:'#16a34a',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                          ✔ Approve Company
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {managing   &&<ManageDrawer tenant={managing} onClose={()=>setManaging(null)} onUpdate={updateTenant}/>}
       {editing    &&<TenantForm tenant={editing==='new'?null:editing} onSave={saveTenant} onClose={()=>setEditing(null)}/>}
