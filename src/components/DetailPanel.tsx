@@ -319,6 +319,7 @@ interface DetailPanelProps {
   onEdit: () => void;
   onDelete: () => void;
   onClose: () => void;
+  isViewer?: boolean;
   onAddLink: () => void;
   onAddDep: () => void;
   onRmLink: (id: string) => void;
@@ -330,7 +331,7 @@ interface DetailPanelProps {
   onNav: (id: string) => void;
 }
 
-export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDelete, onClose, onAddLink, onAddDep, onRmLink, onRmDep, onAddFile, onRmFile, onAddComment, onRmComment, onNav }: DetailPanelProps) {
+export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDelete, onClose, isViewer = false, onAddLink, onAddDep, onRmLink, onRmDep, onAddFile, onRmFile, onAddComment, onRmComment, onNav }: DetailPanelProps) {
   const c = TC[item.type];
   const TABS = [
     ['overview','📋','Info'],
@@ -347,8 +348,8 @@ export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDele
         <div className="flex items-center justify-between mb-2">
           <span className={`rounded-full border px-2 py-0.5 font-bold ${c.bg} ${c.tc} ${c.b}`} style={{ fontSize:11 }}>{c.i} {c.l}</span>
           <div className="flex items-center gap-1">
-            <button onClick={onEdit} className="p-1 rounded hover:bg-white text-gray-400 hover:text-blue-600" style={{ fontSize:13 }}>✏️</button>
-            <button onClick={onDelete} className="p-1 rounded hover:bg-white text-gray-400 hover:text-red-500" style={{ fontSize:13 }}>🗑️</button>
+            {!isViewer&&<button onClick={onEdit} className="p-1 rounded hover:bg-white text-gray-400 hover:text-blue-600" style={{ fontSize:13 }}>✏️</button>}
+            {!isViewer&&<button onClick={onDelete} className="p-1 rounded hover:bg-white text-gray-400 hover:text-red-500" style={{ fontSize:13 }}>🗑️</button>}
             <button onClick={onClose} className="p-1 rounded hover:bg-white text-gray-400 hover:text-gray-700 font-bold" style={{ fontSize:20, lineHeight:1 }}>×</button>
           </div>
         </div>
