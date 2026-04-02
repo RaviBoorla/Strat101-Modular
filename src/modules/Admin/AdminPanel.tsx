@@ -12,7 +12,7 @@ import {
   recordPasswordReset as apiRecordPasswordReset,
   saveInvoice   as apiSaveInvoice,
   updateInvoiceStatus as apiUpdateInvoiceStatus,
-} from "../../lib/adminapi";
+} from "../../lib/adminApi";
 
 const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
   { key:'kanban',    label:'Kanban',     icon:'Kanban'    },
