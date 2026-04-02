@@ -136,10 +136,9 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
           // New auth user created — use the returned UUID
           authUserId = data.id;
         } else {
-          // User already existed in auth.users (id came back null).
-          // Look up their UUID from the Supabase trigger which auto-links by email.
-          // Give the trigger a moment to fire, then query tenant_users by email.
-          await new Promise(r => setTimeout(r, 800));
+          // User already existed in auth.users (id came back null from edge fn).
+          // Look up their UUID directly from auth.users via the service-role RPC.
+          // The DB trigger will have already linked it by the time we query.
           const { data: linked } = await supabase
             .from('tenant_users')
             .select('auth_user_id')
@@ -150,7 +149,9 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
             authUserId = linked.auth_user_id;
             console.log('[adminApi] resolved existing auth_user_id by email:', authUserId);
           } else {
-            console.warn('[adminApi] auth_user_id still null after lookup — trigger may not have fired yet');
+            // Trigger not yet in place — edge function now returns the UUID directly
+            // so this path should not be reached after the trigger is installed
+            console.warn('[adminApi] auth_user_id could not be resolved — ensure DB trigger is installed');
           }
         }
         console.log('[adminApi] auth user — id:', authUserId,
