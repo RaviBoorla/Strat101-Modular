@@ -12,7 +12,7 @@ import {
   recordPasswordReset as apiRecordPasswordReset,
   saveInvoice   as apiSaveInvoice,
   updateInvoiceStatus as apiUpdateInvoiceStatus,
-} from "../../lib/adminApi";
+} from "../../lib/adminapi";
 
 const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
   { key:'kanban',    label:'Kanban',     icon:'Kanban'    },
@@ -660,13 +660,12 @@ function TenantRow({tenant,onEdit,onToggleActive,onPreview,onManage}:{tenant:Ten
 
 // ── ADMIN PANEL ROOT ─────────────────────────────────────────────────────────
 export interface AdminPanelProps {
-  initialTenants:  Tenant[];
   loggedUser:      string;
   onPreviewTenant: (tenant: Tenant) => void;
 }
 
-export default function AdminPanel({initialTenants,loggedUser,onPreviewTenant}:AdminPanelProps){
-  const [tenants,    setTenants]    = useState<Tenant[]>(initialTenants);
+export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps){
+  const [tenants,    setTenants]    = useState<Tenant[]>([]);
   const [managing,   setManaging]   = useState<Tenant|null>(null);
   const [editing,    setEditing]    = useState<Tenant|null|'new'>(null);
   const [confirmDel, setConfirmDel] = useState<string|null>(null);
@@ -681,15 +680,15 @@ export default function AdminPanel({initialTenants,loggedUser,onPreviewTenant}:A
     setDbLoading(true); setDbError(null);
     try {
       const live = await fetchTenants();
-      // If Supabase returned data use it; otherwise fall back to seed data
-      setTenants(live.length > 0 ? live : initialTenants);
+      setTenants(live);
     } catch(e:any) {
+      console.error('[AdminPanel] fetchTenants failed:', e.message);
       setDbError(e.message);
-      setTenants(initialTenants);  // fallback so UI is never empty
+      // Do NOT fall back to seed data — show the real error
     } finally {
       setDbLoading(false);
     }
-  }, [initialTenants]);
+  }, []);
 
   useEffect(() => { reload(); }, [reload]);
 
