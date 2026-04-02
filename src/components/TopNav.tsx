@@ -86,13 +86,17 @@ interface TopNavProps {
   isAdmin:           boolean;   // kept for API compatibility — not used in nav
   features:          TenantFeatures;
   onSignOut:         () => void;
-  isViewer?:         boolean;
+  isViewer?:          boolean;
+  onSwitchToAdmin?:   () => void;
+  onOpenGlobalAdmin?:  () => void;
+  onOpenLocalAdmin?: () => void;
 }
 
 export default function TopNav({
   view, setView, items, onNavItem, onCreateNew,
   workItemFilter, setWorkItemFilter, onNew,
-  loggedUser, features, onSignOut, isViewer = false,
+  loggedUser, features, onSignOut, isViewer = false, onSwitchToAdmin,
+  onOpenGlobalAdmin, onOpenLocalAdmin,
 }: TopNavProps) {
   const [wiOpen,     setWiOpen]   = useState(false);
   const [createOpen, setCreate]   = useState(false);
@@ -252,6 +256,20 @@ export default function TopNav({
                 <div style={{fontSize:9,color:'#dc2626',fontWeight:600}}>Sign out</div>
               </div>
             </button>
+            {onOpenGlobalAdmin&&(
+              <button onClick={onOpenGlobalAdmin}
+                title="Global Admin"
+                style={{width:30,height:30,borderRadius:8,border:'1px solid rgba(0,60,120,0.2)',background:'rgba(239,68,68,0.1)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14}}>
+                ⚡
+              </button>
+            )}
+            {onOpenLocalAdmin&&(
+              <button onClick={onOpenLocalAdmin}
+                title="Local Admin"
+                style={{width:30,height:30,borderRadius:8,border:'1px solid rgba(0,60,120,0.2)',background:'rgba(37,99,235,0.1)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14}}>
+                🏢
+              </button>
+            )}
           </div>
         </div>
       </div>
