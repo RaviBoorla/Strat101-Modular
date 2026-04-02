@@ -21,7 +21,7 @@ export const PLAN_LIMITS = {
 
 // Monthly price in GBP pence
 export const PLAN_PRICE: Record<string, number> = {
-  Lite:       0
+  Lite:       0,
   Starter:    9,
   Pro:        15,
   Enterprise: 18,
