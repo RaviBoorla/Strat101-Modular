@@ -1,5 +1,5 @@
 // api/create-user.ts — Vercel Edge Function
-// Creates a Supabase auth user and sends them a password setup email.
+// Creates a Supabase auth user and sends an invitation email.
 // Uses the service role key server-side — never exposed to the browser.
 
 export const config = { runtime: 'edge' };
@@ -11,7 +11,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseUrl    = process.env.VITE_SUPABASE_URL;
-  const appUrl         = process.env.VITE_APP_URL ?? 'https://strat101.vercel.app';
+  const appUrl         = (process.env.VITE_APP_URL ?? 'https://strat101.vercel.app').replace(/\/$/, '');
 
   if (!serviceRoleKey || !supabaseUrl) {
     return new Response(
@@ -38,101 +38,113 @@ export default async function handler(req: Request): Promise<Response> {
     );
   }
 
-  const headers = {
+  const adminHeaders = {
     'Content-Type':  'application/json',
     'Authorization': `Bearer ${serviceRoleKey}`,
     'apikey':        serviceRoleKey,
   };
 
+  // ── OPTION A: Send invitation email (user sets own password) ────────────────
   if (sendInvite) {
-    // ── Option A: Send invitation email — user sets their own password ─────────
-    // First create the user
-    const createRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        email,
-        email_confirm:  true,
-        user_metadata:  { username, full_name: fullName },
-        // Set a random temp password — user will overwrite via invite link
-        password: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2).toUpperCase() + '!1',
-      }),
-    });
 
-    const createData = await createRes.json();
-    if (!createRes.ok) {
-      return new Response(
-        JSON.stringify({ error: createData.msg ?? createData.message ?? 'Failed to create user.' }),
-        { status: createRes.status, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const authUserId = createData.id;
-
-    // Generate a password recovery link so the user can set their own password
-    const linkRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${authUserId}`, {
-      method:  'PUT',
-      headers,
-      body: JSON.stringify({ email_confirm: true }),
-    });
-
-    // Send magic link / recovery email
-    const recoveryRes = await fetch(`${supabaseUrl}/auth/v1/recover`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': serviceRoleKey,
-      },
-      body: JSON.stringify({
-        email,
-        gotrue_meta_security: {},
-      }),
-    });
-
-    return new Response(
-      JSON.stringify({
-        id:          authUserId,
-        email:       createData.email,
-        inviteSent:  recoveryRes.ok,
-        message:     recoveryRes.ok
-          ? `Account created and password setup email sent to ${email}`
-          : `Account created but email could not be sent. Share credentials manually.`,
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    // Step 1 — Use the Admin generateLink API to create an invite link
+    // This creates the auth user AND generates a signup confirmation link
+    // in one call, and Supabase sends the email automatically using
+    // the configured SMTP and the "Invite" email template.
+    const inviteRes = await fetch(
+      `${supabaseUrl}/auth/v1/admin/generate_link`,
+      {
+        method: 'POST',
+        headers: adminHeaders,
+        body: JSON.stringify({
+          type:        'invite',
+          email,
+          options: {
+            data:         { username, full_name: fullName },
+            redirect_to:  `${appUrl}/`,
+          },
+        }),
+      }
     );
 
-  } else {
-    // ── Option B: Admin sets password directly — no email sent ────────────────
-    if (!password) {
+    const inviteData = await inviteRes.json();
+
+    if (!inviteRes.ok) {
+      // If user already exists, try sending a recovery email instead
+      if (inviteData.code === 'email_exists' || inviteData.msg?.includes('already')) {
+        const recoverRes = await fetch(
+          `${supabaseUrl}/auth/v1/admin/generate_link`,
+          {
+            method: 'POST',
+            headers: adminHeaders,
+            body: JSON.stringify({
+              type:  'recovery',
+              email,
+              options: { redirect_to: `${appUrl}/` },
+            }),
+          }
+        );
+        const recoverData = await recoverRes.json();
+        if (recoverRes.ok) {
+          return new Response(
+            JSON.stringify({
+              id:         recoverData.user?.id ?? null,
+              email,
+              inviteSent: true,
+              message:    `Password reset email sent to ${email}`,
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+      }
       return new Response(
-        JSON.stringify({ error: 'Password required when not sending invite.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: inviteData.msg ?? inviteData.message ?? inviteData.error_description ?? 'Failed to send invite.' }),
+        { status: inviteRes.status, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        email,
-        password,
-        email_confirm:  true,
-        user_metadata:  { username, full_name: fullName },
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      return new Response(
-        JSON.stringify({ error: data.msg ?? data.message ?? 'Failed to create auth user.' }),
-        { status: res.status, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
+    // inviteData contains: action_link, email_otp, hashed_token, redirect_to, verification_type, user
     return new Response(
-      JSON.stringify({ id: data.id, email: data.email, inviteSent: false }),
+      JSON.stringify({
+        id:         inviteData.user?.id ?? null,
+        email,
+        inviteSent: true,
+        message:    `Invitation email sent to ${email}`,
+      }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   }
+
+  // ── OPTION B: Admin sets password — no email sent ───────────────────────────
+  if (!password) {
+    return new Response(
+      JSON.stringify({ error: 'Password required when not sending invite.' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const createRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: adminHeaders,
+    body: JSON.stringify({
+      email,
+      password,
+      email_confirm:  true,
+      user_metadata:  { username, full_name: fullName },
+    }),
+  });
+
+  const createData = await createRes.json();
+
+  if (!createRes.ok) {
+    return new Response(
+      JSON.stringify({ error: createData.msg ?? createData.message ?? 'Failed to create auth user.' }),
+      { status: createRes.status, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  return new Response(
+    JSON.stringify({ id: createData.id, email: createData.email, inviteSent: false }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  );
 }
