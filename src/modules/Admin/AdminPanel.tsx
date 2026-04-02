@@ -325,7 +325,8 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
                   <button onClick={()=>setHistModal(u)}  style={{padding:'4px 8px',borderRadius:5,border:'1px solid #e2e8f0',background:'white',fontSize:10,cursor:'pointer',color:'#374151'}}>History</button>
                   <button onClick={()=>setResetModal(u)} style={{padding:'4px 8px',borderRadius:5,border:'1px solid #fde68a',background:'#fffbeb',fontSize:10,cursor:'pointer',color:'#92400e'}}>Reset Pwd</button>
                   <button onClick={()=>setUserModal(u)}  style={{padding:'4px 8px',borderRadius:5,border:'1px solid #e2e8f0',background:'white',fontSize:10,cursor:'pointer',color:'#374151'}}>Edit</button>
-                  <button onClick={()=>setConfirmDel(u.id)} style={{padding:'4px 8px',borderRadius:5,border:'1px solid #fecaca',background:'#fef2f2',fontSize:10,cursor:'pointer',color:'#dc2626'}}>&times;</button>
+                  {!['raviboorla'].includes(u.username?.toLowerCase()??'') &&
+                  <button onClick={()=>setConfirmDel(u.id)} style={{padding:'4px 8px',borderRadius:5,border:'1px solid #fecaca',background:'#fef2f2',fontSize:10,cursor:'pointer',color:'#dc2626'}}>&times;</button>}
                 </div>
               </div>
               {u.mustChangePwd&&u.passwordResetAt&&(
