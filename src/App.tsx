@@ -539,9 +539,10 @@ export default function App() {
   const [checking,   setChecking]   = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }: { data: { session: Session | null } }) => {
       if (session?.user) {
-        setLoggedUser(resolveUsername(session.user.email ?? ''));
+        const username = await resolveUsernameFromEmail(session.user.email ?? '');
+        setLoggedUser(username);
         setLoggedIn(true);
       }
       setChecking(false);
@@ -550,8 +551,10 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event: AuthChangeEvent, session: Session | null) => {
         if (session?.user) {
-          setLoggedUser(resolveUsername(session.user.email ?? ''));
-          setLoggedIn(true);
+          resolveUsernameFromEmail(session.user.email ?? '').then(username => {
+            setLoggedUser(username);
+            setLoggedIn(true);
+          });
         } else {
           setLoggedIn(false);
           setLoggedUser('');
@@ -581,10 +584,14 @@ export default function App() {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-function resolveUsername(email: string): string {
-  const map: Record<string, string> = {
-    'stratadmin@strat101.com': 'stratadmin',
-    'raviboorla@strat101.com': 'raviboorla',
-  };
-  return map[email.toLowerCase()] ?? email.split('@')[0];
+// Resolve a Supabase auth email back to the username stored in tenant_users.
+// Falls back to the local part of the email (e.g. "raviboorla") if not found,
+// which is always correct for stratadmin since it has no tenant_users row.
+async function resolveUsernameFromEmail(email: string): Promise<string> {
+  const { data } = await supabase
+    .from('tenant_users')
+    .select('username')
+    .eq('email', email.toLowerCase())
+    .single();
+  return data?.username ?? email.split('@')[0];
 }
