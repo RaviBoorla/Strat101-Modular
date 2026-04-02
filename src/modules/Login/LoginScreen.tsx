@@ -319,7 +319,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   {loading ? 'Signing in\u2026' : 'Sign In \u2192'}
                 </button>
                 <div style={{textAlign:'center',fontSize:12,color:'#64748b'}}>
-                  Don\u2019t have an account?{' '}
+                  Don't have an account?{' '}
                   <button onClick={()=>switchMode('register')} style={{background:'none',border:'none',color:'#60a5fa',fontWeight:600,cursor:'pointer',fontSize:12,padding:0}}>Create one</button>
                 </div>
               </>
