@@ -148,7 +148,7 @@ export default function TopNav({
           <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:11,letterSpacing:'-0.5px',flexShrink:0,boxShadow:'0 2px 6px rgba(37,99,235,0.3)'}}>SA</div>
           {!isMobile&&<div>
             <div style={{fontWeight:900,fontSize:14,color:'#0c2d4a',letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
-            <div style={{fontSize:8,color:'#1a5276',letterSpacing:'0.04em',marginTop:1}}>ENABLING TRANSFORMATION</div>
+            <div style={{fontSize:8,color:'#1a5276',letterSpacing:'0.04em',marginTop:1}}>ENABLING TRANSFORMATION JOURNEYS</div>
           </div>}
         </div>
 
