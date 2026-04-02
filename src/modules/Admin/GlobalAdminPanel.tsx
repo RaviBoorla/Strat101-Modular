@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { Tenant, TenantUser, TenantFeatures, FeatureKey, UserRole, Subscription, Invoice, SubStatus } from "../../types";
 import { gId, td, tsNow } from "../../utils";
-import { PLAN_LIMITS, PLAN_PRICE } from "../../adminData";
+import { PLAN_LIMITS, PLAN_PRICE } from "../../globalAdminData";
 import {
   fetchTenants,
   saveTenant    as apiSaveTenant,
