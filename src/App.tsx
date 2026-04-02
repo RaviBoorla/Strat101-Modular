@@ -203,10 +203,10 @@ function PreviewBanner({ tenant, onExit }: { tenant: Tenant; onExit: () => void 
 // ─── WORKSPACE ────────────────────────────────────────────────────────────────
 
 function Workspace({
-  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut,
+  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut, userRole = 'editor',
 }: {
   loggedUser: string; isAdmin: boolean; features: TenantFeatures;
-  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void;
+  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void; userRole?: string;
 }) {
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -253,6 +253,7 @@ function Workspace({
   useEffect(() => { setView('kanban'); setSel(null); }, [features]);
 
   const LOGGED_IN = loggedUser || 'user';
+  const isViewer  = userRole === 'viewer';
   const stamp = (it: any) => ({ ...it, updatedAt: tsNow(), updatedBy: LOGGED_IN });
 
   const applyAndPersist = async (updated: any) => {
@@ -276,6 +277,7 @@ function Workspace({
   };
 
   const upsert = async (it: any) => {
+    if (isViewer) return;
     const s = stamp(it);
     await applyAndPersist(s);
     setForm(null); setSel(s.id);
@@ -392,6 +394,7 @@ function Workspace({
   const nav    = (id: string) => { const it = items.find(i => i.id === id); if (it) { setView(it.type); setSel(id); setDtab('overview'); } };
   const goView = (v: string)  => { setView(v); setSel(null); };
   const createAndOpen = (type: string) => {
+    if (isViewer) return;
     const blank = mkBlank(type, items);
     setItems(p => [...p, blank]);
     setForm({ ...blank, _autoSave: true });
@@ -409,7 +412,7 @@ function Workspace({
         {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
         <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}} onCreateNew={()=>{}}
           workItemFilter={workItemFilter} setWorkItemFilter={setWIF} onNew={()=>{}}
-          loggedUser={loggedUser} isAdmin={false} features={features} onSignOut={onSignOut}/>
+          loggedUser={loggedUser} isAdmin={false} features={features} onSignOut={onSignOut} isViewer={isViewer}/>
         <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{ textAlign:'center' }}>
             <div style={{ fontSize:32, marginBottom:12 }}>&#9203;</div>
@@ -425,7 +428,7 @@ function Workspace({
       {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
       <TopNav view={view} setView={goView} items={items} onNavItem={id => nav(id)}
         onCreateNew={createAndOpen} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
-        onNew={() => isListView && setForm(mkBlank(view, items))}
+        onNew={() => !isViewer && isListView && setForm(mkBlank(view, items))}
         loggedUser={loggedUser} isAdmin={false} features={features} onSignOut={onSignOut}/>
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 flex flex-col min-w-0">
@@ -443,7 +446,7 @@ function Workspace({
                 <div style={{ fontSize:48 }}>&#128274;</div>
                 <div style={{ fontSize:15, fontWeight:700, color:'#374151' }}>Module Not Enabled</div>
                 <div style={{ fontSize:12, color:'#94a3b8', textAlign:'center', maxWidth:300, lineHeight:1.6 }}>
-                  This module is disabled for this tenant. Enable it in Admin Console \u2192 Features.
+                  This module is disabled for this tenant. Enable it in Super Admin Console \u2192 Features.
                 </div>
               </div>
             )}
@@ -543,7 +546,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         <div style={{ background:'#1e293b', padding:'0 20px', height:44, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div style={{ width:26, height:26, borderRadius:6, background:'linear-gradient(135deg,#f59e0b,#ef4444)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>&#9881;&#65039;</div>
-            <span style={{ fontSize:13, fontWeight:700, color:'white', letterSpacing:'-0.2px' }}>Strat101 Admin</span>
+            <span style={{ fontSize:13, fontWeight:700, color:'white', letterSpacing:'-0.2px' }}>Super Super Admin Console</span>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:16 }}>
             <span style={{ fontSize:11, color:'#94a3b8' }}>
@@ -569,6 +572,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         features={features} previewTenant={previewTenant}
         onExitPreview={handleExitPreview} tenantId={activeTenantId}
         onSignOut={handleSignOut}
+        userRole={userRole}
       />
     </div>
   );
