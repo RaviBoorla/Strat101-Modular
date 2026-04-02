@@ -28,7 +28,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     // Resolve email from username
     const email = USERNAME_TO_EMAIL[username];
     if (!email) {
-      setErr('Invalid User ID or Password. Please try again.');
+      setErr(error.message);
       setLoading(false);
       return;
     }
@@ -37,7 +37,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     const { error } = await supabase.auth.signInWithPassword({ email, password: pwd });
 
     if (error) {
-      setErr('Invalid User ID or Password. Please try again.');
+      setErr(error.message);
       setLoading(false);
     } else {
       onLogin(username);
