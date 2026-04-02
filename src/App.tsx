@@ -91,7 +91,8 @@ async function loadItems(tenantId: string): Promise<any[]> {
 }
 
 async function persistItem(item: any, tenantId: string): Promise<void> {
-  const { error } = await supabase.from('work_items').upsert({
+  console.log('[PERSIST] called — tenantId:', tenantId, '| id:', item.id, '| type:', item.type, '| title:', item.title);
+  const { data, error, status, statusText } = await supabase.from('work_items').upsert({
     id: item.id, tenant_id: tenantId, key: item.key, type: item.type,
     title:             item.title            || '',
     description:       item.description      || null,
@@ -116,7 +117,12 @@ async function persistItem(item: any, tenantId: string): Promise<void> {
     updated_at:     new Date().toISOString(),
     updated_by:     item.updatedBy     || null,
   });
-  if (error) console.error('[DB] persistItem failed:', error.message);
+  console.log('[PERSIST] result — status:', status, statusText, '| error:', error, '| data:', data);
+  if (error) {
+    console.error('[PERSIST] FAILED:', error.message, '| code:', error.code, '| hint:', error.hint, '| details:', error.details);
+  } else {
+    console.log('[PERSIST] SUCCESS — rows saved:', data);
+  }
 }
 
 async function deleteItem(id: string): Promise<void> {
@@ -249,13 +255,17 @@ function Workspace({
   const stamp = (it: any) => ({ ...it, updatedAt: tsNow(), updatedBy: LOGGED_IN });
 
   const applyAndPersist = async (updated: any) => {
+    console.log('[APPLY] tenantId at save time:', tenantId, '| loggedUser:', loggedUser, '| isAdmin:', isAdmin);
     setItems(p => p.some(x => x.id === updated.id)
       ? p.map(x => x.id === updated.id ? updated : x)
       : [...p, updated]);
     if (tenantId) {
+      console.log('[APPLY] tenantId is set — calling persistItem');
       await persistItem(updated, tenantId);
       await syncLinks(updated.id, updated.links, tenantId);
       await syncDeps(updated.id, updated.dependencies, tenantId);
+    } else {
+      console.warn('[APPLY] tenantId is NULL — item saved locally only, NOT written to Supabase');
     }
   };
 
@@ -472,17 +482,25 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   const [tenantId,      setTenantId]      = useState<string | null>(null);
 
   useEffect(() => {
-    if (isAdmin) { setTenantId(null); return; }
+    // Always resolve tenantId for ALL users including admin.
+    // Admin needs a tenantId for their own workspace when not in preview mode.
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
-      if (!user) return;
+      console.log('[TENANT] getUser result — uid:', user?.id, '| email:', user?.email);
+      if (!user) { console.warn('[TENANT] no auth user — tenantId stays null'); return; }
       supabase
         .from('tenant_users')
         .select('tenant_id')
         .eq('auth_user_id', user.id)
         .eq('active', true)
         .single()
-        .then(({ data }: { data: any }) => {
-          if (data?.tenant_id) setTenantId(data.tenant_id as string);
+        .then(({ data, error }: { data: any; error: any }) => {
+          console.log('[TENANT] tenant_users lookup — data:', data, '| error:', error);
+          if (data?.tenant_id) {
+            console.log('[TENANT] resolved tenantId:', data.tenant_id);
+            setTenantId(data.tenant_id as string);
+          } else {
+            console.warn('[TENANT] no tenant_users row found for auth_user_id:', user.id);
+          }
         });
     });
   }, [isAdmin]);
