@@ -3,7 +3,7 @@
 
 import { TC, TL } from '../constants';
 
-export const gId   = () => Math.random().toString(36).slice(2,9);
+export const gId   = () => crypto.randomUUID();
 export const td    = () => new Date().toISOString().split('T')[0];
 export const tsNow = () => new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 export const gKey  = (t: string, items: any[]) => `${TC[t].p}-${String(items.filter((i:any)=>i.type===t).length+1).padStart(4,'0')}`;
