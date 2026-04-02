@@ -10,7 +10,7 @@ export interface TenantFeatures {
   reports:   boolean;
 }
 
-export type UserRole = 'admin' | 'tenant_admin' | 'editor' | 'viewer';
+export type UserRole = 'admin' | 'local_admin' | 'editor' | 'viewer';
 
 export interface LoginEvent {
   ts:     string;   // ISO datetime
