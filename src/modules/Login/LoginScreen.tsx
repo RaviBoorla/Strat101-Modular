@@ -28,16 +28,16 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     // Resolve email from username
     const email = USERNAME_TO_EMAIL[username];
     if (!email) {
-      setErr(error.message);
+      setErr('Invalid User ID or Password. Please try again.');
       setLoading(false);
       return;
     }
 
     // Authenticate with Supabase
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pwd });
+    const { error: authError } = await supabase.auth.signInWithPassword({ email, password: pwd });
 
-    if (error) {
-      setErr(error.message);
+    if (authError) {
+      setErr('Invalid User ID or Password. Please try again.');
       setLoading(false);
     } else {
       onLogin(username);
