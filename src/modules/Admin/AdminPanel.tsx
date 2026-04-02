@@ -1,7 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Tenant, TenantUser, TenantFeatures, FeatureKey, UserRole, Subscription, Invoice, SubStatus } from "../../types";
 import { gId, td, tsNow } from "../../utils";
 import { PLAN_LIMITS, PLAN_PRICE } from "../../adminData";
+import {
+  fetchTenants,
+  saveTenant    as apiSaveTenant,
+  suspendTenant as apiSuspendTenant,
+  deleteTenant  as apiDeleteTenant,
+  saveUser      as apiSaveUser,
+  deleteUser    as apiDeleteUser,
+  recordPasswordReset as apiRecordPasswordReset,
+  saveInvoice   as apiSaveInvoice,
+  updateInvoiceStatus as apiUpdateInvoiceStatus,
+} from "../../lib/adminApi";
 
 const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
   { key:'kanban',    label:'Kanban',     icon:'Kanban'    },
@@ -212,9 +223,23 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
   const [resetModal, setResetModal] = useState<TenantUser|null>(null);
   const [histModal,  setHistModal]  = useState<TenantUser|null>(null);
   const [confirmDel, setConfirmDel] = useState<string|null>(null);
-  const saveUser=(u:TenantUser)=>{onUpdate({...tenant,users:tenant.users.some(x=>x.id===u.id)?tenant.users.map(x=>x.id===u.id?u:x):[...tenant.users,u]});setUserModal(null);};
-  const applyReset=(u:TenantUser)=>{onUpdate({...tenant,users:tenant.users.map(x=>x.id===u.id?u:x)});setResetModal(null);};
-  const delUser=(id:string)=>{onUpdate({...tenant,users:tenant.users.filter(u=>u.id!==id)});setConfirmDel(null);};
+  const saveUser=async(u:TenantUser)=>{
+    const updated={...tenant,users:tenant.users.some(x=>x.id===u.id)?tenant.users.map(x=>x.id===u.id?u:x):[...tenant.users,u]};
+    onUpdate(updated);
+    setUserModal(null);
+    await apiSaveUser(u, tenant.id);
+  };
+  const applyReset=async(u:TenantUser)=>{
+    const updated={...tenant,users:tenant.users.map(x=>x.id===u.id?u:x)};
+    onUpdate(updated);
+    setResetModal(null);
+    if(u.tempPassword) await apiRecordPasswordReset(u.id, u.tempPassword);
+  };
+  const delUser=async(id:string)=>{
+    onUpdate({...tenant,users:tenant.users.filter(u=>u.id!==id)});
+    setConfirmDel(null);
+    await apiDeleteUser(id);
+  };
   return(
     <>
       <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
@@ -323,10 +348,12 @@ function SubscriptionTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>v
   const [planLocal,  setPlanLocal]  =useState<Tenant['plan']>(tenant.plan);
   const [trialEnd,   setTrialEnd]   =useState(sub.trialEnd||'');
 
-  const saveSub=()=>{
+  const saveSub=async()=>{
     const lim=PLAN_LIMITS[planLocal];
-    onUpdate({...tenant,plan:planLocal,subscription:{...sub,status,billingName:billingName.trim(),billingEmail:billingEmail.trim(),vatId:vatId.trim(),cardLast4:cardLast4.slice(-4),cardExpiry:cardExpiry.trim(),autoRenew,trialEnd:trialEnd||sub.trialEnd,itemLimit:lim.items,userLimit:lim.users,aiCallLimit:lim.aiCalls}});
+    const updatedTenant={...tenant,plan:planLocal,subscription:{...sub,status,billingName:billingName.trim(),billingEmail:billingEmail.trim(),vatId:vatId.trim(),cardLast4:cardLast4.slice(-4),cardExpiry:cardExpiry.trim(),autoRenew,trialEnd:trialEnd||sub.trialEnd,itemLimit:lim.items,userLimit:lim.users,aiCallLimit:lim.aiCalls}};
+    onUpdate(updatedTenant);
     setEditing(false);
+    await apiSaveTenant(updatedTenant);
   };
 
   const monthlyPrice=PLAN_PRICE[tenant.plan];
@@ -426,15 +453,18 @@ function InvoicesTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}
   const [iPer,  setIPer] =useState('');
   const [iSt,   setISt]  =useState<Invoice['status']>('unpaid');
 
-  const addInvoice=()=>{
+  const addInvoice=async()=>{
     if(!iDate||!iAmt||!iPer) return;
     const inv:Invoice={id:gId(),date:iDate,amount:Math.round(parseFloat(iAmt)*100),status:iSt,period:iPer};
     onUpdate({...tenant,subscription:{...tenant.subscription,invoices:[inv,...invoices]}});
     setAdding(false);setIDate(td());setIAmt('');setIPer('');setISt('unpaid');
+    await apiSaveInvoice(inv, tenant.id);
   };
 
-  const updateStatus=(id:string,status:Invoice['status'])=>
+  const updateStatus=async(id:string,status:Invoice['status'])=>{
     onUpdate({...tenant,subscription:{...tenant.subscription,invoices:invoices.map(i=>i.id===id?{...i,status}:i)}});
+    await apiUpdateInvoiceStatus(id, status);
+  };
 
   const totalPaid=invoices.filter(i=>i.status==='paid').reduce((s,i)=>s+i.amount,0);
   const totalDue =invoices.filter(i=>i.status!=='paid').reduce((s,i)=>s+i.amount,0);
@@ -643,10 +673,57 @@ export default function AdminPanel({initialTenants,loggedUser,onPreviewTenant}:A
   const [search,     setSearch]     = useState('');
   const [filterPlan, setFilterPlan] = useState('all');
   const [filterSub,  setFilterSub]  = useState('all');
+  const [dbLoading,  setDbLoading]  = useState(true);
+  const [dbError,    setDbError]    = useState<string|null>(null);
 
-  const updateTenant=(t:Tenant)=>{setTenants(p=>p.map(x=>x.id===t.id?t:x));if(managing?.id===t.id) setManaging(t);};
-  const saveTenant  =(t:Tenant)=>{setTenants(p=>p.some(x=>x.id===t.id)?p.map(x=>x.id===t.id?t:x):[...p,t]);setEditing(null);};
-  const deleteTenant=(id:string)=>{setTenants(p=>p.filter(t=>t.id!==id));if(managing?.id===id) setManaging(null);setConfirmDel(null);};
+  // ── Load live data from Supabase on mount ──────────────────────────────────
+  const reload = useCallback(async () => {
+    setDbLoading(true); setDbError(null);
+    try {
+      const live = await fetchTenants();
+      // If Supabase returned data use it; otherwise fall back to seed data
+      setTenants(live.length > 0 ? live : initialTenants);
+    } catch(e:any) {
+      setDbError(e.message);
+      setTenants(initialTenants);  // fallback so UI is never empty
+    } finally {
+      setDbLoading(false);
+    }
+  }, [initialTenants]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  // ── Optimistic update helper ───────────────────────────────────────────────
+  const applyUpdate = (t:Tenant) => {
+    setTenants(p=>p.map(x=>x.id===t.id?t:x));
+    if(managing?.id===t.id) setManaging(t);
+  };
+
+  // ── Tenant mutations — write to DB then update local state ─────────────────
+  const updateTenant = async (t:Tenant) => {
+    applyUpdate(t);
+    await apiSaveTenant(t);
+  };
+
+  const saveTenant = async (t:Tenant) => {
+    setTenants(p=>p.some(x=>x.id===t.id)?p.map(x=>x.id===t.id?t:x):[...p,t]);
+    setEditing(null);
+    await apiSaveTenant(t);
+  };
+
+  const deleteTenant = async (id:string) => {
+    setTenants(p=>p.filter(t=>t.id!==id));
+    if(managing?.id===id) setManaging(null);
+    setConfirmDel(null);
+    await apiDeleteTenant(id);
+  };
+
+  // ── Toggle active / suspend — dedicated API call ───────────────────────────
+  const toggleActive = async (t:Tenant) => {
+    const updated = {...t, active:!t.active};
+    applyUpdate(updated);
+    await apiSuspendTenant(t.id, !t.active);
+  };
 
   const filtered=tenants.filter(t=>{
     const ms=t.name.toLowerCase().includes(search.toLowerCase())||t.slug.includes(search.toLowerCase());
@@ -662,10 +739,23 @@ export default function AdminPanel({initialTenants,loggedUser,onPreviewTenant}:A
 
   return(
     <div style={{display:'flex',flexDirection:'column',height:'100%',background:'#f8fafc',fontFamily:'system-ui,sans-serif',fontSize:13}}>
+      {/* ── Loading / error banner ── */}
+      {dbLoading && (
+        <div style={{padding:'8px 20px',background:'#eff6ff',borderBottom:'1px solid #bfdbfe',fontSize:12,color:'#1d4ed8',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+          <span>⏳</span> Loading tenants from database…
+        </div>
+      )}
+      {dbError && (
+        <div style={{padding:'8px 20px',background:'#fef2f2',borderBottom:'1px solid #fecaca',fontSize:12,color:'#dc2626',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+          <span>⚠</span> {dbError} — showing cached data.
+          <button onClick={reload} style={{marginLeft:8,padding:'2px 10px',borderRadius:5,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:11,cursor:'pointer'}}>Retry</button>
+        </div>
+      )}
+
       <div style={{background:'white',borderBottom:'1px solid #e2e8f0',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
         <div>
           <div style={{fontSize:15,fontWeight:700,color:'#111827'}}>Admin Console</div>
-          <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>Logged in as <strong style={{color:'#374151'}}>{loggedUser}</strong> \u00b7 {tenants.length} tenants \u00b7 {totalUsers} users</div>
+          <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>Logged in as <strong style={{color:'#374151'}}>{loggedUser}</strong> · {tenants.length} tenants · {totalUsers} users</div>
         </div>
         <button onClick={()=>setEditing('new')} style={{padding:'7px 14px',borderRadius:8,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>+ New Tenant</button>
       </div>
@@ -711,7 +801,7 @@ export default function AdminPanel({initialTenants,loggedUser,onPreviewTenant}:A
             {filtered.map(t=>(
               <TenantRow key={t.id} tenant={t}
                 onEdit={()=>setEditing(t)}
-                onToggleActive={()=>updateTenant({...t,active:!t.active})}
+                onToggleActive={()=>toggleActive(t)}
                 onPreview={()=>onPreviewTenant(t)}
                 onManage={()=>setManaging(t)}
               />
