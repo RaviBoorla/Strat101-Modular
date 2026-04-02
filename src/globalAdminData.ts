@@ -13,15 +13,13 @@ export function isGlobalAdminUser(username: string): boolean {
 
 // Plan limits — mirrors what is enforced in the DB and displayed in admin UI
 export const PLAN_LIMITS = {
-  Lite:       { items: 100,   users: 5,   aiCalls: 0    },
   Starter:    { items: 300,   users: 7,   aiCalls: 0    },
   Pro:        { items: 1000,  users: 25,  aiCalls: 999  },
   Enterprise: { items: 9999,  users: 100, aiCalls: 4999 },
 };
 
-// Monthly price in GBP pence
+// Monthly price in USD
 export const PLAN_PRICE: Record<string, number> = {
-  Lite:       0,
   Starter:    9,
   Pro:        15,
   Enterprise: 18,
