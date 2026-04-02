@@ -13,7 +13,8 @@ import WorkItemsView, { ListView } from "./modules/WorkItems/WorkItemsView";
 import KanbanBoard   from "./modules/Kanban/KanbanBoard";
 import ItemForm, { LinkDlg } from "./modules/Create/ItemForm";
 import ReportBuilder from "./modules/Reports/ReportBuilder";
-import AdminPanel    from "./modules/Admin/AdminPanel";
+import AdminPanel       from "./modules/Admin/AdminPanel";
+import TenantAdminPanel from "./modules/Admin/TenantAdminPanel";
 
 import TopNav         from "./components/TopNav";
 import DetailPanel    from "./components/DetailPanel";
@@ -477,29 +478,27 @@ function Workspace({
 
 function AppMain({ loggedUser }: { loggedUser: string }) {
   const isAdmin = isAdminUser(loggedUser);
-  const [screen,        setScreen]        = useState<'admin'|'workspace'>(isAdmin ? 'admin' : 'workspace');
-  const [previewTenant, setPreviewTenant] = useState<Tenant | null>(null);
-  const [tenantId,      setTenantId]      = useState<string | null>(null);
+  const [screen,         setScreen]         = useState<'admin'|'workspace'>(isAdmin ? 'admin' : 'workspace');
+  const [previewTenant,  setPreviewTenant]  = useState<Tenant | null>(null);
+  const [tenantId,       setTenantId]       = useState<string | null>(null);
   const [tenantFeatures, setTenantFeatures] = useState<TenantFeatures>(ALL_FEATURES);
+  const [userRole,       setUserRole]       = useState<string>('editor');
 
   useEffect(() => {
-    // Resolve tenantId AND tenant features for ALL users including admin.
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
-      console.log('[TENANT] getUser result — uid:', user?.id, '| email:', user?.email);
-      if (!user) { console.warn('[TENANT] no auth user — tenantId stays null'); return; }
+      if (!user) return;
       supabase
         .from('tenant_users')
-        .select('tenant_id')
+        .select('tenant_id, role')
         .eq('auth_user_id', user.id)
         .eq('active', true)
         .single()
-        .then(async ({ data, error }: { data: any; error: any }) => {
-          console.log('[TENANT] tenant_users lookup — data:', data, '| error:', error);
+        .then(async ({ data }: { data: any }) => {
           if (data?.tenant_id) {
-            console.log('[TENANT] resolved tenantId:', data.tenant_id);
             setTenantId(data.tenant_id as string);
+            setUserRole(data.role ?? 'editor');
 
-            // Load actual tenant features from the tenants table
+            // Load tenant features
             const { data: tenant } = await supabase
               .from('tenants')
               .select('feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports')
@@ -507,18 +506,14 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
               .single();
 
             if (tenant) {
-              const features: TenantFeatures = {
+              setTenantFeatures({
                 kanban:    tenant.feat_kanban    ?? true,
                 workitems: tenant.feat_workitems ?? true,
                 create:    tenant.feat_create    ?? true,
                 bot:       tenant.feat_bot       ?? true,
                 reports:   tenant.feat_reports   ?? true,
-              };
-              console.log('[TENANT] features loaded:', features);
-              setTenantFeatures(features);
+              });
             }
-          } else {
-            console.warn('[TENANT] no tenant_users row found for auth_user_id:', user.id);
           }
         });
     });
@@ -527,11 +522,20 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   const handlePreview     = (tenant: Tenant) => { setPreviewTenant(tenant); setScreen('workspace'); };
   const handleExitPreview = ()                => { setPreviewTenant(null);  setScreen('admin');     };
 
-  // Use preview tenant features if previewing, otherwise use real tenant features
   const features: TenantFeatures      = previewTenant ? previewTenant.features : tenantFeatures;
   const activeTenantId: string | null = previewTenant ? previewTenant.id : tenantId;
-
   const handleSignOut = async () => { await supabase.auth.signOut(); };
+
+  // ── Route: Tenant Admin ────────────────────────────────────────────────────
+  if (!isAdmin && userRole === 'tenant_admin' && tenantId) {
+    return (
+      <TenantAdminPanel
+        loggedUser={loggedUser}
+        tenantId={tenantId}
+        onSignOut={handleSignOut}
+      />
+    );
+  }
 
   if (screen === 'admin') {
     return (
