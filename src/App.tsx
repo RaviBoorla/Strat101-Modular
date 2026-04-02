@@ -202,10 +202,10 @@ function PreviewBanner({ tenant, onExit }: { tenant: Tenant; onExit: () => void 
 // ─── WORKSPACE ────────────────────────────────────────────────────────────────
 
 function Workspace({
-  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId,
+  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut,
 }: {
   loggedUser: string; isAdmin: boolean; features: TenantFeatures;
-  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null;
+  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void;
 }) {
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -408,7 +408,7 @@ function Workspace({
         {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
         <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}} onCreateNew={()=>{}}
           workItemFilter={workItemFilter} setWorkItemFilter={setWIF} onNew={()=>{}}
-          loggedUser={loggedUser} isAdmin={false} features={features}/>
+          loggedUser={loggedUser} isAdmin={false} features={features} onSignOut={onSignOut}/>
         <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{ textAlign:'center' }}>
             <div style={{ fontSize:32, marginBottom:12 }}>&#9203;</div>
@@ -425,7 +425,7 @@ function Workspace({
       <TopNav view={view} setView={goView} items={items} onNavItem={id => nav(id)}
         onCreateNew={createAndOpen} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
         onNew={() => isListView && setForm(mkBlank(view, items))}
-        loggedUser={loggedUser} isAdmin={false} features={features}/>
+        loggedUser={loggedUser} isAdmin={false} features={features} onSignOut={onSignOut}/>
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 overflow-auto">
@@ -544,6 +544,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         loggedUser={loggedUser} isAdmin={isAdmin}
         features={features} previewTenant={previewTenant}
         onExitPreview={handleExitPreview} tenantId={activeTenantId}
+        onSignOut={handleSignOut}
       />
     </div>
   );
