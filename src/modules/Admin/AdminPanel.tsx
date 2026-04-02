@@ -33,9 +33,10 @@ const PLAN_STYLE: Record<string, {color:string;bg:string}> = {
   starter:    {color:'#16a34a',bg:'#dcfce7'},
 };
 const ROLE_STYLE: Record<UserRole,{color:string;bg:string}> = {
-  admin:  {color:'#dc2626',bg:'#fef2f2'},
-  editor: {color:'#d97706',bg:'#fffbeb'},
-  viewer: {color:'#2563eb',bg:'#eff6ff'},
+  admin:        {color:'#dc2626',bg:'#fef2f2'},
+  tenant_admin: {color:'#ea580c',bg:'#fff7ed'},
+  editor:       {color:'#d97706',bg:'#fffbeb'},
+  viewer:       {color:'#2563eb',bg:'#eff6ff'},
 };
 const SUB_STATUS_STYLE: Record<SubStatus,{color:string;bg:string;label:string}> = {
   active:    {color:'#16a34a',bg:'#f0fdf4',label:'Active'},
@@ -251,6 +252,7 @@ function UserForm({user,tenantName,onSave,onClose}:{user:TenantUser|null;tenantN
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:4}}>
         <FL label="Role"><select value={role} onChange={e=>setRole(e.target.value as UserRole)} style={sel}>
           <option value="admin">Admin</option>
+          <option value="tenant_admin">Tenant Admin</option>
           <option value="editor">Editor</option>
           <option value="viewer">Viewer</option>
         </select></FL>
@@ -706,7 +708,7 @@ function TenantRow({tenant,onEdit,onToggleActive,onPreview,onManage}:{tenant:Ten
         <button onClick={onPreview} style={{padding:'5px 10px',borderRadius:6,border:'1px solid #bfdbfe',background:'#eff6ff',color:'#1d4ed8',fontSize:11,fontWeight:600,cursor:'pointer'}}>Preview</button>
         <button onClick={onManage}  style={{padding:'5px 10px',borderRadius:6,border:'1px solid #e2e8f0',background:'white',color:'#374151',fontSize:11,fontWeight:600,cursor:'pointer'}}>Manage</button>
         <button onClick={onEdit}    style={{padding:'5px 10px',borderRadius:6,border:'1px solid #e2e8f0',background:'white',color:'#374151',fontSize:11,fontWeight:600,cursor:'pointer'}}>Edit</button>
-        <button onClick={onToggleActive} style={{padding:'5px 10px',borderRadius:6,border:'none',background:tenant.active?'#fef2f2':'#f0fdf4',color:tenant.active?'#dc2626':'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>{tenant.active?'Suspend':'Activate'}</button>
+        {tenant.slug!=='strat101'&&<button onClick={onToggleActive} style={{padding:'5px 10px',borderRadius:6,border:'none',background:tenant.active?'#fef2f2':'#f0fdf4',color:tenant.active?'#dc2626':'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>{tenant.active?'Suspend':'Activate'}</button>}
       </div>
     </div>
   );
@@ -762,9 +764,15 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
         .select('id, name, slug, approval_requested_at, requested_by')
         .eq('approval_status', 'pending')
         .order('approval_requested_at', { ascending: true });
+      const { data: featReqs } = await supabase
+        .from('feature_requests')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
       setPending([
-        ...(users ?? []).map((u:any) => ({ ...u, _type:'user' })),
-        ...(newTenants ?? []).map((t:any) => ({ ...t, _type:'tenant' })),
+        ...(users    ?? []).map((u:any) => ({ ...u, _type:'user'    })),
+        ...(newTenants ?? []).map((t:any) => ({ ...t, _type:'tenant'  })),
+        ...(featReqs  ?? []).map((f:any) => ({ ...f, _type:'feature' })),
       ]);
     } finally { setPendingLoad(false); }
   }, []);
@@ -798,6 +806,24 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
   const approveTenant = async (tenantId: string) => {
     await supabase.from('tenants').update({ approval_status:'approved', active:true }).eq('id', tenantId);
     await Promise.all([loadPending(), reload()]);
+  };
+
+  const approveFeatureRequest = async (req: any) => {
+    // 1. Activate the feature on the tenant
+    const featCol = `feat_${req.feature_key}`;
+    await supabase.from('tenants').update({ [featCol]: true }).eq('id', req.tenant_id);
+    // 2. Mark request as approved
+    await supabase.from('feature_requests').update({
+      status:'approved', actioned_by:loggedUser, actioned_at:new Date().toISOString(),
+    }).eq('id', req.id);
+    await Promise.all([loadPending(), reload()]);
+  };
+
+  const rejectFeatureRequest = async (req: any) => {
+    await supabase.from('feature_requests').update({
+      status:'rejected', actioned_by:loggedUser, actioned_at:new Date().toISOString(),
+    }).eq('id', req.id);
+    await loadPending();
   };
 
   // ── Optimistic update helper ───────────────────────────────────────────────
@@ -948,12 +974,20 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
                   <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
                     <div style={{flex:1}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-                        <span style={{fontSize:18}}>{item._type==='user'?'👤':'🏢'}</span>
+                        <span style={{fontSize:18}}>{item._type==='user'?'👤':item._type==='tenant'?'🏢':'✨'}</span>
                         <span style={{fontSize:13,fontWeight:700,color:'#111827'}}>
-                          {item._type==='user'?`${item.full_name} (@${item.username})`:`New Company: ${item.name}`}
+                          {item._type==='user'?`${item.full_name} (@${item.username})`:item._type==='tenant'?`New Company: ${item.name}`:`Feature Request: ${item.feature_key}`}
                         </span>
                         <span style={{padding:'2px 8px',borderRadius:999,background:'#fef3c7',color:'#92400e',fontSize:10,fontWeight:700}}>PENDING</span>
                       </div>
+                      {item._type==='feature'&&(
+                        <div style={{fontSize:12,color:'#64748b',display:'flex',flexDirection:'column',gap:3}}>
+                          <span>🏢 Company: {item.tenant_name}</span>
+                          <span>👤 Requested by: {item.requested_by}</span>
+                          <span>💬 Reason: {item.reason}</span>
+                          <span>📅 Requested: {item.created_at?new Date(item.created_at).toLocaleString():'Unknown'}</span>
+                        </div>
+                      )}
                       {item._type==='user'&&(
                         <div style={{fontSize:12,color:'#64748b',display:'flex',flexDirection:'column',gap:3}}>
                           <span>📧 {item.email}</span>
@@ -985,6 +1019,16 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
                           ✔ Approve Company
                         </button>
                       )}
+                      {item._type==='feature'&&<>
+                        <button onClick={()=>approveFeatureRequest(item)}
+                          style={{padding:'6px 14px',borderRadius:7,border:'none',background:'#16a34a',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                          ✔ Approve &amp; Activate
+                        </button>
+                        <button onClick={()=>rejectFeatureRequest(item)}
+                          style={{padding:'6px 14px',borderRadius:7,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                          ✘ Reject
+                        </button>
+                      </>}
                     </div>
                   </div>
                 </div>
