@@ -202,7 +202,22 @@ function UsersTab({ users, tenantId, tenantName, loggedUser, onRefresh }:
                     {u.role}
                   </span>
                 </div>
-                <div style={{fontSize:11,color:'#64748b'}}>{u.email}</div>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                  <span style={{fontSize:11,color:'#64748b'}}>{u.email}</span>
+                  {u.approval_status!=='pending'&&!PROTECTED.includes(u.username)&&(
+                    <select
+                      defaultValue={u.role}
+                      onChange={async e=>{
+                        await supabase.from('tenant_users').update({role:e.target.value}).eq('id',u.id);
+                        onRefresh();
+                      }}
+                      style={{fontSize:10,border:'1px solid #e2e8f0',borderRadius:5,padding:'2px 6px',color:'#374151',cursor:'pointer',background:'white'}}>
+                      <option value="tenant_admin">Tenant Admin</option>
+                      <option value="editor">Editor</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  )}
+                </div>
               </div>
               <div style={{display:'flex',gap:6,flexShrink:0}}>
                 {u.approval_status==='pending'&&<>
@@ -308,7 +323,8 @@ function AddUserModal({ tenantId, tenantName, onClose, onSaved }:
               <option value="tenant_admin">Tenant Admin</option>
               <option value="editor">Editor</option>
               <option value="viewer">Viewer</option>
-            </select></div>
+            </select>
+            <div style={{fontSize:9,color:'#94a3b8',marginTop:3}}>Super Admin role is assigned by Strat101.com only</div></div>
           <div><label style={{fontSize:10,fontWeight:600,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.05em'}}>Onboarding</label>
             <select value={sendInv?'invite':'password'} onChange={e=>setSendInv(e.target.value==='invite')} style={sel}>
               <option value="invite">Send Invite Email</option>
@@ -396,11 +412,14 @@ function FeaturesTab({ tenant, tenantId, loggedUser, onRefresh }:
               </div>
               <div>
                 {enabled?(
-                  <span style={{padding:'4px 12px',borderRadius:999,background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:700}}>ACTIVE</span>
+                  <span style={{padding:'4px 12px',borderRadius:999,background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:700}}>✓ ACTIVE</span>
                 ):pending?(
-                  <span style={{padding:'4px 12px',borderRadius:999,background:'#fef3c7',color:'#92400e',fontSize:11,fontWeight:700}}>REQUEST PENDING</span>
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
+                    <span style={{padding:'4px 12px',borderRadius:999,background:'#fef3c7',color:'#92400e',fontSize:11,fontWeight:700}}>⏳ REQUEST PENDING</span>
+                    <span style={{fontSize:9,color:'#94a3b8'}}>Awaiting Super Admin approval</span>
+                  </div>
                 ):approved?(
-                  <span style={{padding:'4px 12px',borderRadius:999,background:'#eff6ff',color:'#2563eb',fontSize:11,fontWeight:700}}>APPROVED</span>
+                  <span style={{padding:'4px 12px',borderRadius:999,background:'#eff6ff',color:'#2563eb',fontSize:11,fontWeight:700}}>✓ APPROVED</span>
                 ):(
                   <button onClick={()=>{setRequesting(key);setReason('');}}
                     style={{padding:'5px 12px',borderRadius:7,border:'1px solid #bfdbfe',background:'#eff6ff',color:'#2563eb',fontSize:11,fontWeight:600,cursor:'pointer'}}>
