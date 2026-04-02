@@ -132,8 +132,28 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
       if (!res.ok) {
         console.error('[adminApi] create-user failed:', data.error ?? rawText);
       } else {
-        authUserId = data.id ?? null;
-        console.log('[adminApi] auth user created — id:', authUserId,
+        if (data.id) {
+          // New auth user created — use the returned UUID
+          authUserId = data.id;
+        } else {
+          // User already existed in auth.users (id came back null).
+          // Look up their UUID from the Supabase trigger which auto-links by email.
+          // Give the trigger a moment to fire, then query tenant_users by email.
+          await new Promise(r => setTimeout(r, 800));
+          const { data: linked } = await supabase
+            .from('tenant_users')
+            .select('auth_user_id')
+            .eq('email', user.email.toLowerCase())
+            .not('auth_user_id', 'is', null)
+            .maybeSingle();
+          if (linked?.auth_user_id) {
+            authUserId = linked.auth_user_id;
+            console.log('[adminApi] resolved existing auth_user_id by email:', authUserId);
+          } else {
+            console.warn('[adminApi] auth_user_id still null after lookup — trigger may not have fired yet');
+          }
+        }
+        console.log('[adminApi] auth user — id:', authUserId,
           '| invite sent:', data.inviteSent, '| full response:', data);
         if (data.message) console.log('[adminApi]', data.message);
       }
