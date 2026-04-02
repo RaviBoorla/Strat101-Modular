@@ -26,10 +26,11 @@ export interface TenantUser {
   role:            UserRole;
   active:          boolean;
   createdAt:       string;
+  authUserId?:     string;   // Supabase auth.users UUID — set on creation
   lastLogin?:      string;   // ISO datetime
   lastLoginIp?:    string;
   loginHistory?:   LoginEvent[];
-  tempPassword?:   string;   // set when admin resets; cleared on first login
+  tempPassword?:   string;   // set on new user creation or password reset
   passwordResetAt?: string;
   mustChangePwd?:  boolean;
 }
