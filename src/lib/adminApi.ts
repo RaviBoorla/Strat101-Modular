@@ -107,9 +107,38 @@ export async function deleteTenant(id: string): Promise<void> {
 
 /** Upsert a tenant user record */
 export async function saveUser(user: TenantUser, tenantId: string): Promise<void> {
+  // If this is a new user (no auth_user_id yet), create the Supabase auth account
+  // via the server-side Edge Function which holds the service role key.
+  let authUserId = user.authUserId ?? null;
+
+  if (!authUserId && user.email && user.tempPassword) {
+    try {
+      const res = await fetch('/api/create-user', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:    user.email,
+          password: user.tempPassword,
+          username: user.username,
+          fullName: user.fullName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('[adminApi] create-user edge function failed:', data.error);
+      } else {
+        authUserId = data.id;
+        console.log('[adminApi] auth user created — id:', authUserId);
+      }
+    } catch (e: any) {
+      console.error('[adminApi] create-user fetch error:', e.message);
+    }
+  }
+
   const { error } = await supabase.from('tenant_users').upsert({
     id:               user.id,
     tenant_id:        tenantId,
+    auth_user_id:     authUserId,
     username:         user.username,
     full_name:        user.fullName,
     email:            user.email,
@@ -123,7 +152,7 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
     must_change_pwd:  user.mustChangePwd   ?? false,
   });
   if (error) console.error('[adminApi] saveUser FAILED:', error.message, '| code:', error.code);
-  else console.log('[adminApi] saveUser SUCCESS — username:', user.username);
+  else console.log('[adminApi] saveUser SUCCESS — username:', user.username, '| auth_user_id:', authUserId);
 }
 
 /** Hard-delete a user from a tenant */
