@@ -630,7 +630,7 @@ function Workspace({
               </code>
               <div style={{marginBottom:6}}><strong>2.</strong> Paste the UUID into <code style={{background:'#f1f5f9',padding:'1px 4px',borderRadius:3}}>App.tsx</code>:</div>
               <code style={{display:'block',background:'#1e293b',color:'#93c5fd',padding:'8px 12px',borderRadius:6,fontSize:11}}>
-                const BYPASS_TENANT_ID = 'your-uuid-here';
+                const BYPASS_TENANT_ID = 'c48b765e-860c-401f-82b5-9c6e1e61a40a';
               </code>
             </div>
           </div>
