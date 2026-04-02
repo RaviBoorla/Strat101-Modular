@@ -5,7 +5,7 @@
 import { Tenant } from './types';
 
 // Only stratadmin has access to the admin console
-export const ADMIN_USERS = ['stratadmin'];
+export const ADMIN_USERS = ['raviboorla'];
 
 export function isAdminUser(username: string): boolean {
   return ADMIN_USERS.includes(username.toLowerCase().trim());
