@@ -765,7 +765,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 // Temporarily bypass the login screen for testing.
 // To restore login: remove the bypass line and uncomment the full App function.
 // BYPASS: set to '' to re-enable login, or 'stratadmin' for admin console.
-const BYPASS_USER = 'stratadmin';
+const BYPASS_USER = '';
 
 export default function App() {
   // ── TEMPORARY BYPASS — remove this block to re-enable login ─────────────
