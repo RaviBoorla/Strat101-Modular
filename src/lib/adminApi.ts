@@ -183,11 +183,55 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
   else console.log('[adminApi] saveUser SUCCESS — username:', user.username, '| auth_user_id:', authUserId);
 }
 
-/** Hard-delete a user from a tenant */
+// Usernames that can never be deleted through the admin panel
+const PROTECTED_USERNAMES = ['raviboorla'];
+
+/** Hard-delete a user from a tenant + removes their Supabase auth account */
 export async function deleteUser(userId: string): Promise<void> {
+  // 1. Get the auth_user_id before deleting the tenant_users row
+  const { data: userRow } = await supabase
+    .from('tenant_users')
+    .select('auth_user_id, username')
+    .eq('id', userId)
+    .single();
+
+  // Hard block — platform admins cannot be deleted
+  if (userRow?.username && PROTECTED_USERNAMES.includes(userRow.username.toLowerCase())) {
+    console.error('[adminApi] deleteUser BLOCKED — cannot delete protected admin:', userRow.username);
+    return;
+  }
+
+  const authUserId = userRow?.auth_user_id ?? null;
+
+  // 2. Delete from tenant_users
   const { error } = await supabase.from('tenant_users').delete().eq('id', userId);
-  if (error) console.error('[adminApi] deleteUser FAILED:', error.message);
-  else console.log('[adminApi] deleteUser SUCCESS — id:', userId);
+  if (error) {
+    console.error('[adminApi] deleteUser FAILED:', error.message);
+    return;
+  }
+
+  // 3. Delete from Supabase Auth via edge function (requires service role key)
+  if (authUserId) {
+    try {
+      const res = await fetch('/api/delete-user', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ authUserId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('[adminApi] delete-user auth failed:', data.error);
+      } else {
+        console.log('[adminApi] auth user deleted — id:', authUserId);
+      }
+    } catch (e: any) {
+      console.error('[adminApi] delete-user fetch error:', e.message);
+    }
+  } else {
+    console.warn('[adminApi] deleteUser — no auth_user_id found, only tenant_users row removed');
+  }
+
+  console.log('[adminApi] deleteUser SUCCESS — username:', userRow?.username);
 }
 
 /**
@@ -343,4 +387,96 @@ function formatTs(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+// ─── APPROVAL REQUESTS ────────────────────────────────────────────────────────
+
+export async function fetchApprovals(): Promise<any[]> {
+  const { data, error } = await supabase
+    .from('approval_requests')
+    .select('*')
+    .eq('status', 'pending')
+    .order('requested_at', { ascending: false });
+  if (error) console.error('[adminApi] fetchApprovals failed:', error.message);
+  return data ?? [];
+}
+
+export async function approveRequest(
+  requestId: string,
+  reviewedBy: string
+): Promise<void> {
+  // Get the request details
+  const { data: req, error: fetchErr } = await supabase
+    .from('approval_requests')
+    .select('*')
+    .eq('id', requestId)
+    .single();
+
+  if (fetchErr || !req) {
+    console.error('[adminApi] approveRequest: could not fetch request');
+    return;
+  }
+
+  // Activate the user
+  await supabase
+    .from('tenant_users')
+    .update({ active: true })
+    .eq('id', req.user_id);
+
+  // Activate the tenant if it was a new_tenant request
+  if (req.type === 'new_tenant') {
+    await supabase
+      .from('tenants')
+      .update({ active: true, sub_status: 'trialling' })
+      .eq('id', req.tenant_id);
+  }
+
+  // Mark the request as approved
+  await supabase
+    .from('approval_requests')
+    .update({
+      status:      'approved',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: reviewedBy,
+    })
+    .eq('id', requestId);
+
+  console.log('[adminApi] approveRequest SUCCESS — id:', requestId);
+}
+
+export async function rejectRequest(
+  requestId: string,
+  reviewedBy: string,
+  notes?: string
+): Promise<void> {
+  const { data: req } = await supabase
+    .from('approval_requests')
+    .select('user_id, tenant_id, type')
+    .eq('id', requestId)
+    .single();
+
+  if (req) {
+    // Deactivate the user
+    await supabase
+      .from('tenant_users')
+      .update({ active: false })
+      .eq('id', req.user_id);
+
+    // Delete the tenant if it was new (nothing to preserve)
+    if (req.type === 'new_tenant') {
+      await supabase.from('tenants').delete().eq('id', req.tenant_id);
+    }
+  }
+
+  await supabase
+    .from('approval_requests')
+    .update({
+      status:      'rejected',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: reviewedBy,
+      notes:       notes ?? null,
+    })
+    .eq('id', requestId);
+
+  console.log('[adminApi] rejectRequest SUCCESS — id:', requestId);
 }
