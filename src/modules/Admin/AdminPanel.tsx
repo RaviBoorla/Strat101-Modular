@@ -116,7 +116,7 @@ function PasswordResetModal({user,onReset,onClose}:{user:TenantUser;onReset:(u:T
   const copy=()=>{navigator.clipboard.writeText(tempPwd).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});};
   const alreadyReset=!!user.tempPassword;
   return(
-    <Modal title={`Reset Password \u2014 ${user.fullName}`} onClose={onClose} width={420}>
+    <Modal title={`Reset Password - ${user.fullName}`} onClose={onClose} width={420}>
       {alreadyReset?(
         <div style={{marginBottom:14,padding:12,background:'#fffbeb',borderRadius:8,border:'1px solid #fde68a'}}>
           <div style={{fontSize:11,fontWeight:600,color:'#92400e',marginBottom:4}}>Pending reset already issued</div>
@@ -151,7 +151,7 @@ function PasswordResetModal({user,onReset,onClose}:{user:TenantUser;onReset:(u:T
 function LoginHistoryModal({user,onClose}:{user:TenantUser;onClose:()=>void}){
   const history=user.loginHistory||[];
   return(
-    <Modal title={`Login History \u2014 ${user.fullName}`} onClose={onClose} width={480}>
+    <Modal title={`Login History - ${user.fullName}`} onClose={onClose} width={480}>
       {!history.length?(
         <div style={{textAlign:'center',padding:'24px 0',color:'#94a3b8',fontSize:12}}>No login history recorded</div>
       ):(
@@ -159,11 +159,11 @@ function LoginHistoryModal({user,onClose}:{user:TenantUser;onClose:()=>void}){
           <div style={{marginBottom:12,padding:10,background:'#f8fafc',borderRadius:8,border:'1px solid #e2e8f0',display:'flex',gap:16}}>
             <div>
               <div style={{fontSize:10,color:'#64748b',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.04em'}}>Last Login</div>
-              <div style={{fontSize:12,fontWeight:600,color:'#111827',marginTop:2}}>{user.lastLogin||'\u2014'}</div>
+              <div style={{fontSize:12,fontWeight:600,color:'#111827',marginTop:2}}>{user.lastLogin||'-'}</div>
             </div>
             <div>
               <div style={{fontSize:10,color:'#64748b',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.04em'}}>Last IP</div>
-              <div style={{fontSize:12,fontWeight:600,color:'#111827',marginTop:2,fontFamily:'monospace'}}>{user.lastLoginIp||'\u2014'}</div>
+              <div style={{fontSize:12,fontWeight:600,color:'#111827',marginTop:2,fontFamily:'monospace'}}>{user.lastLoginIp||'-'}</div>
             </div>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
@@ -214,7 +214,7 @@ function UserForm({user,tenantName,onSave,onClose}:{user:TenantUser|null;tenantN
   };
 
   return(
-    <Modal title={user?`Edit \u2014 ${user.fullName}`:`New User | ${tenantName}`} onClose={onClose}>
+    <Modal title={user?`Edit - ${user.fullName}`:`New User | ${tenantName}`} onClose={onClose}>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         <FL label="Username"><input value={username} onChange={e=>setUsername(e.target.value)} style={inp} autoFocus placeholder="e.g. john.doe"/></FL>
         <FL label="Full Name"><input value={fullName} onChange={e=>setFullName(e.target.value)} style={inp} placeholder="e.g. John Doe"/></FL>
@@ -422,7 +422,7 @@ function SubscriptionTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>v
           <div style={{fontSize:11,color:'#64748b',marginTop:1}}>
             {sub.status==='trialling'&&sub.trialEnd?`Trial ends ${sub.trialEnd}`:''}
             {sub.status==='active'?`Renews ${sub.currentPeriodEnd} | ${fmtGBP(monthlyPrice)}/mo`:''}
-            {sub.status==='past_due'?'Payment failed \u2014 action required':''}
+            {sub.status==='past_due'?'Payment failed - action required':''}
           </div>
         </div>
         <div style={{textAlign:'right'}}>
@@ -444,10 +444,10 @@ function SubscriptionTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>v
             {[
               ['Plan',          tenant.plan.charAt(0).toUpperCase()+tenant.plan.slice(1)],
               ['Status',        ss.label],
-              ['Billing Name',  sub.billingName||'\u2014'],
-              ['Billing Email', sub.billingEmail||'\u2014'],
-              ['VAT / Tax ID',  sub.vatId||'\u2014'],
-              ['Card on File',  sub.cardLast4?`\u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 ${sub.cardLast4}  exp ${sub.cardExpiry}`:'\u2014'],
+              ['Billing Name',  sub.billingName||'-'],
+              ['Billing Email', sub.billingEmail||'-'],
+              ['VAT / Tax ID',  sub.vatId||'-'],
+              ['Card on File',  sub.cardLast4?`\u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 ${sub.cardLast4}  exp ${sub.cardExpiry}`:'-'],
               ['Auto Renew',    sub.autoRenew?'Yes':'No'],
               ['Period',        `${sub.currentPeriodStart} \u2192 ${sub.currentPeriodEnd}`],
             ].map(([l,v])=>(
@@ -464,9 +464,9 @@ function SubscriptionTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>v
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
             <FL label="Plan">
               <select value={planLocal} onChange={e=>setPlanLocal(e.target.value as Tenant['plan'])} style={sel}>
-                <option value="starter">Starter \u2014 {fmtGBP(PLAN_PRICE.starter)}/mo</option>
-                <option value="pro">Pro \u2014 {fmtGBP(PLAN_PRICE.pro)}/mo</option>
-                <option value="enterprise">Enterprise \u2014 {fmtGBP(PLAN_PRICE.enterprise)}/mo</option>
+                <option value="starter">Starter - {fmtGBP(PLAN_PRICE.starter)}/mo</option>
+                <option value="pro">Pro - {fmtGBP(PLAN_PRICE.pro)}/mo</option>
+                <option value="enterprise">Enterprise - {fmtGBP(PLAN_PRICE.enterprise)}/mo</option>
               </select>
             </FL>
             <FL label="Subscription Status">
@@ -647,7 +647,7 @@ function TenantForm({tenant,onSave,onClose}:{tenant:Tenant|null;onSave:(t:Tenant
     onSave(t);
   };
   return(
-    <Modal title={tenant?`Edit \u2014 ${tenant.name}`:'New Tenant'} onClose={onClose}>
+    <Modal title={tenant?`Edit - ${tenant.name}`:'New Tenant'} onClose={onClose}>
       <FL label="Tenant Name"><input value={name} onChange={e=>setName(e.target.value)} style={inp} autoFocus placeholder="e.g. Acme Corporation"/></FL>
       <FL label="Slug">
         <input value={slug} onChange={e=>setSlug(e.target.value.replace(/[^a-z0-9-]/g,''))} style={inp} placeholder="e.g. acme-corp"/>
@@ -655,9 +655,9 @@ function TenantForm({tenant,onSave,onClose}:{tenant:Tenant|null;onSave:(t:Tenant
       </FL>
       <FL label="Plan">
         <select value={plan} onChange={e=>setPlan(e.target.value as Tenant['plan'])} style={sel}>
-          <option value="starter">Starter \u2014 {fmtGBP(PLAN_PRICE.starter)}/mo</option>
-          <option value="pro">Pro \u2014 {fmtGBP(PLAN_PRICE.pro)}/mo</option>
-          <option value="enterprise">Enterprise \u2014 {fmtGBP(PLAN_PRICE.enterprise)}/mo</option>
+          <option value="starter">Starter - {fmtGBP(PLAN_PRICE.starter)}/mo</option>
+          <option value="pro">Pro - {fmtGBP(PLAN_PRICE.pro)}/mo</option>
+          <option value="enterprise">Enterprise - {fmtGBP(PLAN_PRICE.enterprise)}/mo</option>
         </select>
       </FL>
       <FL label="Status">
