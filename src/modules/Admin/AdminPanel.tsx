@@ -13,9 +13,6 @@ import {
   recordPasswordReset as apiRecordPasswordReset,
   saveInvoice   as apiSaveInvoice,
   updateInvoiceStatus as apiUpdateInvoiceStatus,
-  fetchApprovals,
-  approveRequest as apiApprove,
-  rejectRequest  as apiReject,
 } from "../../lib/adminApi";
 
 const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
@@ -714,104 +711,6 @@ function TenantRow({tenant,onEdit,onToggleActive,onPreview,onManage}:{tenant:Ten
   );
 }
 
-// ─── APPROVALS PANEL ─────────────────────────────────────────────────────────
-function ApprovalsPanel({ loggedUser }: { loggedUser: string }) {
-  const [requests, setRequests] = useState<any[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [notes,    setNotes]    = useState('');
-  const [rejecting,setRejecting]= useState<string|null>(null);
-
-  const load = async () => {
-    setLoading(true);
-    setRequests(await fetchApprovals());
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const approve = async (id: string) => {
-    await apiApprove(id, loggedUser);
-    await load();
-  };
-
-  const reject = async (id: string) => {
-    await apiReject(id, loggedUser, notes);
-    setRejecting(null); setNotes('');
-    await load();
-  };
-
-  if (loading) return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:40,color:'#64748b',fontSize:13}}>
-      Loading approvals…
-    </div>
-  );
-
-  if (requests.length === 0) return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:40,gap:12}}>
-      <div style={{fontSize:40}}>✅</div>
-      <div style={{fontSize:14,fontWeight:600,color:'#374151'}}>No pending approvals</div>
-      <div style={{fontSize:12,color:'#94a3b8'}}>All requests have been reviewed.</div>
-    </div>
-  );
-
-  return (
-    <div style={{padding:16,display:'flex',flexDirection:'column',gap:12}}>
-      {requests.map(r=>(
-        <div key={r.id} style={{background:'white',borderRadius:10,border:'1px solid #e2e8f0',padding:16,boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
-            <div style={{display:'flex',gap:12,alignItems:'flex-start'}}>
-              <div style={{width:40,height:40,borderRadius:10,background:r.type==='new_tenant'?'linear-gradient(135deg,#7c3aed,#4f46e5)':'linear-gradient(135deg,#0284c7,#2563eb)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontSize:18,flexShrink:0}}>
-                {r.type==='new_tenant'?'🏢':'👤'}
-              </div>
-              <div>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                  <span style={{fontSize:13,fontWeight:700,color:'#111827'}}>{r.full_name}</span>
-                  <span style={{padding:'1px 8px',borderRadius:99,fontSize:10,fontWeight:600,background:r.type==='new_tenant'?'#f3e8ff':'#e0f2fe',color:r.type==='new_tenant'?'#7c3aed':'#0284c7'}}>
-                    {r.type==='new_tenant'?'New Workspace':'Join Workspace'}
-                  </span>
-                </div>
-                <div style={{fontSize:12,color:'#374151',marginBottom:2}}>
-                  <strong>Username:</strong> {r.username} &nbsp;·&nbsp; <strong>Email:</strong> {r.email}
-                </div>
-                <div style={{fontSize:12,color:'#374151',marginBottom:2}}>
-                  <strong>Company:</strong> {r.company_name}
-                </div>
-                <div style={{fontSize:11,color:'#94a3b8'}}>
-                  Requested {new Date(r.requested_at).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'})}
-                </div>
-              </div>
-            </div>
-            <div style={{display:'flex',gap:8,flexShrink:0}}>
-              <button onClick={()=>approve(r.id)}
-                style={{padding:'6px 14px',borderRadius:7,border:'none',background:'#16a34a',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>
-                ✓ Approve
-              </button>
-              <button onClick={()=>setRejecting(r.id)}
-                style={{padding:'6px 14px',borderRadius:7,border:'1px solid #fca5a5',background:'#fef2f2',color:'#dc2626',fontSize:12,fontWeight:600,cursor:'pointer'}}>
-                ✗ Reject
-              </button>
-            </div>
-          </div>
-          {rejecting===r.id && (
-            <div style={{marginTop:12,padding:12,background:'#fef2f2',borderRadius:8,border:'1px solid #fecaca'}}>
-              <div style={{fontSize:11,color:'#dc2626',fontWeight:600,marginBottom:6}}>Reason for rejection (optional)</div>
-              <input value={notes} onChange={e=>setNotes(e.target.value)}
-                placeholder="e.g. Unable to verify company details"
-                style={{width:'100%',boxSizing:'border-box',padding:'8px 10px',borderRadius:6,border:'1px solid #fecaca',fontSize:12,outline:'none',marginBottom:8}}/>
-              <div style={{display:'flex',gap:8}}>
-                <button onClick={()=>reject(r.id)} style={{padding:'6px 14px',borderRadius:6,border:'none',background:'#dc2626',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>Confirm Reject</button>
-                <button onClick={()=>{setRejecting(null);setNotes('');}} style={{padding:'6px 14px',borderRadius:6,border:'1px solid #e2e8f0',background:'white',fontSize:12,cursor:'pointer'}}>Cancel</button>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-
-// ── ADMIN PANEL ROOT ─────────────────────────────────────────────────────────
 export interface AdminPanelProps {
   loggedUser:      string;
   onPreviewTenant: (tenant: Tenant) => void;
@@ -828,12 +727,6 @@ export default function AdminPanel({loggedUser,onPreviewTenant}:AdminPanelProps)
   const [dbLoading,  setDbLoading]  = useState(true);
   const [dbError,    setDbError]    = useState<string|null>(null);
   const [activeTab,  setActiveTab]  = useState<'tenants'|'approvals'>('tenants');
-  const [pendingCount, setPendingCount] = useState(0);
-
-  useEffect(() => {
-    fetchApprovals().then(reqs => setPendingCount(reqs.length));
-  }, []);
-
   // ── Load live data from Supabase on mount ──────────────────────────────────
   const reload = useCallback(async () => {
     setDbLoading(true); setDbError(null);
