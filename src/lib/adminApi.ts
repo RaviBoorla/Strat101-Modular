@@ -125,13 +125,16 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
           sendInvite: user.sendInvite ?? true,
         }),
       });
-      const data = await res.json();
+      const rawText = await res.text();
+      console.log('[adminApi] create-user raw response:', res.status, rawText);
+      let data: any = {};
+      try { data = JSON.parse(rawText); } catch(e) { console.error('[adminApi] JSON parse failed'); }
       if (!res.ok) {
-        console.error('[adminApi] create-user failed:', data.error);
+        console.error('[adminApi] create-user failed:', data.error ?? rawText);
       } else {
-        authUserId = data.id;
+        authUserId = data.id ?? null;
         console.log('[adminApi] auth user created — id:', authUserId,
-          '| invite sent:', data.inviteSent);
+          '| invite sent:', data.inviteSent, '| full response:', data);
         if (data.message) console.log('[adminApi]', data.message);
       }
     } catch (e: any) {
