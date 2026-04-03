@@ -344,10 +344,12 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
         })
       }
       <div style={{marginTop:14,display:'flex',gap:12,flexWrap:'wrap'}}>
-        {(['global_admin','local_admin','editor','viewer']).map(r=>(
+        {(['global_admin','local_admin','editor','viewer']).filter(r=>
+          r!=='global_admin'||tenant.slug==='strat101'
+        ).map(r=>(
           <div key={r} style={{display:'flex',alignItems:'center',gap:4}}>
             <Pill label={r} color={getRoleStyle(r).color} bg={getRoleStyle(r).bg}/>
-            <span style={{fontSize:10,color:'#94a3b8'}}>{r==='global_admin'?'Full access':r==='editor'?'Create & edit':'Read-only'}</span>
+            <span style={{fontSize:10,color:'#94a3b8'}}>{r==='global_admin'?'Platform only':r==='local_admin'?'Tenant admin':r==='editor'?'Create & edit':'Read-only'}</span>
           </div>
         ))}
       </div>
