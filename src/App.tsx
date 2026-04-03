@@ -641,71 +641,30 @@ export default function App() {
 
   const [pendingApproval, setPendingApproval] = useState(false);
 
-  // Check if user's account is approved before allowing access
-  const checkAndLogin = async (email: string): Promise<boolean> => {
-    try {
-      // 5 second timeout — if RLS or network fails, fall through to login screen
-      const queryPromise = supabase
-        .from('tenant_users')
-        .select('username, active, approval_status')
-        .eq('email', email.toLowerCase())
-        .maybeSingle();
-
-      const timeoutPromise = new Promise<{data:null,error:{message:string}}>(resolve =>
-        setTimeout(() => resolve({data:null, error:{message:'timeout'}}), 5000)
-      );
-
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
-
-      if (error) {
-        console.warn('[Auth] tenant_users lookup failed:', error.message);
-        // On error, sign out and show login screen — don't get stuck
-        await supabase.auth.signOut();
-        return false;
-      }
-
-      if (!data) {
-        // No matching user row — could be mid-registration race condition
-        // Sign out and show login
-        await supabase.auth.signOut();
-        return false;
-      }
-
-      if (data.approval_status === 'pending') {
-        await supabase.auth.signOut();
-        setPendingApproval(true);
-        return false;
-      }
-
-      if (data.approval_status === 'rejected' || !data.active) {
-        await supabase.auth.signOut();
-        return false;
-      }
-
-      setLoggedUser(data.username);
-      setLoggedIn(true);
-      return true;
-
-    } catch (e: any) {
-      console.warn('[Auth] checkAndLogin error:', e.message);
-      // Network error or timeout — sign out and show login screen
-      await supabase.auth.signOut();
-      return false;
-    }
-  };
-
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }: { data: { session: Session | null } }) => {
+    // On session restore — trust the JWT, resolve username from email prefix only
+    // Do NOT query tenant_users here — avoids RLS hang on page load
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       if (session?.user) {
-        await checkAndLogin(session.user.email ?? '');
+        const email = session.user.email ?? '';
+        // Resolve username from user_metadata if available, else email prefix
+        const username = session.user.user_metadata?.username
+          || session.user.user_metadata?.full_name
+          || email.split('@')[0];
+        setLoggedUser(username);
+        setLoggedIn(true);
       }
       setChecking(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: AuthChangeEvent, session: Session | null) => {
+      (_event: AuthChangeEvent, session: Session | null) => {
         if (session?.user) {
-          await checkAndLogin(session.user.email ?? '');
+          const email = session.user.email ?? '';
+          const username = session.user.user_metadata?.username
+            || email.split('@')[0];
+          setLoggedUser(username);
+          setLoggedIn(true);
         } else {
           setLoggedIn(false);
           setLoggedUser('');
