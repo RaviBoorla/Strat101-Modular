@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { TC, TYPES, WORK_ITEM_TYPES } from "../constants";
 import { fuzzyScore } from "../utils";
 import { TenantFeatures } from "../types";
+import LOGO_SRC from '../logoData';
 
 // ─── INLINE SEARCH ────────────────────────────────────────────────────────────
 interface InlineSearchProps { items: any[]; onNav: (id: string) => void; }
@@ -161,7 +162,7 @@ export default function TopNav({
 
         {/* Brand */}
         <div style={{display:'flex',alignItems:'center',gap:7,marginRight:isMobile?6:12,paddingRight:isMobile?6:12,borderRight:`1px solid rgba(255,255,255,0.12)`}}>
-          <img src='/logo.jpg' alt='Strat101' style={{width:28,height:28,borderRadius:8,objectFit:'cover',flexShrink:0,boxShadow:'0 2px 6px rgba(0,0,0,0.3)'}}/>
+          <img src={LOGO_SRC} alt='Strat101' style={{width:28,height:28,borderRadius:8,objectFit:'cover',flexShrink:0,boxShadow:'0 2px 6px rgba(0,0,0,0.3)'}}/>
           {!isMobile&&<div>
             <div style={{fontWeight:900,fontSize:14,color:TEXT_ACTIVE,letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
             <div style={{fontSize:8,color:TEXT_MUTED,letterSpacing:'0.04em',marginTop:1}}>ENABLING TRANSFORMATION JOURNEYS</div>
