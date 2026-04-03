@@ -639,26 +639,43 @@ export default function App() {
   const [loggedUser, setLoggedUser] = useState('');
   const [checking,   setChecking]   = useState(true);
 
+  const [pendingApproval, setPendingApproval] = useState(false);
+
+  // Check if user's account is approved before allowing access
+  const checkAndLogin = async (email: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from('tenant_users')
+      .select('username, active, approval_status')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
+    if (!data || data.approval_status === 'pending' || data.approval_status === 'rejected' || !data.active) {
+      // Sign them out immediately — they should not have access
+      await supabase.auth.signOut();
+      if (data?.approval_status === 'pending') setPendingApproval(true);
+      return false;
+    }
+    setLoggedUser(data.username);
+    setLoggedIn(true);
+    return true;
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }: { data: { session: Session | null } }) => {
       if (session?.user) {
-        const username = await resolveUsernameFromEmail(session.user.email ?? '');
-        setLoggedUser(username);
-        setLoggedIn(true);
+        await checkAndLogin(session.user.email ?? '');
       }
       setChecking(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, session: Session | null) => {
+      async (_event: AuthChangeEvent, session: Session | null) => {
         if (session?.user) {
-          resolveUsernameFromEmail(session.user.email ?? '').then(username => {
-            setLoggedUser(username);
-            setLoggedIn(true);
-          });
+          await checkAndLogin(session.user.email ?? '');
         } else {
           setLoggedIn(false);
           setLoggedUser('');
+          setPendingApproval(false);
         }
       }
     );
@@ -676,8 +693,37 @@ export default function App() {
     );
   }
 
+  if (pendingApproval) {
+    return (
+      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
+        <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'48px 40px', maxWidth:420, width:'100%', margin:'0 16px', textAlign:'center', backdropFilter:'blur(20px)' }}>
+          <div style={{ fontSize:56, marginBottom:16 }}>⏳</div>
+          <div style={{ color:'white', fontWeight:700, fontSize:22, marginBottom:12 }}>Awaiting Approval</div>
+          <div style={{ color:'#94a3b8', fontSize:14, lineHeight:1.7, marginBottom:28 }}>
+            Your account is pending review by an administrator. You will be notified once your access has been approved.
+          </div>
+          <div style={{ background:'rgba(37,99,235,0.1)', border:'1px solid rgba(37,99,235,0.25)', borderRadius:12, padding:'16px', marginBottom:24, textAlign:'left' }}>
+            <div style={{ color:'#93c5fd', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>What happens next</div>
+            {['An administrator reviews your request', 'Your account is activated', 'You receive confirmation to log in'].map((s, i) => (
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:i < 2 ? 8 : 0 }}>
+                <div style={{ width:20, height:20, borderRadius:'50%', background:'rgba(37,99,235,0.3)', border:'1px solid rgba(37,99,235,0.5)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                  <span style={{ color:'#93c5fd', fontSize:10, fontWeight:700 }}>{i + 1}</span>
+                </div>
+                <span style={{ color:'#cbd5e1', fontSize:12 }}>{s}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => { setPendingApproval(false); }}
+            style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#2563eb,#4f46e5)', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!loggedIn) {
-    return <LoginScreen onLogin={u => { setLoggedIn(true); setLoggedUser(u); }}/>;
+    return <LoginScreen onLogin={u => { setLoggedIn(true); setLoggedUser(u); setPendingApproval(false); }}/>;
   }
 
   return <AppMain loggedUser={loggedUser}/>;
