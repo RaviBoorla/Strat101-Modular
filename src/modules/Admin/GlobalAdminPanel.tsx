@@ -300,9 +300,9 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
       <div style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
         <button onClick={()=>setUserModal('new')} style={{padding:'6px 12px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>+ Add User</button>
       </div>
-      {!tenant.users.length
+      {!(tenant.users?.length)
         ?<div style={{textAlign:'center',padding:'32px 0',color:'#94a3b8',fontSize:12}}>No users yet</div>
-        :tenant.users.map(u=>{
+        :(tenant.users??[]).map(u=>{
           const rs=ROLE_STYLE[u.role];
           return(
             <div key={u.id} style={{marginBottom:8,borderRadius:10,border:'1px solid #e2e8f0',background:u.active?'white':'#f8fafc',overflow:'hidden',opacity:u.active?1:0.7}}>
@@ -595,12 +595,12 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
   ];
   if (embedded) {
     return (
-      <div style={{display:'flex',flexDirection:'column',height:'100%',background:'white',overflow:'hidden'}}>
+      <div style={{display:'flex',flexDirection:'column',flex:1,minHeight:0,background:'white',overflow:'hidden'}}>
         <div style={{padding:'10px 14px',borderBottom:'1px solid #f1f5f9',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
           <div>
             <div style={{fontSize:13,fontWeight:700,color:'#111827'}}>{tenant.name}</div>
             <div style={{fontSize:10,color:'#94a3b8',marginTop:1}}>
-              {tenant.users.length} users | {FEATURE_DEFS.filter(f=>tenant.features[f.key]).length}/{FEATURE_DEFS.length} modules
+              {(tenant.users?.length ?? 0)} users | {FEATURE_DEFS.filter(f=>tenant.features?.[f.key]).length}/{FEATURE_DEFS.length} modules
             </div>
           </div>
           <button onClick={onClose} style={{border:'none',background:'none',fontSize:18,cursor:'pointer',color:'#94a3b8'}}>&times;</button>
@@ -631,7 +631,7 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           <div>
             <div style={{fontSize:14,fontWeight:700,color:'#111827'}}>{tenant.name}</div>
             <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>
-              {tenant.users.length} users | {FEATURE_DEFS.filter(f=>tenant.features[f.key]).length}/{FEATURE_DEFS.length} modules |{' '}
+              {(tenant.users?.length ?? 0)} users | {FEATURE_DEFS.filter(f=>tenant.features?.[f.key]).length}/{FEATURE_DEFS.length} modules |{' '}
               <span style={{color:SUB_STATUS_STYLE[tenant.subscription.status].color,fontWeight:600}}>
                 {SUB_STATUS_STYLE[tenant.subscription.status].label}
               </span>
@@ -769,6 +769,8 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
     try {
       const live = await fetchTenants();
       setTenants(live);
+      // Sync selectedTenant with fresh data after reload
+      setSelectedTenant(prev => prev ? (live.find(t=>t.id===prev.id) ?? null) : null);
     } catch(e:any) {
       console.error('[GlobalAdminPanel] fetchTenants failed:', e.message);
       setDbError(e.message);
@@ -865,6 +867,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
   const applyUpdate = (t:Tenant) => {
     setTenants(p=>p.map(x=>x.id===t.id?t:x));
     if(managing?.id===t.id) setManaging(t);
+    setSelectedTenant(prev=>prev?.id===t.id?t:prev);
   };
 
   // ── Tenant mutations - write to DB then update local state ─────────────────
@@ -912,7 +915,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
       t.slug.includes(tenantSearch.toLowerCase())
     );
     return (
-      <div style={{display:'flex',height:'100%',fontFamily:'system-ui,sans-serif',fontSize:13}}>
+      <div style={{display:'flex',height:'100%',overflow:'hidden',fontFamily:'system-ui,sans-serif',fontSize:13}}>
         {/* Left: tenant list */}
         <div style={{width:220,borderRight:'1px solid #e2e8f0',display:'flex',flexDirection:'column',background:'white',flexShrink:0}}>
           <div style={{padding:'10px 12px',borderBottom:'1px solid #f1f5f9'}}>
@@ -927,7 +930,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
               ⚡ Approvals
             </div>
             {filteredTenants.map(t=>(
-              <div key={t.id} onClick={()=>setSelectedTenant(t)}
+              <div key={t.id} onClick={()=>{ console.log('[GlobalAdmin] selected tenant:', t); setSelectedTenant(t); }}
                 style={{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #f8fafc',
                   background:selectedTenant?.id===t.id?'#eff6ff':'transparent'}}>
                 <div style={{fontSize:11,fontWeight:600,color:selectedTenant?.id===t.id?'#2563eb':'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.name}</div>
@@ -946,10 +949,10 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
         </div>
 
         {/* Right: detail panel */}
-        <div style={{flex:1,overflow:'auto',background:'#f8fafc'}}>
+        <div style={{flex:1,overflow:'hidden',background:'#f8fafc',display:'flex',flexDirection:'column'}}>
           {!selectedTenant?(
             // Approvals view
-            <div style={{padding:16}}>
+            <div style={{padding:16,flex:1,overflowY:'auto'}}>
               <div style={{fontSize:12,fontWeight:700,color:'#111827',marginBottom:12}}>Pending Approvals</div>
               {pendingLoad?<div style={{color:'#94a3b8',fontSize:12}}>Loading...</div>
               :pending.length===0?<div style={{textAlign:'center',padding:32,color:'#94a3b8',fontSize:12}}>No pending approvals ✅</div>
@@ -982,7 +985,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
               </div>}
             </div>
           ):(
-            // Selected tenant detail
+            // Selected tenant detail — fills the right flex column
             <ManageDrawer tenant={selectedTenant} onClose={()=>setSelectedTenant(null)} onUpdate={updateTenant} embedded={true}/>
           )}
         </div>
