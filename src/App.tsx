@@ -675,10 +675,14 @@ export default function App() {
 // Falls back to the local part of the email (e.g. "raviboorla") if not found,
 // which is always correct for stratadmin since it has no tenant_users row.
 async function resolveUsernameFromEmail(email: string): Promise<string> {
-  const { data } = await supabase
+  // Use maybeSingle to avoid throwing on RLS-filtered empty results
+  const { data, error } = await supabase
     .from('tenant_users')
     .select('username')
     .eq('email', email.toLowerCase())
-    .single();
-  return data?.username ?? email.split('@')[0];
+    .maybeSingle();
+  if (error) console.warn('[AUTH] resolveUsernameFromEmail error:', error.message);
+  const username = data?.username ?? email.split('@')[0];
+  console.log('[AUTH] resolved username:', username, 'from email:', email);
+  return username;
 }
