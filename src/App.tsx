@@ -424,7 +424,7 @@ function Workspace({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'#f2f2f2' }}>
+    <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'#f2f2f2', position:'relative' }}>
       {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
       <TopNav view={view} setView={goView} items={items} onNavItem={id => nav(id)}
         onCreateNew={createAndOpen} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
@@ -471,7 +471,18 @@ function Workspace({
       </footer>
       <input ref={fileRef} type="file" className="hidden"
         onChange={e => { if (e.target.files?.[0]) addFile(e.target.files[0]); e.target.value = ''; }}/>
-      {form && <ItemForm item={form} onSave={upsert} onClose={() => setForm(null)} onAutoSave={form._autoSave ? liveUpsert : null}/>}
+      {/* ItemForm — right-side drawer within workspace */}
+      {form && (
+        <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+          <div onClick={() => setForm(null)} style={{ flex:1, background:'rgba(0,0,0,0.3)', cursor:'pointer', pointerEvents:'all' }}/>
+          <div onClick={e=>e.stopPropagation()}
+            style={{ width:'40%', minWidth:340, maxWidth:620, height:'100%', background:'white',
+              boxShadow:'-6px 0 32px rgba(0,0,0,0.2)', display:'flex', flexDirection:'column',
+              overflow:'hidden', pointerEvents:'all' }}>
+            <ItemForm item={form} onSave={upsert} onClose={() => setForm(null)} onAutoSave={form._autoSave ? liveUpsert : null} drawerMode={true}/>
+          </div>
+        </div>
+      )}
       {linkDlg && selected && <LinkDlg mode={linkDlg} selected={selected} allItems={items} q={linkQ} onQ={setLinkQ} onLink={linkDlg === 'link' ? addLink : addDep} onClose={() => setLinkDlg(null)}/>}
       {cmdOpen && <CommandPalette items={items} onNav={id => { nav(id); setCmdOpen(false); }} onClose={() => setCmdOpen(false)}/>}
     </div>
@@ -532,7 +543,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 
   // Everyone defaults to workspace — admin panels are drawers
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ position:'relative' }}>
+    <div className="flex flex-col h-screen overflow-hidden" style={{ position:'relative', overflow:'hidden' }}>
       <Workspace
         loggedUser={loggedUser}
         isAdmin={isAdmin}
@@ -570,22 +581,20 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 // ── Thin wrapper components for the drawers ───────────────────────────────────
 function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClose: () => void }) {
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex', alignItems:'stretch' }}>
-      {/* Backdrop — click to close */}
-      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.4)', cursor:'pointer' }}/>
-      {/* Drawer panel — isolated, never receives backdrop clicks */}
+    <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.35)', cursor:'pointer', pointerEvents:'all' }}/>
       <div onClick={e=>e.stopPropagation()}
-        style={{ width:'min(860px,96vw)', height:'100%', background:'#f8fafc',
-          boxShadow:'-8px 0 40px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column',
-          overflow:'hidden', position:'relative', zIndex:1 }}>
-        <div style={{ background:'#0f172a', padding:'0 16px', height:44, display:'flex',
+        style={{ width:'40%', minWidth:360, maxWidth:680, height:'100%', background:'#f8fafc',
+          boxShadow:'-6px 0 32px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column',
+          overflow:'hidden', pointerEvents:'all' }}>
+        <div style={{ background:'#0f172a', padding:'0 14px', height:40, display:'flex',
           alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <img src='/logo.jpg' alt='logo' style={{ width:24, height:24, borderRadius:6, objectFit:'cover' }}/>
-            <span style={{ fontSize:13, fontWeight:700, color:'white' }}>Global Admin</span>
+            <img src='/logo.jpg' alt='logo' style={{ width:22, height:22, borderRadius:5, objectFit:'cover' }}/>
+            <span style={{ fontSize:12, fontWeight:700, color:'white' }}>Global Admin</span>
           </div>
-          <button onClick={onClose} style={{ color:'#94a3b8', background:'none', border:'none',
-            fontSize:20, cursor:'pointer', lineHeight:1, padding:'4px 8px' }}>×</button>
+          <button onClick={onClose} style={{ color:'#94a3b8', background:'rgba(255,255,255,0.1)',
+            border:'none', fontSize:13, cursor:'pointer', padding:'3px 10px', borderRadius:5, fontWeight:600 }}>✕ Close</button>
         </div>
         <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
           <GlobalAdminPanel loggedUser={loggedUser} onPreviewTenant={() => {}} embedded={true}/>
@@ -598,12 +607,12 @@ function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClos
 function LocalAdminDrawer({ loggedUser, tenantId, onClose }:
   { loggedUser: string; tenantId: string; onClose: () => void }) {
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex', alignItems:'stretch' }}>
-      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.4)', cursor:'pointer' }}/>
+    <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.35)', cursor:'pointer', pointerEvents:'all' }}/>
       <div onClick={e=>e.stopPropagation()}
-        style={{ width:'min(680px,96vw)', height:'100%', background:'#f8fafc',
-          boxShadow:'-8px 0 40px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column',
-          overflow:'hidden', position:'relative', zIndex:1 }}>
+        style={{ width:'40%', minWidth:320, maxWidth:580, height:'100%', background:'#f8fafc',
+          boxShadow:'-6px 0 32px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column',
+          overflow:'hidden', pointerEvents:'all' }}>
         <div style={{ background:'#0f172a', padding:'0 16px', height:44, display:'flex',
           alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
