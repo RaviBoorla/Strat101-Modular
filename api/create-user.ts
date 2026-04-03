@@ -106,21 +106,24 @@ export default async function handler(req: Request): Promise<Response> {
 
   // ── STEP 2: Send invite email if requested ────────────────────────────────
 if (sendInvite) {
-  const inviteRes = await fetch(
-    `${supabaseUrl}/auth/v1/admin/invite`,
-    {
-      method: 'POST',
-      headers: adminHeaders,
-      body: JSON.stringify({
-        email,
+  const linkRes = await fetch(
+  `${supabaseUrl}/auth/v1/admin/generate_link`,
+  {
+    method: 'POST',
+    headers: adminHeaders,
+    body: JSON.stringify({
+      type: 'invite', // 👈 IMPORTANT CHANGE
+      email,
+      options: {
+        redirect_to: "https://strat101.com-modular.vercel.com",
         data: {
           username,
-          full_name: fullName,
-        },
-        redirect_to: `${appUrl}/`,
-      }),
-    }
-  );
+          full_name: fullName
+        }
+      }
+    }),
+  }
+);
     const linkData = await linkRes.json();
     const inviteSent = linkRes.ok;
 
