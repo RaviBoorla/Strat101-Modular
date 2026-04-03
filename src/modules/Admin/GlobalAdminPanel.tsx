@@ -626,7 +626,7 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
   return(
     <div style={{position:'fixed',inset:0,zIndex:60,display:'flex',background:'rgba(15,23,42,0.35)'}} onClick={onClose}>
       <div style={{flex:1}}/>
-      <div style={{width:'100%',maxWidth:580,background:'white',height:'100%',display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(0,0,0,0.12)'}} onClick={e=>e.stopPropagation()}>
+      <div style={{width:'100%',maxWidth:400,background:'white',height:'90%',display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(0,0,0,0.12)'}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:'14px 18px',borderBottom:'1px solid #f1f5f9',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
           <div>
             <div style={{fontSize:14,fontWeight:700,color:'#111827'}}>{tenant.name}</div>
