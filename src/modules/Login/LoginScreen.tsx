@@ -171,6 +171,8 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     const now      = new Date().toISOString();
 
     // 1. Create Supabase auth user
+    // Set flag so App.tsx auth listener knows to sign this session out immediately
+    sessionStorage.setItem('strat101_registering', '1');
     const { data: authData, error: signUpErr } = await supabase.auth.signUp({
       email,
       password: regPwd,
