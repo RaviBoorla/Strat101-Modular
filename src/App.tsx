@@ -204,10 +204,10 @@ function PreviewBanner({ tenant, onExit }: { tenant: Tenant; onExit: () => void 
 // ─── WORKSPACE ────────────────────────────────────────────────────────────────
 
 function Workspace({
-  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut, userRole = 'editor', onSwitchToAdmin, onOpenGlobalAdmin, onOpenLocalAdmin,
+  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut, userRole = 'editor', onSwitchToAdmin, onOpenGlobalAdmin, onOpenLocalAdmin, tenantName = '',
 }: {
   loggedUser: string; isAdmin: boolean; features: TenantFeatures;
-  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void; userRole?: string; onSwitchToAdmin?: () => void; onOpenGlobalAdmin?: () => void; onOpenLocalAdmin?: () => void;
+  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void; userRole?: string; onSwitchToAdmin?: () => void; onOpenGlobalAdmin?: () => void; onOpenLocalAdmin?: () => void; tenantName?: string;
 }) {
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -409,11 +409,11 @@ function Workspace({
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'#f2f2f2' }}>
+      <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'white' }}>
         {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
         <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}} onCreateNew={()=>{}}
           workItemFilter={workItemFilter} setWorkItemFilter={setWIF} onNew={()=>{}}
-          loggedUser={loggedUser} isAdmin={isAdmin} features={features} onSignOut={onSignOut} isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}/>
+          loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut} isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}/>
         <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{ textAlign:'center' }}>
             <div style={{ fontSize:32, marginBottom:12 }}>&#9203;</div>
@@ -425,12 +425,12 @@ function Workspace({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'#f2f2f2', position:'relative' }}>
+    <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'white', position:'relative' }}>
       {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
       <TopNav view={view} setView={goView} items={items} onNavItem={id => nav(id)}
         onCreateNew={createAndOpen} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
         onNew={() => !isViewer && isListView && setForm(mkBlank(view, items))}
-        loggedUser={loggedUser} isAdmin={isAdmin} features={features} onSignOut={onSignOut}
+        loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut}
         isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}/>
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 flex flex-col min-w-0">
@@ -499,6 +499,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   const [tenantId,       setTenantId]       = useState<string | null>(null);
   const [tenantFeatures, setTenantFeatures] = useState<TenantFeatures>(ALL_FEATURES);
   const [userRole,       setUserRole]       = useState<string>('editor');
+  const [tenantName,     setTenantName]     = useState<string>('');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
@@ -517,11 +518,12 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
             // Load tenant features
             const { data: tenant } = await supabase
               .from('tenants')
-              .select('feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports')
+              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports')
               .eq('id', data.tenant_id)
               .single();
 
             if (tenant) {
+              setTenantName(tenant.name ?? '');
               setTenantFeatures({
                 kanban:    tenant.feat_kanban    ?? true,
                 workitems: tenant.feat_workitems ?? true,
@@ -554,6 +556,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         tenantId={activeTenantId}
         onSignOut={handleSignOut}
         userRole={userRole}
+        tenantName={tenantName}
         onOpenGlobalAdmin={isAdmin ? () => setGlobalAdminDrawerOpen(true) : undefined}
         onOpenLocalAdmin={(userRole === 'local_admin' || isAdmin) && tenantId
           ? () => setLocalAdminDrawerOpen(true) : undefined}
