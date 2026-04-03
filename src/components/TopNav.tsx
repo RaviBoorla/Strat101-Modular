@@ -79,6 +79,7 @@ interface TopNavProps {
   setWorkItemFilter: (filter: string) => void;
   onNew:             () => void;
   loggedUser:        string;
+  tenantName?:       string;
   isAdmin:           boolean;
   features:          TenantFeatures;
   onSignOut:         () => void;
@@ -91,7 +92,7 @@ interface TopNavProps {
 export default function TopNav({
   view, setView, items, onNavItem, onCreateNew,
   workItemFilter, setWorkItemFilter, onNew,
-  loggedUser, isAdmin, features, onSignOut, isViewer = false, onSwitchToAdmin,
+  loggedUser, tenantName, isAdmin, features, onSignOut, isViewer = false, onSwitchToAdmin,
   onOpenGlobalAdmin, onOpenLocalAdmin,
 }: TopNavProps) {
   const [wiOpen,     setWiOpen]   = useState(false);
@@ -277,20 +278,22 @@ export default function TopNav({
                 🏢 Local Admin
               </button>
             )}
-            <span style={{fontSize:11,color:TEXT_MUTED,fontWeight:500}}>{loggedUser}</span>
-            <button onClick={onSignOut} title="Sign out"
-              style={{display:'flex',alignItems:'center',padding:'4px 12px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:5,cursor:'pointer',fontSize:11,fontWeight:600,color:'#f87171',transition:'background 0.15s'}}
-              onMouseEnter={e=>{e.currentTarget.style.background='rgba(239,68,68,0.2)';}}
-              onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';}}>
-              Sign Out
-            </button>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
+              <span style={{fontSize:10,color:TEXT_MUTED,fontWeight:600}}>{loggedUser}</span>
+              <button onClick={onSignOut} title="Sign out"
+                style={{display:'flex',alignItems:'center',padding:'3px 10px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:700,color:'#f87171',transition:'background 0.15s'}}
+                onMouseEnter={e=>{e.currentTarget.style.background='rgba(239,68,68,0.2)';}}
+                onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';}}>
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Breadcrumb strip */}
       <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(255,255,255,0.06)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6}}>
-        <span style={{fontSize:11,color:TEXT_MUTED}}>Strat101.com</span>
+        <span style={{fontSize:11,color:TEXT_MUTED}}>{tenantName||'Strat101.com'}</span>
         <span style={{fontSize:11,color:TEXT_MUTED}}>›</span>
         <span style={{fontSize:11,fontWeight:600,color:TEXT_ACTIVE}}>
           {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i} ${TC[workItemFilter]?.l}s`):`${TC[view]?.i} ${TC[view]?.l}s`}
