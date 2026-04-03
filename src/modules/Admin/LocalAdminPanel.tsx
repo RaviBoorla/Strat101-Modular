@@ -191,8 +191,9 @@ function UsersTab({ users, tenantId, tenantName, loggedUser, onRefresh }:
       </div>
 
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
-        {filtered.map(u=>(
-          <div key={u.id} style={{background:'white',border:'1px solid #e2e8f0',borderRadius:10,padding:'12px 16px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
+        {filtered.map(u=>{
+          const isSelf = u.username?.toLowerCase() === loggedUser?.toLowerCase();
+          return (<div key={u.id} style={{background:'white',border:'1px solid #e2e8f0',borderRadius:10,padding:'12px 16px',boxShadow:'0 1px 3px rgba(0,0,0,0.05)'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
               <div style={{flex:1}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
@@ -214,11 +215,12 @@ function UsersTab({ users, tenantId, tenantName, loggedUser, onRefresh }:
                     <select
                       defaultValue={u.role}
                       onChange={async e=>{
+                        if(isSelf && e.target.value==='local_admin') return;
                         await supabase.from('tenant_users').update({role:e.target.value}).eq('id',u.id);
                         onRefresh();
                       }}
+                      disabled={isSelf}
                       style={{fontSize:10,border:'1px solid #e2e8f0',borderRadius:5,padding:'2px 6px',color:'#374151',cursor:'pointer',background:'white'}}>
-                      <option value="local_admin">Local Admin</option>
                       <option value="editor">Editor</option>
                       <option value="viewer">Viewer</option>
                     </select>
@@ -230,7 +232,7 @@ function UsersTab({ users, tenantId, tenantName, loggedUser, onRefresh }:
                   <button onClick={()=>approve(u.id)} style={btn('#16a34a')}>✔ Approve</button>
                   <button onClick={()=>reject(u.id)} style={{...btn(),...{background:'white',color:'#dc2626',border:'1px solid #fca5a5'}}}>✘ Reject</button>
                 </>}
-                {u.approval_status!=='pending'&&!PROTECTED.includes(u.username)&&<>
+                {u.approval_status!=='pending'&&!PROTECTED.includes(u.username)&&!isSelf&&<>
                   <button onClick={()=>deactivate(u.id,!u.active)}
                     style={{padding:'5px 10px',borderRadius:6,border:'1px solid #e2e8f0',background:'white',fontSize:11,fontWeight:600,cursor:'pointer',color:u.active?'#dc2626':'#16a34a'}}>
                     {u.active?'Deactivate':'Activate'}
@@ -243,7 +245,8 @@ function UsersTab({ users, tenantId, tenantName, loggedUser, onRefresh }:
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
         {!filtered.length&&<div style={{textAlign:'center',padding:'48px 0',color:'#94a3b8',fontSize:12}}>No users found</div>}
       </div>
 
@@ -326,11 +329,10 @@ function AddUserModal({ tenantId, tenantName, onClose, onSaved }:
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
           <div><label style={{fontSize:10,fontWeight:600,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.05em'}}>Role</label>
             <select value={role} onChange={e=>setRole(e.target.value as any)} style={sel}>
-              <option value="local_admin">Local Admin</option>
               <option value="editor">Editor</option>
               <option value="viewer">Viewer</option>
             </select>
-            <div style={{fontSize:9,color:'#94a3b8',marginTop:3}}>Global Admin role is assigned by Strat101.com only</div></div>
+            <div style={{fontSize:9,color:'#94a3b8',marginTop:3}}>Use Global Admin panel to assign Local Admin role</div></div>
           <div><label style={{fontSize:10,fontWeight:600,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.05em'}}>Onboarding</label>
             <select value={sendInv?'invite':'password'} onChange={e=>setSendInv(e.target.value==='invite')} style={sel}>
               <option value="invite">Send Invite Email</option>
@@ -444,12 +446,16 @@ function FeaturesTab({ tenant, tenantId, loggedUser, onRefresh }:
           <div style={{fontSize:12,fontWeight:700,color:'#374151',marginBottom:8}}>Request History</div>
           <div style={{display:'flex',flexDirection:'column',gap:6}}>
             {requests.map(r=>(
-              <div key={r.id} style={{background:'white',border:'1px solid #e2e8f0',borderRadius:8,padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div>
-                  <span style={{fontWeight:600,fontSize:12}}>{FEATURE_ICONS[r.feature_key]} {FEATURE_LABELS[r.feature_key]}</span>
-                  <span style={{color:'#64748b',fontSize:11,marginLeft:8}}>{r.reason}</span>
+              <div key={r.id} style={{background:'white',border:'1px solid #e2e8f0',borderRadius:8,padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:12,marginBottom:3}}>{FEATURE_ICONS[r.feature_key]} {FEATURE_LABELS[r.feature_key]}</div>
+                  <div style={{color:'#64748b',fontSize:11,marginBottom:3}}>{r.reason}</div>
+                  <div style={{fontSize:10,color:'#94a3b8'}}>
+                    Requested: {r.created_at?new Date(r.created_at).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—'}
+                    {r.actioned_at&&<span style={{marginLeft:8}}>· {r.status==='approved'?'Approved':'Rejected'}: {new Date(r.actioned_at).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}{r.actioned_by&&` by ${r.actioned_by}`}</span>}
+                  </div>
                 </div>
-                <span style={{padding:'2px 8px',borderRadius:999,fontSize:10,fontWeight:700,
+                <span style={{padding:'2px 8px',borderRadius:999,fontSize:10,fontWeight:700,flexShrink:0,
                   background:r.status==='pending'?'#fef3c7':r.status==='approved'?'#f0fdf4':'#fef2f2',
                   color:r.status==='pending'?'#92400e':r.status==='approved'?'#16a34a':'#dc2626'}}>
                   {r.status.toUpperCase()}
