@@ -321,17 +321,16 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
                     {u.mustChangePwd&&<Pill label="Pwd Reset Pending" color="#d97706" bg="#fffbeb"/>}
                   </div>
                   <div style={{fontSize:10,color:'#94a3b8'}}>
-                    @{u.username}{u.email?` | ${u.email}`:''}
-                    {u.lastLogin&&<span> | Last login: {u.lastLogin}</span>}
-                    {!u.lastLogin&&<span style={{color:'#fca5a5'}}> | Never logged in</span>}
+                    @{u.username}
+                    {u.lastLogin&&<span style={{marginLeft:6}}>· Last login: {u.lastLogin}</span>}
+                    {!u.lastLogin&&<span style={{marginLeft:6,color:'#fca5a5'}}>· Never logged in</span>}
                   </div>
                 </div>
-                <div style={{display:'flex',gap:5,flexShrink:0}}>
-                  <button onClick={()=>setHistModal(u)}  style={{padding:'4px 8px',borderRadius:5,border:'1px solid #e2e8f0',background:'white',fontSize:10,cursor:'pointer',color:'#374151'}}>History</button>
-                  <button onClick={()=>setResetModal(u)} style={{padding:'4px 8px',borderRadius:5,border:'1px solid #fde68a',background:'#fffbeb',fontSize:10,cursor:'pointer',color:'#92400e'}}>Reset Pwd</button>
-                  <button onClick={()=>setUserModal(u)}  style={{padding:'4px 8px',borderRadius:5,border:'1px solid #e2e8f0',background:'white',fontSize:10,cursor:'pointer',color:'#374151'}}>Edit</button>
+                <div style={{display:'flex',gap:4,flexShrink:0}}>
+                  <button onClick={()=>setResetModal(u)} style={{padding:'3px 8px',borderRadius:5,border:'1px solid #fde68a',background:'#fffbeb',fontSize:10,cursor:'pointer',color:'#92400e'}}>Reset Pwd</button>
+                  <button onClick={()=>setUserModal(u)}  style={{padding:'3px 8px',borderRadius:5,border:'1px solid #e2e8f0',background:'white',fontSize:10,cursor:'pointer',color:'#374151'}}>Edit</button>
                   {!['raviboorla'].includes(u.username?.toLowerCase()??'') &&
-                  <button onClick={()=>setConfirmDel(u.id)} style={{padding:'4px 8px',borderRadius:5,border:'1px solid #fecaca',background:'#fef2f2',fontSize:10,cursor:'pointer',color:'#dc2626'}}>&times;</button>}
+                  <button onClick={()=>setConfirmDel(u.id)} style={{padding:'3px 8px',borderRadius:5,border:'1px solid #fecaca',background:'#fef2f2',fontSize:10,cursor:'pointer',color:'#dc2626'}}>✕</button>}
                 </div>
               </div>
               {u.mustChangePwd&&u.passwordResetAt&&(
@@ -418,7 +417,7 @@ function SubscriptionTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>v
   };
 
   const monthlyPrice=PLAN_PRICE[tenant.plan];
-  const statusIcon=sub.status==='active'?'\u2705':sub.status==='trialling'?'\u{1f9ea}':sub.status==='past_due'?'\u26a0\ufe0f':sub.status==='cancelled'?'\u274c':'\u{1f512}';
+  const statusIcon=sub.status==='active'?'✅':sub.status==='trialling'?'\u{1f9ea}':sub.status==='past_due'?'\u26a0\ufe0f':sub.status==='cancelled'?'\u274c':'\u{1f512}';
 
   return(
     <div>
@@ -454,9 +453,9 @@ function SubscriptionTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>v
               ['Billing Name',  sub.billingName||'-'],
               ['Billing Email', sub.billingEmail||'-'],
               ['VAT / Tax ID',  sub.vatId||'-'],
-              ['Card on File',  sub.cardLast4?`\u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 ${sub.cardLast4}  exp ${sub.cardExpiry}`:'-'],
+              ['Card on File',  sub.cardLast4?`•••• •••• •••• ${sub.cardLast4}  exp ${sub.cardExpiry}`:'-'],
               ['Auto Renew',    sub.autoRenew?'Yes':'No'],
-              ['Period',        `${sub.currentPeriodStart} \u2192 ${sub.currentPeriodEnd}`],
+              ['Period',        `${sub.currentPeriodStart} → ${sub.currentPeriodEnd}`],
             ].map(([l,v])=>(
               <div key={l} style={{padding:'8px 10px',borderRadius:7,background:'white',border:'1px solid #e2e8f0'}}>
                 <div style={{fontSize:10,color:'#94a3b8',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:2}}>{l}</div>
@@ -1124,17 +1123,16 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
                       </div>
                       {item._type==='feature'&&(
                         <div style={{fontSize:12,color:'#64748b',display:'flex',flexDirection:'column',gap:3}}>
-                          <span>🏢 Company: {item.tenant_name}</span>
-                          <span>👤 Requested by: {item.requested_by}</span>
-                          <span>💬 Reason: {item.reason}</span>
-                          <span>📅 Requested: {item.created_at?new Date(item.created_at).toLocaleString():'Unknown'}</span>
+                          <span>🏢 {item.tenant_name}</span>
+                          <span>👤 {item.requested_by}</span>
+                          <span>💬 {item.reason}</span>
+                          <span>📅 {item.created_at?new Date(item.created_at).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'Unknown'}</span>
                         </div>
                       )}
                       {item._type==='user'&&(
                         <div style={{fontSize:12,color:'#64748b',display:'flex',flexDirection:'column',gap:3}}>
-                          <span>📧 {item.email}</span>
-                          <span>🏢 Company: {item.tenants?.name??'Unknown'}</span>
-                          <span>📅 Requested: {item.approval_requested_at?new Date(item.approval_requested_at).toLocaleString():'Unknown'}</span>
+                          <span>🏢 {item.tenants?.name??'Unknown'}</span>
+                          <span>📅 Requested: {item.approval_requested_at?new Date(item.approval_requested_at).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'Unknown'}</span>
                         </div>
                       )}
                       {item._type==='tenant'&&(
