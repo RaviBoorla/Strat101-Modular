@@ -593,6 +593,36 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
     {id:'subscription' as const, label:'Subscription'},
     {id:'invoices'     as const, label:'Invoices'},
   ];
+  if (embedded) {
+    return (
+      <div style={{display:'flex',flexDirection:'column',height:'100%',background:'white',overflow:'hidden'}}>
+        <div style={{padding:'10px 14px',borderBottom:'1px solid #f1f5f9',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:'#111827'}}>{tenant.name}</div>
+            <div style={{fontSize:10,color:'#94a3b8',marginTop:1}}>
+              {tenant.users.length} users | {FEATURE_DEFS.filter(f=>tenant.features[f.key]).length}/{FEATURE_DEFS.length} modules
+            </div>
+          </div>
+          <button onClick={onClose} style={{border:'none',background:'none',fontSize:18,cursor:'pointer',color:'#94a3b8'}}>&times;</button>
+        </div>
+        <div style={{display:'flex',borderBottom:'1px solid #f1f5f9',flexShrink:0,overflowX:'auto'}}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)}
+              style={{padding:'8px 12px',border:'none',cursor:'pointer',fontSize:11,fontWeight:tab===t.id?700:400,color:tab===t.id?'#2563eb':'#64748b',background:'transparent',borderBottom:tab===t.id?'2px solid #2563eb':'2px solid transparent',whiteSpace:'nowrap'}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div style={{flex:1,overflowY:'auto',padding:14}}>
+          {tab==='users'        &&<UsersTab        tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='features'     &&<FeaturesTab     tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='subscription' &&<SubscriptionTab tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='invoices'     &&<InvoicesTab     tenant={tenant} onUpdate={onUpdate}/>}
+        </div>
+      </div>
+    );
+  }
+
   return(
     <div style={{position:'fixed',inset:0,zIndex:60,display:'flex',background:'rgba(15,23,42,0.35)'}} onClick={onClose}>
       <div style={{flex:1}}/>
