@@ -42,7 +42,6 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
   return (
     <div ref={wrapRef} style={{position:'relative'}}>
       <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 8px',background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:6,width:180,boxShadow:open?'0 0 0 2px rgba(147,197,253,0.5)':'none',transition:'box-shadow 0.15s'}}>
-        <span style={{fontSize:12,color:'#8baecf',flexShrink:0}}>🔍</span>
         <input ref={inputRef} value={q} onChange={e=>{setQ(e.target.value);setCursor(0);setOpen(true);}} onFocus={()=>setOpen(true)} onKeyDown={onKey} placeholder="Search…"
           style={{flex:1,border:'none',outline:'none',background:'transparent',fontSize:12,color:'#e2eaf4'}}/>
         {q
@@ -277,17 +276,12 @@ export default function TopNav({
                 🏢 Local Admin
               </button>
             )}
+            <span style={{fontSize:11,color:TEXT_MUTED,fontWeight:500}}>{loggedUser}</span>
             <button onClick={onSignOut} title="Sign out"
-              style={{display:'flex',alignItems:'center',gap:5,padding:'3px 8px 3px 4px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:14,cursor:'pointer',transition:'background 0.15s'}}
-              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.2)';}}
+              style={{display:'flex',alignItems:'center',padding:'4px 12px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:5,cursor:'pointer',fontSize:11,fontWeight:600,color:'#f87171',transition:'background 0.15s'}}
+              onMouseEnter={e=>{e.currentTarget.style.background='rgba(239,68,68,0.2)';}}
               onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';}}>
-              <div style={{width:22,height:22,borderRadius:'50%',background:'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:800,fontSize:10,letterSpacing:'0.5px',flexShrink:0}}>
-                {initials}
-              </div>
-              <div style={{lineHeight:1}}>
-                <div style={{fontSize:11,fontWeight:700,color:TEXT_ACTIVE}}>{loggedUser}</div>
-                <div style={{fontSize:9,color:'#f87171',fontWeight:600}}>Sign out</div>
-              </div>
+              Sign Out
             </button>
           </div>
         </div>
