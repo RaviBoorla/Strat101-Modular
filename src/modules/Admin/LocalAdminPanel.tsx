@@ -220,7 +220,8 @@ function UsersTab({ users, tenantId, tenantName, loggedUser, onRefresh }:
                         onRefresh();
                       }}
                       disabled={isSelf}
-                      style={{fontSize:10,border:'1px solid #e2e8f0',borderRadius:5,padding:'2px 6px',color:'#374151',cursor:'pointer',background:'white'}}>
+                      style={{fontSize:10,border:'1px solid #e2e8f0',borderRadius:5,padding:'2px 6px',color:'#374151',cursor:isSelf?'not-allowed':'pointer',background:'white',opacity:isSelf?0.5:1}}>
+                      <option value="local_admin">Local Admin</option>
                       <option value="editor">Editor</option>
                       <option value="viewer">Viewer</option>
                     </select>
