@@ -15,6 +15,10 @@ import {
   updateInvoiceStatus as apiUpdateInvoiceStatus,
 } from "../../lib/globalAdminApi";
 
+const FEATURE_LABELS: Record<string,string> = {
+  kanban:'Kanban Boards', workitems:'Work Items', create:'Create Items',
+  bot:'AI Assist', reports:'Reports',
+};
 const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
   { key:'kanban',    label:'Kanban',     icon:'Kanban'    },
   { key:'workitems', label:'Work Items', icon:'WorkItems' },
@@ -993,7 +997,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:11,fontWeight:700,color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                          {item._type==='user'?`${item.full_name} (@${item.username})`:item._type==='tenant'?`New: ${item.name}`:`Feature: ${item.feature_key} - ${item.tenant_name}`}
+                          {item._type==='user'?`${item.full_name} (@${item.username})`:item._type==='tenant'?`New: ${item.name}`:`${FEATURE_LABELS[item.feature_key]??item.feature_key} — ${item.tenant_name}`}
                         </div>
                         <div style={{fontSize:10,color:'#64748b',marginTop:2}}>
                           {item._type==='user'?item.email:item._type==='tenant'?`by ${item.requested_by}`:`by ${item.requested_by} | ${item.reason}`}
@@ -1144,7 +1148,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                         <span style={{fontSize:18}}>{item._type==='user'?'👤':item._type==='tenant'?'🏢':'✨'}</span>
                         <span style={{fontSize:13,fontWeight:700,color:'#111827'}}>
-                          {item._type==='user'?`${item.full_name} (@${item.username})`:item._type==='tenant'?`New Company: ${item.name}`:`Feature Request: ${item.feature_key}`}
+                          {item._type==='user'?`${item.full_name} (@${item.username})`:item._type==='tenant'?`New Company: ${item.name}`:`${FEATURE_LABELS[item.feature_key]??item.feature_key}`}
                         </span>
                         <span style={{padding:'2px 8px',borderRadius:999,background:'#fef3c7',color:'#92400e',fontSize:10,fontWeight:700}}>PENDING</span>
                       </div>
@@ -1213,7 +1217,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
           <div style={{background:'white',borderRadius:12,padding:24,maxWidth:400,width:'90%',margin:'0 16px'}}>
             <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Reject Feature Request</div>
             <div style={{fontSize:12,color:'#64748b',marginBottom:14}}>
-              Rejecting <strong>{rejectingFeat.feature_key}</strong> for <strong>{rejectingFeat.tenant_name}</strong>.
+              Rejecting <strong>{FEATURE_LABELS[rejectingFeat.feature_key]??rejectingFeat.feature_key}</strong> for <strong>{rejectingFeat.tenant_name}</strong>.
               Add a reason so the tenant admin understands why.
             </div>
             <textarea
