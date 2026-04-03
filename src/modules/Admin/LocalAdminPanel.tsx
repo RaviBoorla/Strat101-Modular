@@ -426,13 +426,16 @@ function FeaturesTab({ tenant, tenantId, loggedUser, onRefresh }:
                     <span style={{padding:'4px 12px',borderRadius:999,background:'#fef3c7',color:'#92400e',fontSize:11,fontWeight:700}}>⏳ REQUEST PENDING</span>
                     <span style={{fontSize:9,color:'#94a3b8'}}>Awaiting Global Admin approval</span>
                   </div>
-                ):approved?(
-                  <span style={{padding:'4px 12px',borderRadius:999,background:'#eff6ff',color:'#2563eb',fontSize:11,fontWeight:700}}>✓ APPROVED</span>
                 ):(
-                  <button onClick={()=>{setRequesting(key);setReason('');}}
-                    style={{padding:'5px 12px',borderRadius:7,border:'1px solid #bfdbfe',background:'#eff6ff',color:'#2563eb',fontSize:11,fontWeight:600,cursor:'pointer'}}>
-                    Request Access
-                  </button>
+                  // Feature is disabled — always allow requesting, even if previously approved
+                  // (global admin may have disabled it after approval)
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
+                    <button onClick={()=>{setRequesting(key);setReason('');}}
+                      style={{padding:'5px 12px',borderRadius:7,border:'1px solid #bfdbfe',background:'#eff6ff',color:'#2563eb',fontSize:11,fontWeight:600,cursor:'pointer'}}>
+                      Request Access
+                    </button>
+                    {approved&&<span style={{fontSize:9,color:'#f87171'}}>Previously approved — re-request needed</span>}
+                  </div>
                 )}
               </div>
             </div>
@@ -453,6 +456,7 @@ function FeaturesTab({ tenant, tenantId, loggedUser, onRefresh }:
                   <div style={{fontSize:10,color:'#94a3b8'}}>
                     Requested: {r.created_at?new Date(r.created_at).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'}):'—'}
                     {r.actioned_at&&<span style={{marginLeft:8}}>· {r.status==='approved'?'Approved':'Rejected'}: {new Date(r.actioned_at).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'})}{r.actioned_by&&` by ${r.actioned_by}`}</span>}
+                    {r.status==='rejected'&&r.rejection_reason&&<div style={{marginTop:3,color:'#f87171',fontSize:10}}>Reason: {r.rejection_reason}</div>}
                   </div>
                 </div>
                 <span style={{padding:'2px 8px',borderRadius:999,fontSize:10,fontWeight:700,flexShrink:0,
