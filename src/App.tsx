@@ -643,21 +643,55 @@ export default function App() {
 
   // Check if user's account is approved before allowing access
   const checkAndLogin = async (email: string): Promise<boolean> => {
-    const { data } = await supabase
-      .from('tenant_users')
-      .select('username, active, approval_status')
-      .eq('email', email.toLowerCase())
-      .maybeSingle();
+    try {
+      // 5 second timeout — if RLS or network fails, fall through to login screen
+      const queryPromise = supabase
+        .from('tenant_users')
+        .select('username, active, approval_status')
+        .eq('email', email.toLowerCase())
+        .maybeSingle();
 
-    if (!data || data.approval_status === 'pending' || data.approval_status === 'rejected' || !data.active) {
-      // Sign them out immediately — they should not have access
+      const timeoutPromise = new Promise<{data:null,error:{message:string}}>(resolve =>
+        setTimeout(() => resolve({data:null, error:{message:'timeout'}}), 5000)
+      );
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+      if (error) {
+        console.warn('[Auth] tenant_users lookup failed:', error.message);
+        // On error, sign out and show login screen — don't get stuck
+        await supabase.auth.signOut();
+        return false;
+      }
+
+      if (!data) {
+        // No matching user row — could be mid-registration race condition
+        // Sign out and show login
+        await supabase.auth.signOut();
+        return false;
+      }
+
+      if (data.approval_status === 'pending') {
+        await supabase.auth.signOut();
+        setPendingApproval(true);
+        return false;
+      }
+
+      if (data.approval_status === 'rejected' || !data.active) {
+        await supabase.auth.signOut();
+        return false;
+      }
+
+      setLoggedUser(data.username);
+      setLoggedIn(true);
+      return true;
+
+    } catch (e: any) {
+      console.warn('[Auth] checkAndLogin error:', e.message);
+      // Network error or timeout — sign out and show login screen
       await supabase.auth.signOut();
-      if (data?.approval_status === 'pending') setPendingApproval(true);
       return false;
     }
-    setLoggedUser(data.username);
-    setLoggedIn(true);
-    return true;
   };
 
   useEffect(() => {
