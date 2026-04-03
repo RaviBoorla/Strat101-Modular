@@ -4,10 +4,7 @@ import { fuzzyScore } from "../utils";
 import { TenantFeatures } from "../types";
 
 // ─── INLINE SEARCH ────────────────────────────────────────────────────────────
-interface InlineSearchProps {
-  items: any[];
-  onNav: (id: string) => void;
-}
+interface InlineSearchProps { items: any[]; onNav: (id: string) => void; }
 
 function InlineSearch({ items, onNav }: InlineSearchProps) {
   const [q,      setQ]      = useState('');
@@ -34,7 +31,6 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
   },[]);
 
   const pick=(id:string)=>{ onNav(id); setQ(''); setOpen(false); };
-
   const onKey=(e:React.KeyboardEvent)=>{
     if(!open) return;
     if(e.key==='ArrowDown'){ e.preventDefault(); setCursor(c=>Math.min(c+1,results.length-1)); }
@@ -45,17 +41,17 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
 
   return (
     <div ref={wrapRef} style={{position:'relative'}}>
-      <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 8px',background:'rgba(255,255,255,0.72)',border:'1px solid rgba(0,0,0,0.12)',borderRadius:6,width:200,boxShadow:open?'0 0 0 2px #93c5fd':'none',transition:'box-shadow 0.15s'}}>
-        <span style={{fontSize:12,color:'#64748b',flexShrink:0}}>🔍</span>
+      <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 8px',background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:6,width:180,boxShadow:open?'0 0 0 2px rgba(147,197,253,0.5)':'none',transition:'box-shadow 0.15s'}}>
+        <span style={{fontSize:12,color:'#8baecf',flexShrink:0}}>🔍</span>
         <input ref={inputRef} value={q} onChange={e=>{setQ(e.target.value);setCursor(0);setOpen(true);}} onFocus={()=>setOpen(true)} onKeyDown={onKey} placeholder="Search…"
-          style={{flex:1,border:'none',outline:'none',background:'transparent',fontSize:12,color:'#1e293b'}}/>
+          style={{flex:1,border:'none',outline:'none',background:'transparent',fontSize:12,color:'#e2eaf4'}}/>
         {q
-          ? <button onClick={()=>{setQ('');setOpen(false);}} style={{border:'none',background:'none',cursor:'pointer',color:'#94a3b8',fontSize:13,lineHeight:1,padding:0}}>×</button>
-          : <kbd style={{background:'rgba(0,0,0,0.07)',borderRadius:3,padding:'1px 4px',fontSize:9,color:'#64748b',fontFamily:'monospace',flexShrink:0}}>⌘K</kbd>
+          ? <button onClick={()=>{setQ('');setOpen(false);}} style={{border:'none',background:'none',cursor:'pointer',color:'#8baecf',fontSize:13,lineHeight:1,padding:0}}>×</button>
+          : <kbd style={{background:'rgba(255,255,255,0.1)',borderRadius:3,padding:'1px 4px',fontSize:9,color:'#8baecf',fontFamily:'monospace',flexShrink:0}}>⌘K</kbd>
         }
       </div>
       {open&&results.length>0&&(
-        <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,background:'white',borderRadius:8,border:'1px solid #e2e8f0',boxShadow:'0 6px 20px rgba(0,0,0,0.1)',zIndex:100,overflow:'hidden',minWidth:280}}>
+        <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,background:'white',borderRadius:8,border:'1px solid #e2e8f0',boxShadow:'0 6px 20px rgba(0,0,0,0.15)',zIndex:100,overflow:'hidden',minWidth:280}}>
           <div style={{maxHeight:320,overflowY:'auto'}}>
             {results.map((it,idx)=>(
               <button key={it.id} onClick={()=>pick(it.id)} onMouseEnter={()=>setCursor(idx)}
@@ -83,7 +79,7 @@ interface TopNavProps {
   setWorkItemFilter: (filter: string) => void;
   onNew:             () => void;
   loggedUser:        string;
-  isAdmin:           boolean;   // kept for API compatibility — not used in nav
+  isAdmin:           boolean;
   features:          TenantFeatures;
   onSignOut:         () => void;
   isViewer?:          boolean;
@@ -95,7 +91,7 @@ interface TopNavProps {
 export default function TopNav({
   view, setView, items, onNavItem, onCreateNew,
   workItemFilter, setWorkItemFilter, onNew,
-  loggedUser, features, onSignOut, isViewer = false, onSwitchToAdmin,
+  loggedUser, isAdmin, features, onSignOut, isViewer = false, onSwitchToAdmin,
   onOpenGlobalAdmin, onOpenLocalAdmin,
 }: TopNavProps) {
   const [wiOpen,     setWiOpen]   = useState(false);
@@ -113,7 +109,6 @@ export default function TopNav({
   },[]);
 
   const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-
   const navRef = useRef<HTMLElement>(null);
   useEffect(()=>{
     const h=(e:MouseEvent)=>{ if(navRef.current&&!navRef.current.contains(e.target as Node)){ setWiOpen(false); setCreate(false); setMobileMenu(false); } };
@@ -121,7 +116,6 @@ export default function TopNav({
     return ()=>document.removeEventListener('mousedown',h);
   },[]);
 
-  // Only show enabled feature modules — no Admin button here
   const NAV_ITEMS = [
     ...(features.kanban    ? [{id:'kanban',    label:'Kanban',     icon:'🗂️'}] : []),
     ...(features.workitems ? [{id:'workitems', label:'Work Items', icon:'📦'}] : []),
@@ -130,60 +124,89 @@ export default function TopNav({
     ...(features.reports   ? [{id:'reports',   label:'Reports',    icon:'📈'}] : []),
   ];
 
+  // FIX: Work Items click → go to workitems view directly (no dropdown)
+  // Work Items ARROW click → toggle dropdown
+  // Create click → toggle dropdown (unchanged)
   const handleNavClick=(id:string)=>{
     if(id==='kanban'||id==='bot'||id==='reports'){ setWiOpen(false); setCreate(false); setView(id); }
-    else if(id==='workitems'){ setCreate(false); setWiOpen((o:boolean)=>!o); setView('workitems'); setWorkItemFilter('all'); }
-    else if(id==='create'){ setWiOpen(false); setCreate((o:boolean)=>!o); }
+    else if(id==='workitems'){ setCreate(false); setWiOpen(false); setView('workitems'); setWorkItemFilter('all'); }
+    else if(id==='create'){ setWiOpen(false); if(!isViewer) setCreate((o:boolean)=>!o); }
   };
 
+  const handleWiArrow=(e:React.MouseEvent)=>{
+    e.stopPropagation();
+    setCreate(false);
+    setWiOpen((o:boolean)=>!o);
+  };
+
+  // FIX: Create is never "active" — it's a dropdown trigger only
   const isActive=(id:string)=>{
-    if(id==='workitems') return isWI;
-    if(id==='create')    return createOpen;
+    if(id==='workitems') return isWI || wiOpen;
+    if(id==='create')    return false;   // never highlighted
     return view===id;
   };
 
   const initials = loggedUser.slice(0,2).toUpperCase();
 
+  // Colour palette — dark navy
+  const NAV_BG        = '#1e3a5f';
+  const BREADCRUMB_BG = '#162d4a';
+  const TEXT_MAIN     = '#e2eaf4';
+  const TEXT_MUTED    = '#8baecf';
+  const TEXT_ACTIVE   = '#ffffff';
+  const ACTIVE_BG     = 'rgba(255,255,255,0.18)';
+
   return (
-    <header ref={navRef} style={{background:'#a3bbff',borderBottom:'1px solid #7a9ee8',boxShadow:'0 1px 4px rgba(0,80,140,0.12)',flexShrink:0,zIndex:40,position:'relative'}}>
+    <header ref={navRef} style={{background:NAV_BG,borderBottom:'1px solid #152d4a',boxShadow:'0 2px 8px rgba(0,0,0,0.25)',flexShrink:0,zIndex:40,position:'relative'}}>
       <div style={{display:'flex',alignItems:'center',padding:'0 12px',height:44,gap:2}}>
 
         {/* Brand */}
-        <div style={{display:'flex',alignItems:'center',gap:7,marginRight:isMobile?6:12,paddingRight:isMobile?6:12,borderRight:'1px solid rgba(0,60,120,0.2)'}}>
-          <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:11,letterSpacing:'-0.5px',flexShrink:0,boxShadow:'0 2px 6px rgba(37,99,235,0.3)'}}>SA</div>
+        <div style={{display:'flex',alignItems:'center',gap:7,marginRight:isMobile?6:12,paddingRight:isMobile?6:12,borderRight:`1px solid rgba(255,255,255,0.12)`}}>
+          <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:11,letterSpacing:'-0.5px',flexShrink:0,boxShadow:'0 2px 6px rgba(37,99,235,0.4)'}}>SA</div>
           {!isMobile&&<div>
-            <div style={{fontWeight:900,fontSize:14,color:'#0c2d4a',letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
-            <div style={{fontSize:8,color:'#1a5276',letterSpacing:'0.04em',marginTop:1}}>ENABLING TRANSFORMATION</div>
+            <div style={{fontWeight:900,fontSize:14,color:TEXT_ACTIVE,letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
+            <div style={{fontSize:8,color:TEXT_MUTED,letterSpacing:'0.04em',marginTop:1}}>ENABLING TRANSFORMATION</div>
           </div>}
         </div>
 
         {/* Desktop nav */}
-        {!isMobile&&<nav style={{display:'flex',alignItems:'center',gap:2,flex:1}}>
+        {!isMobile&&<nav style={{display:'flex',alignItems:'center',gap:1,flex:1}}>
           {NAV_ITEMS.map(n=>(
             <div key={n.id} style={{position:'relative'}}>
-              <button onClick={()=>handleNavClick(n.id)} style={{
-                display:'flex',alignItems:'center',gap:4,padding:'5px 8px',borderRadius:6,border:'none',cursor:'pointer',
-                fontSize:isTablet?11:13,fontWeight:isActive(n.id)?700:500,
-                background:isActive(n.id)?'rgba(255,255,255,0.45)':'transparent',
-                color:isActive(n.id)?'#0c2d4a':'#0e4166',
-                transition:'all 0.15s',
-                borderBottom:isActive(n.id)&&n.id!=='create'?'2px solid #0c3d6e':'2px solid transparent',
-                borderBottomLeftRadius:0,borderBottomRightRadius:0,
-                ...(n.id==='create'?{background:createOpen?'rgba(255,255,255,0.55)':'rgba(255,255,255,0.3)',color:createOpen?'#0a3d1f':'#0c2d4a',border:'1px solid',borderColor:createOpen?'rgba(0,100,40,0.35)':'rgba(0,60,120,0.2)',borderRadius:6,marginLeft:4}:{}),
-              }}>
+              <button
+                onClick={()=>handleNavClick(n.id)}
+                style={{
+                  display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:6,border:'none',cursor:'pointer',
+                  fontSize:isTablet?11:12,fontWeight:isActive(n.id)?700:500,
+                  background:isActive(n.id)?ACTIVE_BG:'transparent',
+                  color:isActive(n.id)?TEXT_ACTIVE:TEXT_MAIN,
+                  transition:'all 0.15s',
+                  borderBottom:isActive(n.id)?`2px solid rgba(255,255,255,0.6)`:'2px solid transparent',
+                  borderBottomLeftRadius:0,borderBottomRightRadius:0,
+                }}>
                 <span style={{fontSize:13}}>{n.icon}</span>
                 {!isTablet&&<span>{n.label}</span>}
                 {isTablet&&<span style={{fontSize:10,fontWeight:600}}>{n.label.split(' ')[0]}</span>}
-                {(n.id==='workitems'||n.id==='create')&&(
-                  <span style={{fontSize:22,opacity:0.85,marginLeft:2,lineHeight:1}}>
-                    {n.id==='workitems'?wiOpen?'▴':'▾':createOpen?'▴':'▾'}
+                {/* Work Items: separate arrow button for dropdown */}
+                {n.id==='workitems'&&(
+                  <span
+                    onClick={handleWiArrow}
+                    title="Filter by type"
+                    style={{fontSize:10,opacity:0.7,marginLeft:1,lineHeight:1,padding:'1px 2px',borderRadius:3,cursor:'pointer'}}
+                    onMouseEnter={e=>(e.currentTarget.style.opacity='1')}
+                    onMouseLeave={e=>(e.currentTarget.style.opacity='0.7')}>
+                    {wiOpen?'▴':'▾'}
                   </span>
+                )}
+                {/* Create: arrow is part of the button */}
+                {n.id==='create'&&(
+                  <span style={{fontSize:10,opacity:0.7,marginLeft:1}}>{createOpen?'▴':'▾'}</span>
                 )}
               </button>
 
               {/* Work Items dropdown */}
               {n.id==='workitems'&&wiOpen&&(
-                <div style={{position:'absolute',top:'calc(100% + 6px)',left:0,background:'white',borderRadius:12,border:'1px solid #e2e8f0',boxShadow:'0 8px 24px rgba(0,0,0,0.1)',padding:8,minWidth:210,zIndex:50}}>
+                <div style={{position:'absolute',top:'calc(100% + 6px)',left:0,background:'white',borderRadius:12,border:'1px solid #e2e8f0',boxShadow:'0 8px 24px rgba(0,0,0,0.12)',padding:8,minWidth:210,zIndex:50}}>
                   <div style={{padding:'4px 8px 6px',fontSize:10,fontWeight:700,color:'#94a3b8',letterSpacing:'0.06em',textTransform:'uppercase'}}>Filter by type</div>
                   <button onClick={()=>{setWorkItemFilter('all');setWiOpen(false);setView('workitems');}} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,border:'none',cursor:'pointer',textAlign:'left',background:workItemFilter==='all'&&isWI?'#eff6ff':'transparent',color:workItemFilter==='all'&&isWI?'#1d4ed8':'#374151',fontSize:12,fontWeight:workItemFilter==='all'&&isWI?600:400}}>
                     <span style={{fontSize:14}}>📦</span><span style={{flex:1}}>All Work Items</span>
@@ -203,8 +226,8 @@ export default function TopNav({
               )}
 
               {/* Create dropdown */}
-              {n.id==='create'&&createOpen&&(
-                <div style={{position:'absolute',top:'calc(100% + 6px)',left:0,background:'white',borderRadius:12,border:'1px solid #e2e8f0',boxShadow:'0 8px 24px rgba(0,0,0,0.1)',padding:8,minWidth:200,zIndex:50}}>
+              {n.id==='create'&&createOpen&&!isViewer&&(
+                <div style={{position:'absolute',top:'calc(100% + 6px)',left:0,background:'white',borderRadius:12,border:'1px solid #e2e8f0',boxShadow:'0 8px 24px rgba(0,0,0,0.12)',padding:8,minWidth:200,zIndex:50}}>
                   <div style={{padding:'4px 8px 6px',fontSize:10,fontWeight:700,color:'#94a3b8',letterSpacing:'0.06em',textTransform:'uppercase'}}>Create new</div>
                   {WORK_ITEM_TYPES.map(t=>(
                     <React.Fragment key={t}>
@@ -227,70 +250,66 @@ export default function TopNav({
         {isMobile&&<nav style={{display:'flex',alignItems:'center',gap:1,flex:1}}>
           {NAV_ITEMS.map(n=>(
             <div key={n.id} style={{position:'relative'}}>
-              <button onClick={()=>{handleNavClick(n.id);setMobileMenu(false);}} style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'4px 8px',borderRadius:6,border:'none',cursor:'pointer',gap:2,background:isActive(n.id)?'rgba(255,255,255,0.45)':'transparent',transition:'all 0.15s'}}>
+              <button onClick={()=>{handleNavClick(n.id);setMobileMenu(false);}} style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'4px 8px',borderRadius:6,border:'none',cursor:'pointer',gap:2,background:isActive(n.id)?ACTIVE_BG:'transparent',transition:'all 0.15s'}}>
                 <span style={{fontSize:16}}>{n.icon}</span>
-                <span style={{fontSize:8,fontWeight:isActive(n.id)?700:500,color:isActive(n.id)?'#0c2d4a':'#0e4166',lineHeight:1}}>{n.label.split(' ')[0]}</span>
+                <span style={{fontSize:8,fontWeight:isActive(n.id)?700:500,color:isActive(n.id)?TEXT_ACTIVE:TEXT_MAIN,lineHeight:1}}>{n.label.split(' ')[0]}</span>
               </button>
             </div>
           ))}
         </nav>}
 
         {/* Right controls */}
-        <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',paddingLeft:10,borderLeft:'1px solid rgba(0,60,120,0.2)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',paddingLeft:10,borderLeft:'1px solid rgba(255,255,255,0.12)'}}>
           <InlineSearch items={items} onNav={onNavItem}/>
-          {!isTablet&&<div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',background:'rgba(255,255,255,0.45)',border:'1px solid rgba(0,60,120,0.18)',borderRadius:6,fontSize:11,color:'#0c2d4a',fontWeight:600,whiteSpace:'nowrap'}}>
+          {!isTablet&&<div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:6,fontSize:11,color:TEXT_MAIN,fontWeight:500,whiteSpace:'nowrap'}}>
             <span style={{fontSize:11}}>📅</span>{dateStr}
           </div>}
-          <div style={{position:'relative',display:'flex',alignItems:'center'}}>
-            <button
-              onClick={onSignOut}
-              title="Sign out"
-              style={{display:'flex',alignItems:'center',gap:5,padding:'3px 8px 3px 4px',background:'rgba(255,255,255,0.45)',border:'1px solid rgba(0,60,120,0.18)',borderRadius:14,cursor:'pointer',transition:'background 0.15s'}}
-              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.7)';}}
-              onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.45)';}}>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            {onOpenGlobalAdmin&&(
+              <button onClick={onOpenGlobalAdmin} title="Global Admin"
+                style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,border:'none',background:'linear-gradient(135deg,#2563eb,#4f46e5)',color:'white',fontSize:11,fontWeight:700,cursor:'pointer',boxShadow:'0 2px 6px rgba(37,99,235,0.5)',whiteSpace:'nowrap'}}>
+                ⚡ Global Admin
+              </button>
+            )}
+            {onOpenLocalAdmin&&(
+              <button onClick={onOpenLocalAdmin} title="Local Admin"
+                style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,border:'none',background:'linear-gradient(135deg,#0284c7,#0369a1)',color:'white',fontSize:11,fontWeight:700,cursor:'pointer',boxShadow:'0 2px 6px rgba(2,132,199,0.5)',whiteSpace:'nowrap'}}>
+                🏢 Local Admin
+              </button>
+            )}
+            <button onClick={onSignOut} title="Sign out"
+              style={{display:'flex',alignItems:'center',gap:5,padding:'3px 8px 3px 4px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:14,cursor:'pointer',transition:'background 0.15s'}}
+              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.2)';}}
+              onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';}}>
               <div style={{width:22,height:22,borderRadius:'50%',background:'linear-gradient(135deg,#2563eb,#7c3aed)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:800,fontSize:10,letterSpacing:'0.5px',flexShrink:0}}>
                 {initials}
               </div>
               <div style={{lineHeight:1}}>
-                <div style={{fontSize:11,fontWeight:700,color:'#0c2d4a'}}>{loggedUser}</div>
-                <div style={{fontSize:9,color:'#dc2626',fontWeight:600}}>Sign out</div>
+                <div style={{fontSize:11,fontWeight:700,color:TEXT_ACTIVE}}>{loggedUser}</div>
+                <div style={{fontSize:9,color:'#f87171',fontWeight:600}}>Sign out</div>
               </div>
             </button>
-            {onOpenGlobalAdmin&&(
-              <button onClick={onOpenGlobalAdmin}
-                title="Global Admin"
-                style={{width:30,height:30,borderRadius:8,border:'1px solid rgba(0,60,120,0.2)',background:'rgba(239,68,68,0.1)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14}}>
-                ⚡
-              </button>
-            )}
-            {onOpenLocalAdmin&&(
-              <button onClick={onOpenLocalAdmin}
-                title="Local Admin"
-                style={{width:30,height:30,borderRadius:8,border:'1px solid rgba(0,60,120,0.2)',background:'rgba(37,99,235,0.1)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',fontSize:14}}>
-                🏢
-              </button>
-            )}
           </div>
         </div>
       </div>
 
       {/* Breadcrumb strip */}
-      <div style={{background:'#8ca8f0',borderTop:'1px solid #7a9ee8',padding:'3px 14px',display:'flex',alignItems:'center',gap:6}}>
-        <span style={{fontSize:11,color:'#0c3d6e'}}>Strat101.com</span>
-        <span style={{fontSize:11,color:'#0e5280'}}>›</span>
-        <span style={{fontSize:11,fontWeight:600,color:'#051e36'}}>
+      <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(255,255,255,0.06)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6}}>
+        <span style={{fontSize:11,color:TEXT_MUTED}}>Strat101.com</span>
+        <span style={{fontSize:11,color:TEXT_MUTED}}>›</span>
+        <span style={{fontSize:11,fontWeight:600,color:TEXT_ACTIVE}}>
           {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i} ${TC[workItemFilter]?.l}s`):`${TC[view]?.i} ${TC[view]?.l}s`}
         </span>
         {(isLV||isWI)&&(
           <>
-            <span style={{fontSize:11,color:'#0e5280'}}>·</span>
-            <span style={{fontSize:11,color:'#0c3d6e',fontWeight:500}}>
+            <span style={{fontSize:11,color:TEXT_MUTED}}>|</span>
+            <span style={{fontSize:11,color:TEXT_MUTED,fontWeight:500}}>
               {isLV?items.filter(i=>i.type===view).length:workItemFilter==='all'?items.length:items.filter(i=>i.type===workItemFilter).length} items
             </span>
           </>
         )}
         {isLV&&(
-          <button onClick={onNew} style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4,padding:'3px 10px',background:'#1a5276',color:'white',border:'none',borderRadius:5,cursor:'pointer',fontSize:11,fontWeight:600}}>
+          <button onClick={onNew} style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4,padding:'3px 10px',background:'rgba(37,99,235,0.7)',color:'white',border:'1px solid rgba(255,255,255,0.2)',borderRadius:5,cursor:'pointer',fontSize:11,fontWeight:600}}>
             + New {TC[view]?.l}
           </button>
         )}
