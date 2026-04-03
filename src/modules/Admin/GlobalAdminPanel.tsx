@@ -32,12 +32,15 @@ const PLAN_STYLE: Record<string, {color:string;bg:string}> = {
   pro:        {color:'#0284c7',bg:'#e0f2fe'},
   starter:    {color:'#16a34a',bg:'#dcfce7'},
 };
-const ROLE_STYLE: Record<UserRole,{color:string;bg:string}> = {
-  admin:        {color:'#dc2626',bg:'#fef2f2'},
-  local_admin: {color:'#ea580c',bg:'#fff7ed'},
+const ROLE_STYLE: Record<string,{color:string;bg:string}> = {
+  global_admin: {color:'#dc2626',bg:'#fef2f2'},
+  local_admin:  {color:'#ea580c',bg:'#fff7ed'},
+  tenant_admin: {color:'#ea580c',bg:'#fff7ed'},   // legacy — same as local_admin
   editor:       {color:'#d97706',bg:'#fffbeb'},
   viewer:       {color:'#2563eb',bg:'#eff6ff'},
 };
+const ROLE_STYLE_DEFAULT = {color:'#64748b',bg:'#f1f5f9'};
+const getRoleStyle = (role: string) => ROLE_STYLE[role] ?? ROLE_STYLE_DEFAULT;
 const SUB_STATUS_STYLE: Record<SubStatus,{color:string;bg:string;label:string}> = {
   active:    {color:'#16a34a',bg:'#f0fdf4',label:'Active'},
   trialling: {color:'#d97706',bg:'#fffbeb',label:'Trial'},
@@ -251,7 +254,7 @@ function UserForm({user,tenantName,onSave,onClose}:{user:TenantUser|null;tenantN
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:4}}>
         <FL label="Role"><select value={role} onChange={e=>setRole(e.target.value as UserRole)} style={sel}>
-          <option value="admin">Admin</option>
+          <option value="global_admin">Global Admin</option>
           <option value="local_admin">Local Admin</option>
           <option value="editor">Editor</option>
           <option value="viewer">Viewer</option>
@@ -303,7 +306,7 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
       {!(tenant.users?.length)
         ?<div style={{textAlign:'center',padding:'32px 0',color:'#94a3b8',fontSize:12}}>No users yet</div>
         :(tenant.users??[]).map(u=>{
-          const rs=ROLE_STYLE[u.role];
+          const rs=getRoleStyle(u.role);
           return(
             <div key={u.id} style={{marginBottom:8,borderRadius:10,border:'1px solid #e2e8f0',background:u.active?'white':'#f8fafc',overflow:'hidden',opacity:u.active?1:0.7}}>
               <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px'}}>
@@ -341,10 +344,10 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
         })
       }
       <div style={{marginTop:14,display:'flex',gap:12,flexWrap:'wrap'}}>
-        {(['admin','editor','viewer'] as UserRole[]).map(r=>(
+        {(['global_admin','local_admin','editor','viewer']).map(r=>(
           <div key={r} style={{display:'flex',alignItems:'center',gap:4}}>
-            <Pill label={r} color={ROLE_STYLE[r].color} bg={ROLE_STYLE[r].bg}/>
-            <span style={{fontSize:10,color:'#94a3b8'}}>{r==='admin'?'Full access':r==='editor'?'Create & edit':'Read-only'}</span>
+            <Pill label={r} color={getRoleStyle(r).color} bg={getRoleStyle(r).bg}/>
+            <span style={{fontSize:10,color:'#94a3b8'}}>{r==='global_admin'?'Full access':r==='editor'?'Create & edit':'Read-only'}</span>
           </div>
         ))}
       </div>
@@ -626,7 +629,7 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
   return(
     <div style={{position:'fixed',inset:0,zIndex:60,display:'flex',background:'rgba(15,23,42,0.35)'}} onClick={onClose}>
       <div style={{flex:1}}/>
-      <div style={{width:'100%',maxWidth:400,background:'white',height:'90%',display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(0,0,0,0.12)'}} onClick={e=>e.stopPropagation()}>
+      <div style={{width:'100%',maxWidth:580,background:'white',height:'100%',display:'flex',flexDirection:'column',boxShadow:'-4px 0 24px rgba(0,0,0,0.12)'}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:'14px 18px',borderBottom:'1px solid #f1f5f9',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
           <div>
             <div style={{fontSize:14,fontWeight:700,color:'#111827'}}>{tenant.name}</div>
@@ -1008,7 +1011,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
   }
 
   return(
-    <div style={{display:'flex',flexDirection:'column',height:'90%',background:'#f8fafc',fontFamily:'system-ui,sans-serif',fontSize:13}}>
+    <div style={{display:'flex',flexDirection:'column',height:'100%',background:'#f8fafc',fontFamily:'system-ui,sans-serif',fontSize:13}}>
       {/* ── Loading / error banner ── */}
       {dbLoading && (
         <div style={{padding:'8px 20px',background:'#eff6ff',borderBottom:'1px solid #bfdbfe',fontSize:12,color:'#1d4ed8',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
