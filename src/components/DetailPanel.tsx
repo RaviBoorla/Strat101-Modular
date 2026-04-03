@@ -210,45 +210,88 @@ function HNode({ item, allItems, selectedId, ancestorIds, onNav, depth, visited 
 }
 
 function HierarchyTab({ item, allItems, onNav }: { item: any; allItems: any[]; onNav: (id: string) => void }) {
-  const roots = useMemo(() =>
-    allItems.filter(it => {
-      const linked = it.links.map((id: string) => allItems.find((i: any) => i.id===id)).filter(Boolean);
-      return !linked.some((li: any) => TL[li.type] < TL[it.type]);
-    }), [allItems]);
+  // Collect only items connected to the selected item (ancestors + self + descendants)
+  const { connectedItems, roots, ancestorIds } = useMemo(() => {
+    const connected = new Set<string>();
 
-  const ancestorIds = useMemo(() => {
-    const set = new Set<string>();
-    function mark(id: string, vis = new Set<string>()): boolean {
+    // Walk UP — find all ancestors of item
+    function findAncestors(id: string, vis = new Set<string>()) {
+      if (vis.has(id)) return;
+      vis.add(id);
+      connected.add(id);
+      allItems.forEach(it => {
+        if (it.links?.includes(id) && TL[it.type] < TL[allItems.find((i:any)=>i.id===id)?.type??'']) {
+          findAncestors(it.id, new Set(vis));
+        }
+      });
+    }
+
+    // Walk DOWN — find all descendants of item
+    function findDescendants(id: string, vis = new Set<string>()) {
+      if (vis.has(id)) return;
+      vis.add(id);
+      connected.add(id);
+      const it = allItems.find((i:any) => i.id === id);
+      if (!it) return;
+      (it.links ?? []).forEach((lid: string) => {
+        const child = allItems.find((i:any) => i.id === lid);
+        if (child && TL[child.type] > TL[it.type]) findDescendants(lid, new Set(vis));
+      });
+    }
+
+    connected.add(item.id);
+    // Find ancestors — items that link TO this item and are higher in hierarchy
+    allItems.forEach(it => {
+      if (it.links?.includes(item.id) && TL[it.type] < TL[item.type]) {
+        findAncestors(it.id);
+      }
+    });
+    findDescendants(item.id);
+
+    // Subset of allItems that are connected
+    const subset = allItems.filter(i => connected.has(i.id));
+
+    // Roots = connected items with no parent in the connected set
+    const subsetRoots = subset.filter(it => {
+      return !subset.some(other =>
+        other.links?.includes(it.id) && TL[other.type] < TL[it.type]
+      );
+    });
+
+    // Ancestor set for highlighting
+    const ancSet = new Set<string>();
+    function markAnc(id: string, vis = new Set<string>()): boolean {
       if(vis.has(id)) return false;
       vis.add(id);
-      const it = allItems.find((i: any) => i.id===id);
+      const it = subset.find((i:any) => i.id===id);
       if(!it) return false;
       if(it.id === item.id) return true;
-      const kids = it.links.map((lid: string) => allItems.find((i: any) => i.id===lid)).filter(Boolean)
-        .filter((c: any) => TL[c.type] > TL[it.type]);
-      const found = kids.some((c: any) => mark(c.id, new Set(vis)));
-      if(found) set.add(id);
+      const kids = (it.links??[]).map((lid:string) => subset.find((i:any)=>i.id===lid)).filter(Boolean)
+        .filter((c:any) => TL[c.type] > TL[it.type]);
+      const found = kids.some((c:any) => markAnc(c.id, new Set(vis)));
+      if(found) ancSet.add(id);
       return found;
     }
-    roots.forEach(r => mark(r.id));
-    return set;
-  }, [allItems, item.id, roots]);
+    subsetRoots.forEach(r => markAnc(r.id));
+
+    return { connectedItems: subset, roots: subsetRoots, ancestorIds: ancSet };
+  }, [allItems, item.id, item.type, item.links]);
 
   if(!roots.length) return (
-    <div className="p-2 text-center text-gray-400 py-8" style={{ fontSize:12 }}>No items in hierarchy</div>
+    <div className="p-2 text-center text-gray-400 py-8" style={{ fontSize:12 }}>No linked items in hierarchy</div>
   );
 
   return (
     <div className="p-3">
       <div className="flex items-center gap-3 mb-3 px-1 py-1.5 bg-gray-50 rounded-lg border">
         <span className="text-gray-400" style={{ fontSize:10 }}>
-          📍 <span className="text-blue-600 font-semibold">Blue = selected item</span>
-          &nbsp;·&nbsp; ▶ expand &nbsp;·&nbsp; click title to navigate
+          📍 <span className="text-blue-600 font-semibold">Blue = selected</span>
+          &nbsp;·&nbsp; showing linked hierarchy only &nbsp;·&nbsp; click to navigate
         </span>
       </div>
       <div>
         {roots.map(r => (
-          <HNode key={r.id} item={r} allItems={allItems}
+          <HNode key={r.id} item={r} allItems={connectedItems}
             selectedId={item.id} ancestorIds={ancestorIds}
             onNav={onNav} depth={0} visited={new Set([r.id])} />
         ))}
