@@ -256,7 +256,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
 
       {/* Top bar */}
       <div style={{padding:'18px 32px',display:'flex',alignItems:'center',gap:10,background:'#a3bbff',borderBottom:'1px solid #7a9ee8'}}>
-        <div style={{width:36,height:36,borderRadius:10,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:14,boxShadow:'0 4px 12px rgba(37,99,235,0.5)'}}>SA</div>
+        <img src='/logo.jpg' alt='Strat101' style={{width:36,height:36,borderRadius:10,objectFit:'cover',boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}/>
         <div>
           <div style={{color:'#0c2040',fontWeight:900,fontSize:18,letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
           <div style={{color:'#1a3a6e',fontSize:9,letterSpacing:'0.1em',marginTop:2}}>ENABLING TRANSFORMATION JOURNEYS</div>
@@ -295,7 +295,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             {mode === 'login' && (
               <>
                 <div style={{marginBottom:24,textAlign:'center'}}>
-                  <div style={{width:52,height:52,borderRadius:14,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:20,margin:'0 auto 12px',boxShadow:'0 8px 24px rgba(37,99,235,0.45)'}}>SA</div>
+                  <img src='/logo.jpg' alt='Strat101' style={{width:52,height:52,borderRadius:14,objectFit:'cover',margin:'0 auto 12px',boxShadow:'0 8px 24px rgba(0,0,0,0.3)'}}/>
                   <div style={{color:'white',fontWeight:700,fontSize:18}}>Welcome back</div>
                   <div style={{color:'#64748b',fontSize:12,marginTop:4}}>Sign in to your Strat101.com workspace</div>
                 </div>
@@ -319,7 +319,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                   {loading ? 'Signing in\u2026' : 'Sign In \u2192'}
                 </button>
                 <div style={{textAlign:'center',fontSize:12,color:'#64748b'}}>
-                  Don't have an account?{' '}
+                  Don\u2019t have an account?{' '}
                   <button onClick={()=>switchMode('register')} style={{background:'none',border:'none',color:'#60a5fa',fontWeight:600,cursor:'pointer',fontSize:12,padding:0}}>Create one</button>
                 </div>
               </>
@@ -329,7 +329,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             {mode === 'register' && regStep === 'credentials' && (
               <>
                 <div style={{marginBottom:20,textAlign:'center'}}>
-                  <div style={{width:52,height:52,borderRadius:14,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:20,margin:'0 auto 12px'}}>SA</div>
+                  <img src='/logo.jpg' alt='Strat101' style={{width:52,height:52,borderRadius:14,objectFit:'cover',margin:'0 auto 12px',boxShadow:'0 8px 24px rgba(0,0,0,0.3)'}}/>
                   <div style={{color:'white',fontWeight:700,fontSize:18}}>Create your account</div>
                   <div style={{color:'#64748b',fontSize:12,marginTop:4}}>Step 1 of 2 \u2014 Your details</div>
                 </div>
@@ -409,7 +409,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
             {mode === 'register' && regStep === 'tenant' && (
               <>
                 <div style={{marginBottom:20,textAlign:'center'}}>
-                  <div style={{width:52,height:52,borderRadius:14,background:'linear-gradient(135deg,#2563eb,#4f46e5)',display:'flex',alignItems:'center',justifyContent:'center',color:'white',fontWeight:900,fontSize:20,margin:'0 auto 12px'}}>SA</div>
+                  <img src='/logo.jpg' alt='Strat101' style={{width:52,height:52,borderRadius:14,objectFit:'cover',margin:'0 auto 12px',boxShadow:'0 8px 24px rgba(0,0,0,0.3)'}}/>
                   <div style={{color:'white',fontWeight:700,fontSize:18}}>Your company</div>
                   <div style={{color:'#64748b',fontSize:12,marginTop:4}}>Step 2 of 2 \u2014 Company details</div>
                 </div>
