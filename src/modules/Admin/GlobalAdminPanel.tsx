@@ -787,8 +787,10 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
   useEffect(() => { reload(); }, [reload]);
 
   // ── Pending approvals ──────────────────────────────────────────────────────
-  const [pending,     setPending]     = useState<any[]>([]);
-  const [pendingLoad, setPendingLoad] = useState(false);
+  const [pending,        setPending]        = useState<any[]>([]);
+  const [pendingLoad,    setPendingLoad]    = useState(false);
+  const [rejectingFeat,  setRejectingFeat]  = useState<any>(null);
+  const [rejectionNote,  setRejectionNote]  = useState('');
 
   const loadPending = useCallback(async () => {
     setPendingLoad(true);
@@ -882,10 +884,13 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
     await Promise.all([loadPending(), reload()]);
   };
 
-  const rejectFeatureRequest = async (req: any) => {
+  const rejectFeatureRequest = async (req: any, reason: string) => {
     await supabase.from('feature_requests').update({
       status:'rejected', actioned_by:loggedUser, actioned_at:new Date().toISOString(),
+      rejection_reason: reason || null,
     }).eq('id', req.id);
+    setRejectingFeat(null);
+    setRejectionNote('');
     await loadPending();
   };
 
@@ -1002,7 +1007,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
                         {item._type==='tenant'&&<button onClick={()=>approveTenant(item.id)} style={{padding:'3px 8px',borderRadius:5,border:'none',background:'#16a34a',color:'white',fontSize:10,fontWeight:600,cursor:'pointer'}}>Approve</button>}
                         {item._type==='feature'&&<>
                           <button onClick={()=>approveFeatureRequest(item)} style={{padding:'3px 8px',borderRadius:5,border:'none',background:'#16a34a',color:'white',fontSize:10,fontWeight:600,cursor:'pointer'}}>Approve</button>
-                          <button onClick={()=>rejectFeatureRequest(item)} style={{padding:'3px 8px',borderRadius:5,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:10,fontWeight:600,cursor:'pointer'}}>Reject</button>
+                          <button onClick={()=>{setRejectingFeat(item);setRejectionNote('');}} style={{padding:'3px 8px',borderRadius:5,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:10,fontWeight:600,cursor:'pointer'}}>Reject</button>
                         </>}
                       </div>
                     </div>
@@ -1186,7 +1191,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
                           style={{padding:'6px 14px',borderRadius:7,border:'none',background:'#16a34a',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>
                           ✔ Approve &amp; Activate
                         </button>
-                        <button onClick={()=>rejectFeatureRequest(item)}
+                        <button onClick={()=>{setRejectingFeat(item);setRejectionNote('');}}
                           style={{padding:'6px 14px',borderRadius:7,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:12,fontWeight:600,cursor:'pointer'}}>
                           ✘ Reject
                         </button>
@@ -1201,6 +1206,36 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
       )}
 
       {managing   &&<ManageDrawer tenant={managing} onClose={()=>setManaging(null)} onUpdate={updateTenant}/>}
+
+      {/* Feature rejection reason modal */}
+      {rejectingFeat&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200}}>
+          <div style={{background:'white',borderRadius:12,padding:24,maxWidth:400,width:'90%',margin:'0 16px'}}>
+            <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Reject Feature Request</div>
+            <div style={{fontSize:12,color:'#64748b',marginBottom:14}}>
+              Rejecting <strong>{rejectingFeat.feature_key}</strong> for <strong>{rejectingFeat.tenant_name}</strong>.
+              Add a reason so the tenant admin understands why.
+            </div>
+            <textarea
+              value={rejectionNote}
+              onChange={e=>setRejectionNote(e.target.value)}
+              rows={3}
+              placeholder="e.g. Feature not available on your current plan. Please upgrade to Pro."
+              style={{width:'100%',boxSizing:'border-box',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 10px',fontSize:12,resize:'none',outline:'none',marginBottom:14}}
+            />
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button onClick={()=>{setRejectingFeat(null);setRejectionNote('');}}
+                style={{padding:'7px 16px',borderRadius:7,border:'1px solid #e2e8f0',background:'white',fontSize:12,cursor:'pointer',color:'#374151'}}>
+                Cancel
+              </button>
+              <button onClick={()=>rejectFeatureRequest(rejectingFeat, rejectionNote)}
+                style={{padding:'7px 16px',borderRadius:7,border:'none',background:'#dc2626',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                Reject Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {editing    &&<TenantForm tenant={editing==='new'?null:editing} onSave={saveTenant} onClose={()=>setEditing(null)}/>}
       {confirmDel &&(
         <Modal title="Delete Tenant" onClose={()=>setConfirmDel(null)} width={360}>
