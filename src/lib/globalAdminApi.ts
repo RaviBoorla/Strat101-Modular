@@ -32,9 +32,10 @@ export async function fetchTenants(): Promise<Tenant[]> {
     supabase.from('invoices').select('*').order('date', { ascending: false }),
   ]);
 
-  if (tenantErr)  console.error('fetchTenants error:',  tenantErr.message);
-  if (userErr)    console.error('fetchUsers error:',    userErr.message);
-  if (invoiceErr) console.error('fetchInvoices error:', invoiceErr.message);
+  console.log('[fetchTenants] tenants:', rows?.length ?? 0, tenantErr?.message ?? 'ok');
+  console.log('[fetchTenants] users:', users?.length ?? 0, userErr?.message ?? 'ok');
+  console.log('[fetchTenants] invoices:', invoices?.length ?? 0, invoiceErr?.message ?? 'ok');
+  if (users) console.log('[fetchTenants] user sample:', users.slice(0,3).map((u:any)=>({id:u.id,username:u.username,tenant_id:u.tenant_id})));
 
   return (rows ?? []).map(row => dbRowToTenant(
     row,
