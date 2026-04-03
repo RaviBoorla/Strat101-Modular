@@ -570,22 +570,24 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 // ── Thin wrapper components for the drawers ───────────────────────────────────
 function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClose: () => void }) {
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex' }}>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.4)' }}/>
-      {/* Drawer */}
-      <div style={{ width:'min(820px,95vw)', height:'100%', background:'#f8fafc',
-        boxShadow:'-8px 0 40px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex', alignItems:'stretch' }}>
+      {/* Backdrop — click to close */}
+      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.4)', cursor:'pointer' }}/>
+      {/* Drawer panel — isolated, never receives backdrop clicks */}
+      <div onClick={e=>e.stopPropagation()}
+        style={{ width:'min(860px,96vw)', height:'100%', background:'#f8fafc',
+          boxShadow:'-8px 0 40px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column',
+          overflow:'hidden', position:'relative', zIndex:1 }}>
         <div style={{ background:'#0f172a', padding:'0 16px', height:44, display:'flex',
           alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ fontSize:14 }}>⚡</span>
+            <img src='/logo.jpg' alt='logo' style={{ width:24, height:24, borderRadius:6, objectFit:'cover' }}/>
             <span style={{ fontSize:13, fontWeight:700, color:'white' }}>Global Admin</span>
           </div>
           <button onClick={onClose} style={{ color:'#94a3b8', background:'none', border:'none',
             fontSize:20, cursor:'pointer', lineHeight:1, padding:'4px 8px' }}>×</button>
         </div>
-        <div style={{ flex:1, overflow:'hidden' }}>
+        <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
           <GlobalAdminPanel loggedUser={loggedUser} onPreviewTenant={() => {}} embedded={true}/>
         </div>
       </div>
@@ -596,10 +598,12 @@ function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClos
 function LocalAdminDrawer({ loggedUser, tenantId, onClose }:
   { loggedUser: string; tenantId: string; onClose: () => void }) {
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex' }}>
-      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.4)' }}/>
-      <div style={{ width:'min(680px,95vw)', height:'100%', background:'#f8fafc',
-        boxShadow:'-8px 0 40px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+    <div style={{ position:'fixed', inset:0, zIndex:100, display:'flex', alignItems:'stretch' }}>
+      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.4)', cursor:'pointer' }}/>
+      <div onClick={e=>e.stopPropagation()}
+        style={{ width:'min(680px,96vw)', height:'100%', background:'#f8fafc',
+          boxShadow:'-8px 0 40px rgba(0,0,0,0.3)', display:'flex', flexDirection:'column',
+          overflow:'hidden', position:'relative', zIndex:1 }}>
         <div style={{ background:'#0f172a', padding:'0 16px', height:44, display:'flex',
           alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
@@ -655,7 +659,7 @@ export default function App() {
     return (
       <div style={{ minHeight:'100vh', background:'#0e1f35', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div style={{ textAlign:'center' }}>
-          <div style={{ width:44, height:44, borderRadius:12, background:'linear-gradient(135deg,#2563eb,#4f46e5)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:900, fontSize:16, margin:'0 auto 14px', boxShadow:'0 4px 16px rgba(37,99,235,0.4)' }}>SA</div>
+          <img src='/logo.jpg' alt='Strat101' style={{ width:44, height:44, borderRadius:12, objectFit:'cover', margin:'0 auto 14px', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}/>
           <div style={{ fontSize:12, color:'#475569' }}>Loading\u2026</div>
         </div>
       </div>
