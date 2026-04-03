@@ -793,27 +793,49 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
   const loadPending = useCallback(async () => {
     setPendingLoad(true);
     try {
-      const { data: users } = await supabase
+      // Load ALL pending users first
+      const { data: allPendingUsers } = await supabase
         .from('tenant_users')
         .select('id, username, full_name, email, role, approval_requested_at, tenant_id, tenants(name,slug)')
         .eq('approval_status', 'pending')
         .order('approval_requested_at', { ascending: true });
+
+      // Load all active local admins so we know which tenants have one
+      const { data: localAdmins } = await supabase
+        .from('tenant_users')
+        .select('tenant_id')
+        .eq('role', 'local_admin')
+        .eq('active', true);
+
+      // Tenants that have at least one active local admin
+      const tenantsWithLocalAdmin = new Set(
+        (localAdmins ?? []).map((a: any) => a.tenant_id)
+      );
+
+      // Global admin only sees pending users whose tenant has NO local admin
+      // (if a local admin exists, they handle their own tenant's approvals)
+      const users = (allPendingUsers ?? []).filter(
+        (u: any) => !tenantsWithLocalAdmin.has(u.tenant_id)
+      );
+
       const { data: newTenants } = await supabase
         .from('tenants')
         .select('id, name, slug, approval_requested_at, requested_by')
         .eq('approval_status', 'pending')
         .order('approval_requested_at', { ascending: true });
+
       const { data: featReqs, error: featErr } = await supabase
         .from('feature_requests')
         .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
+
       if (featErr) console.error('[GlobalAdminPanel] feature_requests query failed:', featErr.message);
-      else console.log('[GlobalAdminPanel] feature_requests pending:', featReqs?.length ?? 0);
+
       setPending([
-        ...(users    ?? []).map((u:any) => ({ ...u, _type:'user'    })),
+        ...(users      ?? []).map((u:any) => ({ ...u, _type:'user'    })),
         ...(newTenants ?? []).map((t:any) => ({ ...t, _type:'tenant'  })),
-        ...(featReqs  ?? []).map((f:any) => ({ ...f, _type:'feature' })),
+        ...(featReqs   ?? []).map((f:any) => ({ ...f, _type:'feature' })),
       ]);
     } finally { setPendingLoad(false); }
   }, []);
