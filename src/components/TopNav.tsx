@@ -122,6 +122,7 @@ export default function TopNav({
     ...(features.workitems ? [{id:'workitems', label:'Work Items', icon:'📦'}] : []),
     ...(features.create    ? [{id:'create',    label:'Create',     icon:'➕'}] : []),
     ...(features.bot       ? [{id:'bot',       label:'AI Assist',  icon:'🤖'}] : []),
+    ...(features.rd       ? [{id:'rd',        label:'BiFrost',    icon:'RD'}] : []),
     ...(features.reports   ? [{id:'reports',   label:'Reports',    icon:'📈'}] : []),
   ];
 
