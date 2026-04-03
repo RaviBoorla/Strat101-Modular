@@ -408,7 +408,7 @@ function Workspace({
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'#f1f5f9' }}>
+      <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'#f2f2f2' }}>
         {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
         <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}} onCreateNew={()=>{}}
           workItemFilter={workItemFilter} setWorkItemFilter={setWIF} onNew={()=>{}}
@@ -424,7 +424,7 @@ function Workspace({
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'#f1f5f9' }}>
+    <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'#f2f2f2' }}>
       {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
       <TopNav view={view} setView={goView} items={items} onNavItem={id => nav(id)}
         onCreateNew={createAndOpen} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
