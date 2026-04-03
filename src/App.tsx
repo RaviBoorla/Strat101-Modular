@@ -642,52 +642,40 @@ export default function App() {
   const [pendingApproval, setPendingApproval] = useState(false);
 
   useEffect(() => {
-    // On session restore — trust the JWT, resolve username from email prefix only
-    // Do NOT query tenant_users here — avoids RLS hang on page load
+    // Resolve display username from session — no DB queries, never hangs
+    const resolveUsername = (session: Session | null): string => {
+      if (!session?.user) return '';
+      return session.user.user_metadata?.username
+        || session.user.user_metadata?.full_name
+        || (session.user.email ?? '').split('@')[0];
+    };
+
+    // Check session on load — fast, no DB query
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       if (session?.user) {
-        const email = session.user.email ?? '';
-        // Resolve username from user_metadata if available, else email prefix
-        const username = session.user.user_metadata?.username
-          || session.user.user_metadata?.full_name
-          || email.split('@')[0];
-        setLoggedUser(username);
+        setLoggedUser(resolveUsername(session));
         setLoggedIn(true);
       }
       setChecking(false);
     });
 
+    // Auth state changes — trust JWT only, no DB queries
+    // Registration sets sessionStorage flag so we know to sign out immediately
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
+      async (_event: AuthChangeEvent, session: Session | null) => {
         if (session?.user) {
-          // If this is a SIGNED_IN event right after registration (pending user),
-          // check approval_status and sign out if pending
-          if (event === 'SIGNED_IN') {
-            const { data: userRow } = await supabase
-              .from('tenant_users')
-              .select('username, active, approval_status')
-              .eq('email', (session.user.email ?? '').toLowerCase())
-              .maybeSingle();
-
-            if (!userRow || userRow.approval_status === 'pending' || !userRow.active) {
-              // Pending or no row yet — sign out silently
-              if (userRow?.approval_status === 'pending') setPendingApproval(true);
-              await supabase.auth.signOut();
-              return;
-            }
-            setLoggedUser(userRow.username);
-            setLoggedIn(true);
-          } else {
-            // TOKEN_REFRESHED / INITIAL_SESSION — trust JWT metadata
-            const email = session.user.email ?? '';
-            const username = session.user.user_metadata?.username || email.split('@')[0];
-            setLoggedUser(username);
-            setLoggedIn(true);
+          // If this is a registration session, sign out immediately
+          if (sessionStorage.getItem('strat101_registering') === '1') {
+            sessionStorage.removeItem('strat101_registering');
+            await supabase.auth.signOut();
+            setPendingApproval(true);
+            return;
           }
+          setLoggedUser(resolveUsername(session));
+          setLoggedIn(true);
         } else {
           setLoggedIn(false);
           setLoggedUser('');
-          setPendingApproval(false);
         }
       }
     );
