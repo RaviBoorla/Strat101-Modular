@@ -1008,7 +1008,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
   }
 
   return(
-    <div style={{display:'flex',flexDirection:'column',height:'100%',background:'#f8fafc',fontFamily:'system-ui,sans-serif',fontSize:13}}>
+    <div style={{display:'flex',flexDirection:'column',height:'90%',background:'#f8fafc',fontFamily:'system-ui,sans-serif',fontSize:13}}>
       {/* ── Loading / error banner ── */}
       {dbLoading && (
         <div style={{padding:'8px 20px',background:'#eff6ff',borderBottom:'1px solid #bfdbfe',fontSize:12,color:'#1d4ed8',display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
