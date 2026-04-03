@@ -19,6 +19,7 @@ import LocalAdminPanel from "./modules/Admin/LocalAdminPanel";
 import TopNav         from "./components/TopNav";
 import DetailPanel    from "./components/DetailPanel";
 import CommandPalette from "./components/CommandPalette";
+import LOGO_SRC from './logoData';
 
 const ALL_FEATURES: TenantFeatures = {
   kanban: true, workitems: true, create: true, bot: true, reports: true,
@@ -347,7 +348,7 @@ function Workspace({
     if (!f || !sel) return;
     if (f.size > MAX_ATTACHMENT_BYTES) {
       const mb = (f.size / 1048576).toFixed(1);
-      setItems(p => p.map(i => i.id === sel ? { ...i, _uploadError: `"${f.name}" is ${mb} MB \u2014 max 10 MB.` } : i));
+      setItems(p => p.map(i => i.id === sel ? { ...i, _uploadError: `"${f.name}" is ${mb} MB — max 10 MB.` } : i));
       setTimeout(() => setItems(p => p.map(i => i.id === sel ? { ...i, _uploadError: undefined } : i)), 6000);
       return;
     }
@@ -416,7 +417,7 @@ function Workspace({
         <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{ textAlign:'center' }}>
             <div style={{ fontSize:32, marginBottom:12 }}>&#9203;</div>
-            <div style={{ fontSize:13, color:'#64748b' }}>Loading your workspace\u2026</div>
+            <div style={{ fontSize:13, color:'#64748b' }}>Loading your workspace…</div>
           </div>
         </div>
       </div>
@@ -447,7 +448,7 @@ function Workspace({
                 <div style={{ fontSize:48 }}>&#128274;</div>
                 <div style={{ fontSize:15, fontWeight:700, color:'#374151' }}>Module Not Enabled</div>
                 <div style={{ fontSize:12, color:'#94a3b8', textAlign:'center', maxWidth:300, lineHeight:1.6 }}>
-                  This module is disabled for this tenant. Enable it in Global Admin Console \u2192 Features.
+                  This module is disabled for this tenant. Enable it in Global Admin Console → Features.
                 </div>
               </div>
             )}
@@ -465,7 +466,7 @@ function Workspace({
       </div>
       <footer style={{ background:'#a3bbff', borderTop:'1px solid #7a9ee8', padding:'3px 16px', display:'flex', alignItems:'center', justifyContent:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:11, color:'#0c2d4a', letterSpacing:'0.02em' }}>
-          \u00aeStrat101.com  |  \u00a9Copyright 2026. All rights Reserved.  |  Contact:{' '}
+          ®Strat101.com  |  ©Copyright 2026. All rights Reserved.  |  Contact:{' '}
           <a href="mailto:Support@Strat101.com" style={{ color:'#0c2d4a', textDecoration:'none', fontWeight:600 }}>Support@Strat101.com</a>
         </span>
       </footer>
@@ -473,7 +474,7 @@ function Workspace({
         onChange={e => { if (e.target.files?.[0]) addFile(e.target.files[0]); e.target.value = ''; }}/>
       {/* ItemForm — right-side drawer within workspace */}
       {form && (
-        <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+        <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
           <div onClick={() => setForm(null)} style={{ flex:1, background:'rgba(0,0,0,0.3)', cursor:'pointer', pointerEvents:'all' }}/>
           <div onClick={e=>e.stopPropagation()}
             style={{ width:'40%', minWidth:340, maxWidth:620, height:'100%', background:'white',
@@ -581,20 +582,20 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 // ── Thin wrapper components for the drawers ───────────────────────────────────
 function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClose: () => void }) {
   return (
-    <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+    <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
       <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.35)', cursor:'pointer', pointerEvents:'all' }}/>
       <div onClick={e=>e.stopPropagation()}
         style={{ width:'40%', minWidth:360, maxWidth:680, height:'100%', background:'#f8fafc',
           boxShadow:'-6px 0 32px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column',
           overflow:'hidden', pointerEvents:'all' }}>
-        <div style={{ background:'#0f172a', padding:'0 14px', height:40, display:'flex',
+        <div style={{ background:'#0f172a', padding:'0 14px', height:38, display:'flex',
           alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <img src='/logo.jpg' alt='logo' style={{ width:22, height:22, borderRadius:5, objectFit:'cover' }}/>
+            <img src={LOGO_SRC} alt='logo' style={{ width:20, height:20, borderRadius:4, objectFit:'cover' }}/>
             <span style={{ fontSize:12, fontWeight:700, color:'white' }}>Global Admin</span>
           </div>
           <button onClick={onClose} style={{ color:'#94a3b8', background:'rgba(255,255,255,0.1)',
-            border:'none', fontSize:13, cursor:'pointer', padding:'3px 10px', borderRadius:5, fontWeight:600 }}>✕ Close</button>
+            border:'none', fontSize:12, cursor:'pointer', padding:'3px 10px', borderRadius:5, fontWeight:600 }}>✕ Close</button>
         </div>
         <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
           <GlobalAdminPanel loggedUser={loggedUser} onPreviewTenant={() => {}} embedded={true}/>
@@ -607,7 +608,7 @@ function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClos
 function LocalAdminDrawer({ loggedUser, tenantId, onClose }:
   { loggedUser: string; tenantId: string; onClose: () => void }) {
   return (
-    <div style={{ position:'absolute', inset:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+    <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
       <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.35)', cursor:'pointer', pointerEvents:'all' }}/>
       <div onClick={e=>e.stopPropagation()}
         style={{ width:'40%', minWidth:320, maxWidth:580, height:'100%', background:'#f8fafc',
@@ -668,8 +669,8 @@ export default function App() {
     return (
       <div style={{ minHeight:'100vh', background:'#0e1f35', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <div style={{ textAlign:'center' }}>
-          <img src='/logo.jpg' alt='Strat101' style={{ width:44, height:44, borderRadius:12, objectFit:'cover', margin:'0 auto 14px', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}/>
-          <div style={{ fontSize:12, color:'#475569' }}>Loading\u2026</div>
+          <img src={LOGO_SRC} alt='Strat101' style={{ width:44, height:44, borderRadius:12, objectFit:'cover', margin:'0 auto 14px', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}/>
+          <div style={{ fontSize:12, color:'#475569' }}>Loading…</div>
         </div>
       </div>
     );
