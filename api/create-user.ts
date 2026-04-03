@@ -105,25 +105,22 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   // ── STEP 2: Send invite email if requested ────────────────────────────────
-  // Uses generate_link with type=recovery so they land on a "set password" page.
-  // This goes through Supabase SMTP (configured with Resend).
-  if (sendInvite) {
-    const linkRes = await fetch(
-      `${supabaseUrl}/auth/v1/admin/generate_link`,
-      {
-        method: 'POST',
-        headers: adminHeaders,
-        body: JSON.stringify({
-          type:  'recovery',
-          email,
-          options: {
-            redirect_to: `${appUrl}/`,
-            data: { username, full_name: fullName },
-          },
-        }),
-      }
-    );
-
+if (sendInvite) {
+  const inviteRes = await fetch(
+    `${supabaseUrl}/auth/v1/admin/invite`,
+    {
+      method: 'POST',
+      headers: adminHeaders,
+      body: JSON.stringify({
+        email,
+        data: {
+          username,
+          full_name: fullName,
+        },
+        redirect_to: `${appUrl}/`,
+      }),
+    }
+  );
     const linkData = await linkRes.json();
     const inviteSent = linkRes.ok;
 
