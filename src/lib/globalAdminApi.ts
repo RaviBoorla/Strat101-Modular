@@ -1,26 +1,14 @@
-// src/lib/adminApi.ts
-// ─── Phase 10: Admin Panel Live Data via Supabase ────────────────────────────
-// All functions used by GlobalAdminPanel.tsx to read and write tenant, user,
-// invoice, and subscription data from Supabase instead of seed data.
-//
-// HOW TO WIRE UP GlobalAdminPanel.tsx:
-//   1. Replace useState(initialTenants) with a useEffect that calls fetchTenants()
-//   2. Replace every updateTenant / saveTenant / delTenant call with the
-//      corresponding function from this file
-//   3. Pass onPreviewTenant through unchanged — it only touches local state
+// src/lib/globalAdminApi.ts
+// Global Admin API — all functions used by GlobalAdminPanel.tsx
+// to read and write tenant, user, invoice and subscription data via Supabase.
 
 import { supabase } from './supabase';
 import { Tenant, TenantUser, Subscription, Invoice, SubStatus } from '../types';
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // READ
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Fetch all tenants with their users and invoices in a single batched call.
- * Returns an array shaped identically to DEFAULT_TENANTS so GlobalAdminPanel
- * needs zero changes to its rendering logic.
- */
 export async function fetchTenants(): Promise<Tenant[]> {
   const [
     { data: rows,     error: tenantErr  },
@@ -32,10 +20,9 @@ export async function fetchTenants(): Promise<Tenant[]> {
     supabase.from('invoices').select('*').order('date', { ascending: false }),
   ]);
 
-  console.log('[fetchTenants] tenants:', rows?.length ?? 0, tenantErr?.message ?? 'ok');
-  console.log('[fetchTenants] users:', users?.length ?? 0, userErr?.message ?? 'ok');
-  console.log('[fetchTenants] invoices:', invoices?.length ?? 0, invoiceErr?.message ?? 'ok');
-  if (users) console.log('[fetchTenants] user sample:', users.slice(0,3).map((u:any)=>({id:u.id,username:u.username,tenant_id:u.tenant_id})));
+  if (tenantErr)  console.error('[globalAdminApi] fetchTenants error:', tenantErr.message);
+  if (userErr)    console.error('[globalAdminApi] fetchUsers error:', userErr.message);
+  if (invoiceErr) console.error('[globalAdminApi] fetchInvoices error:', invoiceErr.message);
 
   return (rows ?? []).map(row => dbRowToTenant(
     row,
@@ -44,14 +31,10 @@ export async function fetchTenants(): Promise<Tenant[]> {
   ));
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // WRITE — TENANTS
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Insert a new tenant or update an existing one.
- * Handles both the tenants table columns and the nested subscription fields.
- */
 export async function saveTenant(tenant: Tenant): Promise<void> {
   const sub = tenant.subscription;
   const { error } = await supabase.from('tenants').upsert({
@@ -60,7 +43,7 @@ export async function saveTenant(tenant: Tenant): Promise<void> {
     slug:          tenant.slug,
     plan:          tenant.plan,
     active:        tenant.active,
-    created_at:    tenant.createdAt,
+    // Do NOT include created_at — let DB manage it
     // Subscription columns
     sub_status:    sub.status,
     trial_start:   sub.trialStart   || null,
@@ -82,37 +65,28 @@ export async function saveTenant(tenant: Tenant): Promise<void> {
     feat_bot:       tenant.features.bot,
     feat_reports:   tenant.features.reports,
   });
-
-  if (error) console.error('[globalAdminApi] saveTenant FAILED:', error.message, '| code:', error.code, '| hint:', error.hint);
+  if (error) console.error('[globalAdminApi] saveTenant FAILED:', error.message, '| code:', error.code);
   else console.log('[globalAdminApi] saveTenant SUCCESS — id:', tenant.id);
 }
 
-/** Soft-delete: set active = false rather than hard-deleting */
 export async function suspendTenant(id: string, active: boolean): Promise<void> {
-  const { error } = await supabase
-    .from('tenants').update({ active }).eq('id', id);
+  const { error } = await supabase.from('tenants').update({ active }).eq('id', id);
   if (error) console.error('[globalAdminApi] suspendTenant FAILED:', error.message);
-  else console.log('[globalAdminApi] suspendTenant SUCCESS — id:', id, 'active:', active);
 }
 
-/** Hard-delete a tenant (cascades to users, items, invoices via FK) */
 export async function deleteTenant(id: string): Promise<void> {
   const { error } = await supabase.from('tenants').delete().eq('id', id);
   if (error) console.error('[globalAdminApi] deleteTenant FAILED:', error.message);
-  else console.log('[globalAdminApi] deleteTenant SUCCESS — id:', id);
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // WRITE — USERS
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/** Upsert a tenant user record */
 export async function saveUser(user: TenantUser, tenantId: string): Promise<void> {
-  // If this is a new user (no auth_user_id yet), create the Supabase auth account
-  // via the server-side Edge Function which holds the service role key.
   let authUserId = user.authUserId ?? null;
-
   const isNewUser = !authUserId && !!user.email;
+
   if (isNewUser) {
     try {
       const res = await fetch('/api/create-user', {
@@ -120,43 +94,32 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email:      user.email,
-          password:   user.tempPassword ?? undefined,
           username:   user.username,
           fullName:   user.fullName,
-          sendInvite: user.sendInvite ?? true,
+          // sendInvite defaults to true — user gets invite email to set password
+          sendInvite: true,
         }),
       });
       const rawText = await res.text();
-      console.log('[globalAdminApi] create-user raw response:', res.status, rawText);
       let data: any = {};
-      try { data = JSON.parse(rawText); } catch(e) { console.error('[globalAdminApi] JSON parse failed'); }
+      try { data = JSON.parse(rawText); } catch { /* ignore */ }
+
       if (!res.ok) {
         console.error('[globalAdminApi] create-user failed:', data.error ?? rawText);
       } else {
-        if (data.id) {
-          // New auth user created — use the returned UUID
-          authUserId = data.id;
-        } else {
-          // User already existed in auth.users (id came back null from edge fn).
-          // Look up their UUID directly from auth.users via the service-role RPC.
-          // The DB trigger will have already linked it by the time we query.
+        authUserId = data.id ?? null;
+        // If edge fn returned no id (user already existed), find by email
+        if (!authUserId) {
           const { data: linked } = await supabase
             .from('tenant_users')
             .select('auth_user_id')
             .eq('email', user.email.toLowerCase())
             .not('auth_user_id', 'is', null)
             .maybeSingle();
-          if (linked?.auth_user_id) {
-            authUserId = linked.auth_user_id;
-            console.log('[globalAdminApi] resolved existing auth_user_id by email:', authUserId);
-          } else {
-            // Trigger not yet in place — edge function now returns the UUID directly
-            // so this path should not be reached after the trigger is installed
-            console.warn('[globalAdminApi] auth_user_id could not be resolved — ensure DB trigger is installed');
-          }
+          authUserId = linked?.auth_user_id ?? null;
         }
-        console.log('[globalAdminApi] auth user — id:', authUserId,
-          '| invite sent:', data.inviteSent, '| full response:', data);
+        console.log('[globalAdminApi] auth user created — id:', authUserId,
+          '| invite sent:', data.inviteSent);
         if (data.message) console.log('[globalAdminApi]', data.message);
       }
     } catch (e: any) {
@@ -164,39 +127,49 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
     }
   }
 
-  const { error } = await supabase.from('tenant_users').upsert({
-    id:               user.id,
-    tenant_id:        tenantId,
-    auth_user_id:     authUserId,
-    username:         user.username,
-    full_name:        user.fullName,
-    email:            user.email,
-    role:             user.role,
-    active:           user.active,
-    created_at:       user.createdAt,
-    last_login:       user.lastLogin       || null,
-    last_login_ip:    user.lastLoginIp     || null,
-    temp_password:    user.tempPassword    || null,
-    password_reset_at:user.passwordResetAt || null,
-    must_change_pwd:  user.mustChangePwd   ?? false,
-  });
-  if (error) console.error('[globalAdminApi] saveUser FAILED:', error.message, '| code:', error.code);
-  else console.log('[globalAdminApi] saveUser SUCCESS — username:', user.username, '| auth_user_id:', authUserId);
+  // For existing users, do a targeted update (not upsert) to avoid overwriting created_at
+  // For new users, do an insert
+  if (isNewUser) {
+    const { error } = await supabase.from('tenant_users').insert({
+      id:              user.id,
+      tenant_id:       tenantId,
+      auth_user_id:    authUserId,
+      username:        user.username,
+      full_name:       user.fullName,
+      email:           user.email,
+      role:            user.role,
+      active:          user.active,
+      approval_status: 'approved',   // admin-created users are pre-approved
+    });
+    if (error) console.error('[globalAdminApi] saveUser INSERT FAILED:', error.message);
+    else console.log('[globalAdminApi] saveUser INSERT SUCCESS — username:', user.username, '| auth_user_id:', authUserId);
+  } else {
+    const { error } = await supabase.from('tenant_users').update({
+      auth_user_id:     authUserId,
+      username:         user.username,
+      full_name:        user.fullName,
+      email:            user.email,
+      role:             user.role,
+      active:           user.active,
+      temp_password:    user.tempPassword    || null,
+      password_reset_at:user.passwordResetAt || null,
+      must_change_pwd:  user.mustChangePwd   ?? false,
+    }).eq('id', user.id);
+    if (error) console.error('[globalAdminApi] saveUser UPDATE FAILED:', error.message);
+    else console.log('[globalAdminApi] saveUser UPDATE SUCCESS — username:', user.username);
+  }
 }
 
-// Usernames that can never be deleted through the admin panel
+// Protected usernames — cannot be deleted
 const PROTECTED_USERNAMES = ['raviboorla'];
 
-/** Hard-delete a user from a tenant + removes their Supabase auth account */
 export async function deleteUser(userId: string): Promise<void> {
-  // 1. Get the auth_user_id before deleting the tenant_users row
   const { data: userRow } = await supabase
     .from('tenant_users')
     .select('auth_user_id, username')
     .eq('id', userId)
     .single();
 
-  // Hard block — platform admins cannot be deleted
   if (userRow?.username && PROTECTED_USERNAMES.includes(userRow.username.toLowerCase())) {
     console.error('[globalAdminApi] deleteUser BLOCKED — cannot delete protected admin:', userRow.username);
     return;
@@ -204,14 +177,9 @@ export async function deleteUser(userId: string): Promise<void> {
 
   const authUserId = userRow?.auth_user_id ?? null;
 
-  // 2. Delete from tenant_users
   const { error } = await supabase.from('tenant_users').delete().eq('id', userId);
-  if (error) {
-    console.error('[globalAdminApi] deleteUser FAILED:', error.message);
-    return;
-  }
+  if (error) { console.error('[globalAdminApi] deleteUser FAILED:', error.message); return; }
 
-  // 3. Delete from Supabase Auth via edge function (requires service role key)
   if (authUserId) {
     try {
       const res = await fetch('/api/delete-user', {
@@ -220,88 +188,91 @@ export async function deleteUser(userId: string): Promise<void> {
         body:    JSON.stringify({ authUserId }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        console.error('[globalAdminApi] delete-user auth failed:', data.error);
-      } else {
-        console.log('[globalAdminApi] auth user deleted — id:', authUserId);
-      }
+      if (!res.ok) console.error('[globalAdminApi] delete-user auth failed:', data.error);
     } catch (e: any) {
       console.error('[globalAdminApi] delete-user fetch error:', e.message);
     }
-  } else {
-    console.warn('[globalAdminApi] deleteUser — no auth_user_id found, only tenant_users row removed');
   }
-
   console.log('[globalAdminApi] deleteUser SUCCESS — username:', userRow?.username);
 }
 
 /**
- * Record a password reset event.
- * In production this would also trigger a Supabase Auth password reset email.
- * Here we just write the temp password and reset timestamp to the DB row so
- * the admin console can display the pending status.
+ * Record a password reset — stores temp password in DB
+ * and calls the set-password edge function to update Supabase Auth.
  */
 export async function recordPasswordReset(
   userId:      string,
   tempPassword: string,
 ): Promise<void> {
+  // First get the user's auth_user_id so we can update Supabase Auth
+  const { data: userRow } = await supabase
+    .from('tenant_users')
+    .select('auth_user_id, email')
+    .eq('id', userId)
+    .single();
+
+  // Update DB record with temp password info
   const { error } = await supabase.from('tenant_users').update({
     temp_password:     tempPassword,
     password_reset_at: new Date().toISOString(),
     must_change_pwd:   true,
   }).eq('id', userId);
-  if (error) console.error('recordPasswordReset error:', error.message);
+  if (error) { console.error('[globalAdminApi] recordPasswordReset DB error:', error.message); return; }
+
+  // Update Supabase Auth password via edge function
+  if (userRow?.auth_user_id) {
+    try {
+      const res = await fetch('/api/set-password', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          authUserId: userRow.auth_user_id,
+          password:   tempPassword,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        console.error('[globalAdminApi] set-password failed:', d.error);
+      } else {
+        console.log('[globalAdminApi] Supabase Auth password updated for:', userRow.email);
+      }
+    } catch (e: any) {
+      console.error('[globalAdminApi] set-password fetch error:', e.message);
+    }
+  } else {
+    console.warn('[globalAdminApi] recordPasswordReset — no auth_user_id, only DB updated');
+  }
 }
 
-/** Append a login history record for a user */
-export async function recordLoginEvent(
-  userId:    string,
-  ip:        string,
-  device:    string,
-): Promise<void> {
-  const { error } = await supabase.from('login_history').insert({
-    user_id:    userId,
-    ip_address: ip,
-    device,
-    logged_at:  new Date().toISOString(),
-  });
-  if (error) console.error('recordLoginEvent error:', error.message);
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 // WRITE — INVOICES
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/** Upsert a single invoice */
 export async function saveInvoice(invoice: Invoice, tenantId: string): Promise<void> {
   const { error } = await supabase.from('invoices').upsert({
-    id:         invoice.id,
-    tenant_id:  tenantId,
-    date:       invoice.date,
-    amount:     invoice.amount,
-    status:     invoice.status,
-    period:     invoice.period,
+    id: invoice.id, tenant_id: tenantId,
+    date: invoice.date, amount: invoice.amount,
+    status: invoice.status, period: invoice.period,
   });
-  if (error) console.error('saveInvoice error:', error.message);
+  if (error) console.error('[globalAdminApi] saveInvoice error:', error.message);
 }
 
-/** Update just the status field of an invoice */
 export async function updateInvoiceStatus(
   invoiceId: string,
   status:    Invoice['status'],
 ): Promise<void> {
   const { error } = await supabase
     .from('invoices').update({ status }).eq('id', invoiceId);
-  if (error) console.error('updateInvoiceStatus error:', error.message);
+  if (error) console.error('[globalAdminApi] updateInvoiceStatus error:', error.message);
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-// SHAPE MAPPING — DB rows → Tenant type
-// ═════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// SHAPE MAPPING — DB rows → TypeScript types
+// ═══════════════════════════════════════════════════════════════════════════════
 
 function dbRowToTenant(row: any, userRows: any[], invoiceRows: any[]): Tenant {
   const subscription: Subscription = {
-    status:             (row.sub_status   as SubStatus) ?? 'active',
+    status:             (row.sub_status   as SubStatus) ?? 'trialling',
     trialStart:         row.trial_start   ?? undefined,
     trialEnd:           row.trial_end     ?? undefined,
     currentPeriodStart: row.period_start  ?? '',
@@ -325,8 +296,8 @@ function dbRowToTenant(row: any, userRows: any[], invoiceRows: any[]): Tenant {
     id:        row.id,
     name:      row.name,
     slug:      row.slug,
-    plan:      row.plan,
-    active:    row.active,
+    plan:      row.plan        ?? 'starter',
+    active:    row.active      ?? false,
     createdAt: row.created_at?.split('T')[0] ?? '',
     features: {
       kanban:    row.feat_kanban    ?? true,
@@ -335,39 +306,34 @@ function dbRowToTenant(row: any, userRows: any[], invoiceRows: any[]): Tenant {
       bot:       row.feat_bot       ?? true,
       reports:   row.feat_reports   ?? true,
     },
-    users: userRows.map(dbRowToUser),
+    users:        userRows.map(dbRowToUser),
     subscription,
   };
 }
 
 function dbRowToUser(u: any): TenantUser {
   return {
-    id:             u.id,
-    username:       u.username,
-    fullName:       u.full_name,
-    email:          u.email,
-    role:           u.role,
-    active:         u.active,
-    createdAt:      u.created_at?.split('T')[0] ?? '',
-    lastLogin:      u.last_login     ? formatTs(u.last_login)  : undefined,
-    lastLoginIp:    u.last_login_ip  ?? undefined,
-    tempPassword:   u.temp_password  ?? undefined,
-    passwordResetAt:u.password_reset_at ? formatTs(u.password_reset_at) : undefined,
-    mustChangePwd:  u.must_change_pwd ?? false,
+    id:              u.id,
+    authUserId:      u.auth_user_id  ?? undefined,   // ← was missing before
+    username:        u.username,
+    fullName:        u.full_name,
+    email:           u.email,
+    role:            u.role,
+    active:          u.active,
+    createdAt:       u.created_at?.split('T')[0] ?? '',
+    lastLogin:       u.last_login      ? formatTs(u.last_login)      : undefined,
+    lastLoginIp:     u.last_login_ip   ?? undefined,
+    tempPassword:    u.temp_password   ?? undefined,
+    passwordResetAt: u.password_reset_at ? formatTs(u.password_reset_at) : undefined,
+    mustChangePwd:   u.must_change_pwd ?? false,
   };
 }
 
 function dbRowToInvoice(i: any): Invoice {
-  return {
-    id:     i.id,
-    date:   i.date,
-    amount: i.amount,
-    status: i.status,
-    period: i.period,
-  };
+  return { id: i.id, date: i.date, amount: i.amount, status: i.status, period: i.period };
 }
 
-// ─── Plan limit helpers (mirrors PLAN_LIMITS in adminData.ts) ─────────────────
+// ─── Plan limit helpers ───────────────────────────────────────────────────────
 function planItemLimit(plan: string): number {
   return plan === 'enterprise' ? 9999 : plan === 'pro' ? 1000 : 100;
 }
@@ -378,106 +344,28 @@ function planAiLimit(plan: string): number {
   return plan === 'enterprise' ? 9999 : plan === 'pro' ? 500 : 0;
 }
 
-/** Format an ISO timestamp as "01 Apr 2026 14:32" */
 function formatTs(iso: string): string {
   try {
     return new Date(iso).toLocaleString('en-GB', {
       day:'2-digit', month:'short', year:'numeric',
       hour:'2-digit', minute:'2-digit',
     });
-  } catch {
-    return iso;
-  }
+  } catch { return iso; }
 }
 
-// ─── APPROVAL REQUESTS ────────────────────────────────────────────────────────
+// ─── Deprecated — kept for import compatibility ───────────────────────────────
+// These previously queried a non-existent 'approval_requests' table.
+// Approval logic is now handled directly via tenant_users.approval_status
+// and tenants.approval_status in GlobalAdminPanel.tsx.
+export async function fetchApprovals(): Promise<any[]> { return []; }
+export async function approveRequest(_id: string, _by: string): Promise<void> {}
+export async function rejectRequest(_id: string, _by: string, _notes?: string): Promise<void> {}
 
-export async function fetchApprovals(): Promise<any[]> {
-  const { data, error } = await supabase
-    .from('approval_requests')
-    .select('*')
-    .eq('status', 'pending')
-    .order('requested_at', { ascending: false });
-  if (error) console.error('[globalAdminApi] fetchApprovals failed:', error.message);
-  return data ?? [];
-}
-
-export async function approveRequest(
-  requestId: string,
-  reviewedBy: string
+export async function recordLoginEvent(
+  userId: string, ip: string, device: string,
 ): Promise<void> {
-  // Get the request details
-  const { data: req, error: fetchErr } = await supabase
-    .from('approval_requests')
-    .select('*')
-    .eq('id', requestId)
-    .single();
-
-  if (fetchErr || !req) {
-    console.error('[globalAdminApi] approveRequest: could not fetch request');
-    return;
-  }
-
-  // Activate the user
-  await supabase
-    .from('tenant_users')
-    .update({ active: true })
-    .eq('id', req.user_id);
-
-  // Activate the tenant if it was a new_tenant request
-  if (req.type === 'new_tenant') {
-    await supabase
-      .from('tenants')
-      .update({ active: true, sub_status: 'trialling' })
-      .eq('id', req.tenant_id);
-  }
-
-  // Mark the request as approved
-  await supabase
-    .from('approval_requests')
-    .update({
-      status:      'approved',
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: reviewedBy,
-    })
-    .eq('id', requestId);
-
-  console.log('[globalAdminApi] approveRequest SUCCESS — id:', requestId);
-}
-
-export async function rejectRequest(
-  requestId: string,
-  reviewedBy: string,
-  notes?: string
-): Promise<void> {
-  const { data: req } = await supabase
-    .from('approval_requests')
-    .select('user_id, tenant_id, type')
-    .eq('id', requestId)
-    .single();
-
-  if (req) {
-    // Deactivate the user
-    await supabase
-      .from('tenant_users')
-      .update({ active: false })
-      .eq('id', req.user_id);
-
-    // Delete the tenant if it was new (nothing to preserve)
-    if (req.type === 'new_tenant') {
-      await supabase.from('tenants').delete().eq('id', req.tenant_id);
-    }
-  }
-
-  await supabase
-    .from('approval_requests')
-    .update({
-      status:      'rejected',
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: reviewedBy,
-      notes:       notes ?? null,
-    })
-    .eq('id', requestId);
-
-  console.log('[globalAdminApi] rejectRequest SUCCESS — id:', requestId);
+  const { error } = await supabase.from('login_history').insert({
+    user_id: userId, ip_address: ip, device, logged_at: new Date().toISOString(),
+  });
+  if (error) console.error('[globalAdminApi] recordLoginEvent error:', error.message);
 }
