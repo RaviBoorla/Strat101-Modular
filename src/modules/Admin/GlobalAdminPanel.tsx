@@ -881,12 +881,11 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           ))}
         </div>
         <div style={{flex:1,overflowY:'auto',padding:14}}>
-          {tab==='users'        &&<UsersTab        tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='features'     &&<FeaturesTab     tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='subscription' &&<SubscriptionTab tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='invoices'     &&<InvoicesTab     tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='security'     &&<SecurityTab     tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='security'     &&<SecurityTab     tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='users'        &&<UsersTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='features'     &&<FeaturesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='subscription' &&<SubscriptionTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='invoices'     &&<InvoicesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='security'     &&<SecurityTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
         </div>
       </div>
     );
@@ -917,11 +916,11 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           ))}
         </div>
         <div style={{flex:1,overflowY:'auto',padding:18}}>
-          {tab==='users'        &&<UsersTab        tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='features'     &&<FeaturesTab     tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='subscription' &&<SubscriptionTab tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='invoices'     &&<InvoicesTab     tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='security'     &&<SecurityTab     tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='users'        &&<UsersTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='features'     &&<FeaturesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='subscription' &&<SubscriptionTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='invoices'     &&<InvoicesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='security'     &&<SecurityTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
         </div>
       </div>
     </div>
