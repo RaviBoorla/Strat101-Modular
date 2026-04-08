@@ -1,1026 +1,320 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { TC, TYPES, WORK_ITEM_TYPES } from "../constants";
+import { fuzzyScore } from "../utils";
+import { TenantFeatures } from "../types";
+import LOGO_SRC from '../logoData';
 
-import { TYPES } from "./constants";
-import { mkBlank, gId, tsNow, td } from "./utils";
-import { TenantFeatures, Tenant } from "./types";
-import { isGlobalAdminUser } from "./globalAdminData";
-import { supabase } from "./lib/supabase";
-import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
+// ─── INLINE SEARCH ────────────────────────────────────────────────────────────
+interface InlineSearchProps { items: any[]; onNav: (id: string) => void; }
 
-import LoginScreen   from "./modules/Login/LoginScreen";
-import BotPanel      from "./modules/AiAssist/BotPanel";
-import WorkItemsView, { ListView } from "./modules/WorkItems/WorkItemsView";
-import KanbanBoard   from "./modules/Kanban/KanbanBoard";
-import ItemForm, { LinkDlg } from "./modules/Create/ItemForm";
-import ReportBuilder from "./modules/Reports/ReportBuilder";
-import GlobalAdminPanel from "./modules/Admin/GlobalAdminPanel";
-import LocalAdminPanel from "./modules/Admin/LocalAdminPanel";
+function InlineSearch({ items, onNav }: InlineSearchProps) {
+  const [q,      setQ]      = useState('');
+  const [open,   setOpen]   = useState(false);
+  const [cursor, setCursor] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const wrapRef  = useRef<HTMLDivElement>(null);
 
-import TopNav         from "./components/TopNav";
-import DetailPanel    from "./components/DetailPanel";
-import CommandPalette from "./components/CommandPalette";
-import LOGO_SRC from './logoData';
+  const results = useMemo(()=>{
+    if(!q.trim()) return items.slice(0,12);
+    return items.map(i=>({...i,_s:fuzzyScore(i,q)})).filter(i=>i._s>0).sort((a,b)=>b._s-a._s).slice(0,14);
+  },[q,items]);
 
-const ALL_FEATURES: TenantFeatures = {
-  kanban: true, workitems: true, create: true, bot: true, reports: true,
-};
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{ if(wrapRef.current&&!wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[]);
 
-// ─── SUPABASE DATA HELPERS ────────────────────────────────────────────────────
+  useEffect(()=>{
+    const h=(e:KeyboardEvent)=>{ if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); inputRef.current?.focus(); setOpen(true); } };
+    window.addEventListener('keydown',h);
+    return ()=>window.removeEventListener('keydown',h);
+  },[]);
 
-function dbRowToItem(
-  row:      any,
-  linkRows: any[],
-  depRows:  any[],
-  commRows: any[],
-  attRows:  any[],
-): any {
-  const links = linkRows
-    .filter(l => l.from_id === row.id || l.to_id === row.id)
-    .map   (l => l.from_id === row.id ? l.to_id : l.from_id);
-  const dependencies = depRows
-    .filter(d => d.item_id === row.id)
-    .map   (d => d.depends_on);
-  const comments = commRows
-    .filter(c => c.item_id === row.id)
-    .map   (c => ({ id: c.id, text: c.text, ts: c.created_at }));
-  const attachments = attRows
-    .filter(a => a.item_id === row.id)
-    .map   (a => ({ name: a.name, size: a.size, ext: a.ext,
-                    storagePath: a.storage_path, uploadedAt: a.uploaded_at }));
-  return {
-    id: row.id, key: row.key, type: row.type,
-    title:          row.title           ?? '',
-    description:    row.description     ?? '',
-    currentStatus:  row.current_status  ?? '',
-    currentStatusAt:row.current_status_at ?? '',
-    riskStatement:  row.risk_statement  ?? '',
-    status:   row.status,   priority: row.priority,
-    health:   row.health,   risk:     row.risk,
-    impact:       row.impact        ?? '',
-    impactType:   row.impact_type   ?? '',
-    owner:        row.owner         ?? '',
-    assigned:     row.assigned      ?? '',
-    sponsor:      row.sponsor       ?? '',
-    businessUnit: row.business_unit ?? '',
-    approvedBudget: row.approved_budget ?? '',
-    actualCost:     row.actual_cost     ?? '',
-    startDate:  row.start_date  ?? '',
-    endDate:    row.end_date    ?? '',
-    progress:   row.progress    ?? 0,
-    tags:       row.tags        ?? [],
-    keyResult:  row.key_result  ?? '',
-    updatedAt:  row.updated_at  ?? '',
-    updatedBy:  row.updated_by  ?? '',
-    links, dependencies, comments, attachments,
-  };
-}
-
-async function loadItems(tenantId: string): Promise<any[]> {
-  const [
-    { data: rows  = [] }, { data: links = [] },
-    { data: deps  = [] }, { data: comms = [] },
-    { data: atts  = [] },
-  ] = await Promise.all([
-    supabase.from('work_items').select('*').eq('tenant_id', tenantId).order('created_at'),
-    supabase.from('item_links').select('from_id, to_id').eq('tenant_id', tenantId),
-    supabase.from('item_dependencies').select('item_id, depends_on').eq('tenant_id', tenantId),
-    supabase.from('comments').select('*').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
-    supabase.from('attachments').select('*').eq('tenant_id', tenantId),
-  ]);
-  return (rows ?? []).map((row: any) =>
-    dbRowToItem(row, links ?? [], deps ?? [], comms ?? [], atts ?? [])
-  );
-}
-
-async function persistItem(item: any, tenantId: string): Promise<void> {
-  const { data, error, status, statusText } = await supabase.from('work_items').upsert({
-    id: item.id, tenant_id: tenantId, key: item.key, type: item.type,
-    title:             item.title            || '',
-    description:       item.description      || null,
-    current_status:    item.currentStatus    || null,
-    current_status_at: item.currentStatusAt  || null,
-    risk_statement:    item.riskStatement    || null,
-    status: item.status, priority: item.priority,
-    health: item.health, risk:     item.risk,
-    impact:         item.impact        || null,
-    impact_type:    item.impactType    || null,
-    owner:          item.owner         || null,
-    assigned:       item.assigned      || null,
-    sponsor:        item.sponsor       || null,
-    business_unit:  item.businessUnit  || null,
-    approved_budget:item.approvedBudget|| null,
-    actual_cost:    item.actualCost    || null,
-    start_date:     item.startDate     || null,
-    end_date:       item.endDate       || null,
-    progress:       item.progress      ?? 0,
-    tags:           item.tags          ?? [],
-    key_result:     item.keyResult     || null,
-    updated_at:     new Date().toISOString(),
-    updated_by:     item.updatedBy     || null,
-  });
-  if (error) {
-    console.error('[PERSIST] FAILED:', error.message, '| code:', error.code, '| hint:', error.hint, '| details:', error.details);
-  } else {
-  }
-}
-
-async function deleteItem(id: string): Promise<void> {
-  const { error } = await supabase.from('work_items').delete().eq('id', id);
-  if (error) console.error('[DB] deleteItem failed:', error.message);
-}
-
-async function syncLinks(itemId: string, newLinks: string[], tenantId: string): Promise<void> {
-  const { data: existing = [] } = await supabase
-    .from('item_links').select('from_id, to_id')
-    .or(`from_id.eq.${itemId},to_id.eq.${itemId}`)
-    .eq('tenant_id', tenantId);
-  const currentSet = new Set<string>(
-    (existing ?? []).map((l: any) => (l.from_id === itemId ? l.to_id : l.from_id) as string)
-  );
-  const newSet = new Set(newLinks);
-  for (const otherId of [...currentSet].filter(id => !newSet.has(id))) {
-    await supabase.from('item_links').delete()
-      .or(`and(from_id.eq.${itemId},to_id.eq.${otherId}),and(from_id.eq.${otherId},to_id.eq.${itemId})`);
-  }
-  const toAdd = newLinks.filter(id => !currentSet.has(id));
-  if (toAdd.length > 0) {
-    await supabase.from('item_links').upsert(
-      toAdd.map(otherId => ({ from_id: itemId, to_id: otherId, tenant_id: tenantId }))
-    );
-  }
-}
-
-async function syncDeps(itemId: string, newDeps: string[], tenantId: string): Promise<void> {
-  const { data: existing = [] } = await supabase
-    .from('item_dependencies').select('depends_on').eq('item_id', itemId);
-  const currentSet = new Set<string>((existing ?? []).map((d: any) => d.depends_on as string));
-  const newSet = new Set(newDeps);
-  for (const depId of [...currentSet].filter(id => !newSet.has(id))) {
-    await supabase.from('item_dependencies').delete()
-      .eq('item_id', itemId).eq('depends_on', depId);
-  }
-  const toAdd = newDeps.filter(id => !currentSet.has(id));
-  if (toAdd.length > 0) {
-    await supabase.from('item_dependencies').upsert(
-      toAdd.map(depId => ({ item_id: itemId, depends_on: depId, tenant_id: tenantId }))
-    );
-  }
-}
-
-async function persistComment(itemId: string, text: string, tenantId: string, createdBy: string): Promise<void> {
-  await supabase.from('comments').insert({
-    id: gId(), item_id: itemId, tenant_id: tenantId, text, created_by: createdBy,
-  });
-}
-
-async function deleteComment(commentId: string): Promise<void> {
-  await supabase.from('comments').delete().eq('id', commentId);
-}
-
-// ─── PREVIEW BANNER ───────────────────────────────────────────────────────────
-
-function PreviewBanner({ tenant, onExit }: { tenant: Tenant; onExit: () => void }) {
-  return (
-    <div style={{ background:'#fef3c7', borderBottom:'2px solid #f59e0b', padding:'6px 16px',
-      display:'flex', alignItems:'center', gap:10, flexShrink:0, zIndex:50 }}>
-      <span style={{ fontSize:14 }}>&#128065;&#65039;</span>
-      <span style={{ fontSize:12, fontWeight:600, color:'#92400e' }}>
-        Previewing: <strong>{tenant.name}</strong>
-        &nbsp;&middot;&nbsp;
-        {Object.entries(tenant.features).filter(([,v])=>v).map(([k])=>k).join(', ')} enabled
-      </span>
-      <button onClick={onExit} style={{ marginLeft:'auto', padding:'4px 12px', borderRadius:6,
-        border:'1px solid #f59e0b', background:'white', color:'#92400e', fontSize:11,
-        fontWeight:700, cursor:'pointer' }}>
-        &larr; Back to Admin
-      </button>
-    </div>
-  );
-}
-
-// ─── WORKSPACE ────────────────────────────────────────────────────────────────
-
-function Workspace({
-  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut, userRole = 'editor', onSwitchToAdmin, onOpenGlobalAdmin, onOpenLocalAdmin, tenantName = '', enabledTypes,
-}: {
-  loggedUser: string; isAdmin: boolean; features: TenantFeatures;
-  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void; userRole?: string; onSwitchToAdmin?: () => void; onOpenGlobalAdmin?: () => void; onOpenLocalAdmin?: () => void; tenantName?: string; enabledTypes?: string[];
-}) {
-  const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
-  const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
-
-  const [items,   setItems]   = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [view,    setView]    = useState('kanban');
-  const [workItemFilter, setWIF] = useState('all');
-  const [sel,     setSel]   = useState<string|null>(null);
-  const [dtab,    setDtab]  = useState('overview');
-  const [form,    setForm]  = useState<any>(null);
-  const [linkDlg, setLinkDlg] = useState<string|null>(null);
-  const [linkQ,   setLinkQ]   = useState('');
-  const [cmdOpen, setCmdOpen] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const selected   = items.find(i => i.id === sel);
-  const isListView = TYPES.includes(view);
-  const isWorkItems = view === 'workitems';
-
-  const refresh = useCallback(async () => {
-    if (!tenantId) { setItems([]); setLoading(false); return; }
-    setLoading(true);
-    setItems(await loadItems(tenantId));
-    setLoading(false);
-  }, [tenantId]);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  useEffect(() => {
-    if (!tenantId) return;
-    const ch = supabase.channel(`ws:${tenantId}`)
-      .on('postgres_changes', { event:'*', schema:'public', table:'work_items',        filter:`tenant_id=eq.${tenantId}` }, () => refresh())
-      .on('postgres_changes', { event:'*', schema:'public', table:'comments',          filter:`tenant_id=eq.${tenantId}` }, () => refresh())
-      .on('postgres_changes', { event:'*', schema:'public', table:'item_links',        filter:`tenant_id=eq.${tenantId}` }, () => refresh())
-      .on('postgres_changes', { event:'*', schema:'public', table:'item_dependencies', filter:`tenant_id=eq.${tenantId}` }, () => refresh())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [tenantId, refresh]);
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setCmdOpen(false); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, []);
-
-  useEffect(() => { setView('kanban'); setSel(null); }, [features]);
-
-  const LOGGED_IN = loggedUser || 'user';
-  const isViewer  = userRole === 'viewer';
-  const stamp = (it: any) => ({ ...it, updatedAt: tsNow(), updatedBy: LOGGED_IN });
-
-  const applyAndPersist = async (updated: any) => {
-    setItems(p => p.some(x => x.id === updated.id)
-      ? p.map(x => x.id === updated.id ? updated : x)
-      : [...p, updated]);
-    if (tenantId) {
-      await persistItem(updated, tenantId);
-      await syncLinks(updated.id, updated.links, tenantId);
-      await syncDeps(updated.id, updated.dependencies, tenantId);
-    } else {
-    }
-  };
-
-  const liveUpsert = (it: any) => {
-    const s = stamp(it);
-    setItems(p => p.some(x => x.id === s.id) ? p.map(x => x.id === s.id ? s : x) : [...p, s]);
-  };
-
-  const upsert = async (it: any) => {
-    if (isViewer) return;
-    const s = stamp(it);
-    await applyAndPersist(s);
-    setForm(null); setSel(s.id);
-    if (isListView || view === 'kanban') setView(s.type);
-  };
-
-  const remove = async (id: string) => {
-    setItems(p => p.filter(i => i.id !== id).map(i => ({
-      ...i,
-      links:        i.links.filter((l: string) => l !== id),
-      dependencies: i.dependencies.filter((d: string) => d !== id),
-    })));
-    if (sel === id) setSel(null);
-    if (tenantId) await deleteItem(id);
-  };
-
-  const changeStatus = async (id: string, status: string) => {
-    const item = items.find(i => i.id === id); if (!item) return;
-    await applyAndPersist(stamp({ ...item, status }));
-  };
-
-  const changeField = async (id: string, field: string, value: any) => {
-    const item = items.find(i => i.id === id); if (!item) return;
-    await applyAndPersist(stamp({ ...item, [field]: value }));
-  };
-
-  const addLink = async (toId: string) => {
-    if (!sel || toId === sel) return;
-    const si = items.find(i => i.id === sel);
-    const ti = items.find(i => i.id === toId);
-    if (!si || !ti) return;
-    setItems(p => p.map(i =>
-      i.id === sel ? stamp({ ...i, links: [...new Set([...i.links, toId])] }) :
-      i.id === toId ? stamp({ ...i, links: [...new Set([...i.links, sel])]  }) : i
-    ));
-    if (tenantId) await supabase.from('item_links').upsert({ from_id: sel, to_id: toId, tenant_id: tenantId });
-    setLinkDlg(null);
-  };
-
-  const rmLink = async (lid: string) => {
-    setItems(p => p.map(i => {
-      if (i.id === sel) return stamp({ ...i, links: i.links.filter((l: string) => l !== lid) });
-      if (i.id === lid) return stamp({ ...i, links: i.links.filter((l: string) => l !== sel) });
-      return i;
-    }));
-    if (tenantId) await supabase.from('item_links').delete()
-      .or(`and(from_id.eq.${sel},to_id.eq.${lid}),and(from_id.eq.${lid},to_id.eq.${sel})`);
-  };
-
-  const addDep = async (toId: string) => {
-    if (!sel || toId === sel) return;
-    const si = items.find(i => i.id === sel); if (!si) return;
-    setItems(p => p.map(i => i.id === sel
-      ? stamp({ ...i, dependencies: [...new Set([...i.dependencies, toId])] }) : i));
-    if (tenantId) await supabase.from('item_dependencies').upsert({ item_id: sel, depends_on: toId, tenant_id: tenantId });
-    setLinkDlg(null);
-  };
-
-  const rmDep = async (did: string) => {
-    setItems(p => p.map(i => i.id === sel
-      ? stamp({ ...i, dependencies: i.dependencies.filter((d: string) => d !== did) }) : i));
-    if (tenantId) await supabase.from('item_dependencies').delete().eq('item_id', sel).eq('depends_on', did);
-  };
-
-  const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-  const addFile = async (f: File) => {
-    if (!f || !sel) return;
-    if (f.size > MAX_ATTACHMENT_BYTES) {
-      const mb = (f.size / 1048576).toFixed(1);
-      setItems(p => p.map(i => i.id === sel ? { ...i, _uploadError: `"${f.name}" is ${mb} MB — max 10 MB.` } : i));
-      setTimeout(() => setItems(p => p.map(i => i.id === sel ? { ...i, _uploadError: undefined } : i)), 6000);
-      return;
-    }
-    const sizeLabel = f.size < 1048576 ? Math.round(f.size / 1024) + ' KB' : (f.size / 1048576).toFixed(1) + ' MB';
-    const ext = f.name.split('.').pop()?.toLowerCase() ?? '';
-    setItems(p => p.map(i => i.id === sel
-      ? stamp({ ...i, attachments: [...i.attachments, { name: f.name, size: sizeLabel, ext, uploadedAt: td() }] }) : i));
-    if (!tenantId) return;
-    const storagePath = `${tenantId}/${sel}/${Date.now()}_${f.name}`;
-    const { error: upErr } = await supabase.storage.from('attachments').upload(storagePath, f, { cacheControl:'3600', upsert:false });
-    if (upErr) {
-      console.error('Upload error:', upErr.message);
-      setItems(p => p.map(i => i.id === sel
-        ? { ...stamp({ ...i, attachments: i.attachments.filter((a: any) => a.name !== f.name) }), _uploadError: `Upload failed: ${upErr.message}` } : i));
-      setTimeout(() => setItems(p => p.map(i => i.id === sel ? { ...i, _uploadError: undefined } : i)), 6000);
-      return;
-    }
-    await supabase.from('attachments').insert({ item_id: sel, tenant_id: tenantId, name: f.name, size: sizeLabel, ext, storage_path: storagePath, uploaded_at: new Date().toISOString() });
-  };
-
-  const rmFile = async (idx: number) => {
-    const si = items.find(i => i.id === sel); if (!si) return;
-    const att = si.attachments[idx];
-    setItems(p => p.map(i => i.id === sel
-      ? stamp({ ...i, attachments: i.attachments.filter((_: any, j: number) => j !== idx) }) : i));
-    if (!tenantId || !att) return;
-    if (att.storagePath) await supabase.storage.from('attachments').remove([att.storagePath]);
-    await supabase.from('attachments').delete().eq('item_id', sel).eq('tenant_id', tenantId).eq('name', att.name);
-  };
-
-  const addComment = async (text: string) => {
-    if (!sel || !text.trim()) return;
-    const newC = { id: gId(), text: text.trim(), ts: tsNow() };
-    setItems(p => p.map(i => i.id === sel ? stamp({ ...i, comments: [newC, ...i.comments] }) : i));
-    if (tenantId) await persistComment(sel, text.trim(), tenantId, LOGGED_IN);
-  };
-
-  const rmComment = async (cid: string) => {
-    setItems(p => p.map(i => i.id === sel
-      ? stamp({ ...i, comments: i.comments.filter((c: any) => c.id !== cid) }) : i));
-    if (tenantId) await deleteComment(cid);
-  };
-
-  const nav    = (id: string) => { const it = items.find(i => i.id === id); if (it) { setView(it.type); setSel(id); setDtab('overview'); } };
-  const goView = (v: string)  => { setView(v); setSel(null); };
-  const createAndOpen = (type: string) => {
-    if (isViewer) return;
-    const blank = mkBlank(type, items);
-    setItems(p => [...p, blank]);
-    setForm({ ...blank, _autoSave: true });
-  };
-
-  const disabledView =
-    (view === 'kanban'  && !features.kanban)   ||
-    (view === 'reports' && !features.reports)  ||
-    (view === 'bot'     && !features.bot)      ||
-    (isWorkItems        && !features.workitems)||
-    (TYPES.includes(view) && !activeTypes.includes(view));
-
-  if (loading) {
-    return (
-      <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'white' }}>
-        {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
-        <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}} onCreateNew={()=>{}}
-          workItemFilter={workItemFilter} setWorkItemFilter={setWIF} onNew={()=>{}}
-          loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut} isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}
-          enabledTypes={activeTypes}/>
-        <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ textAlign:'center' }}>
-            <div style={{ fontSize:32, marginBottom:12 }}>&#9203;</div>
-            <div style={{ fontSize:13, color:'#64748b' }}>Loading your workspace…</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ fontFamily:'system-ui,sans-serif', fontSize:'13px', background:'white', position:'relative' }}>
-      {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
-      <TopNav view={view} setView={goView} items={items} onNavItem={id => nav(id)}
-        onCreateNew={createAndOpen} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
-        onNew={() => !isViewer && isListView && setForm(mkBlank(view, items))}
-        loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut}
-        isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}
-        enabledTypes={activeTypes}/>
-      <div className="flex flex-1 overflow-hidden relative">
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 overflow-auto">
-            {!disabledView ? (
-              <>
-                {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes}/>}
-                {view === 'reports' && features.reports   && <ReportBuilder items={items} enabledTypes={activeTypes}/>}
-                {view === 'bot'     && features.bot       && <BotPanel items={items}/>}
-                {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
-                {isListView                               && <ListView type={view} items={items.filter(i => i.type === view)} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
-              </>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
-                <div style={{ fontSize:48 }}>&#128274;</div>
-                <div style={{ fontSize:15, fontWeight:700, color:'#374151' }}>Module Not Enabled</div>
-                <div style={{ fontSize:12, color:'#94a3b8', textAlign:'center', maxWidth:300, lineHeight:1.6 }}>
-                  This module is disabled for this tenant. Enable it in Global Admin Console → Features.
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        {selected && view !== 'bot' && (
-          <div style={{ position: window.innerWidth < 640 ? 'absolute' : 'relative', inset: window.innerWidth < 640 ? 0 : 'auto', zIndex: window.innerWidth < 640 ? 30 : 1, display:'flex', width: window.innerWidth < 640 ? '100%' : '420px', flexShrink:0 }}>
-            <DetailPanel item={selected} allItems={items} tab={dtab} onTab={setDtab}
-              onEdit={() => setForm({ ...selected })} onDelete={() => remove(selected.id)} onClose={() => setSel(null)}
-              onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }} onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
-              onRmLink={rmLink} onRmDep={rmDep} onAddFile={() => fileRef.current?.click()} onRmFile={rmFile}
-              onAddComment={addComment} onRmComment={rmComment} onNav={nav}/>
-          </div>
-        )}
-      </div>
-      <footer style={{ background:'#a3bbff', borderTop:'1px solid #7a9ee8', padding:'3px 16px', display:'flex', alignItems:'center', justifyContent:'center', gap:12, flexShrink:0 }}>
-        <span style={{ fontSize:11, color:'#0c2d4a', letterSpacing:'0.02em' }}>
-          ®Strat101.com  |  ©Copyright 2026. All rights Reserved.  |  Contact:{' '}
-          <a href="mailto:Support@Strat101.com" style={{ color:'#0c2d4a', textDecoration:'none', fontWeight:600 }}>Support@Strat101.com</a>
-        </span>
-      </footer>
-      <input ref={fileRef} type="file" className="hidden"
-        onChange={e => { if (e.target.files?.[0]) addFile(e.target.files[0]); e.target.value = ''; }}/>
-      {/* ItemForm — right-side drawer within workspace */}
-      {form && (
-        <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
-          <div onClick={() => setForm(null)} style={{ flex:1, background:'rgba(0,0,0,0.3)', cursor:'pointer', pointerEvents:'all' }}/>
-          <div onClick={e=>e.stopPropagation()}
-            style={{ width:'40%', minWidth:340, maxWidth:620, height:'100%', background:'white',
-              boxShadow:'-6px 0 32px rgba(0,0,0,0.2)', display:'flex', flexDirection:'column',
-              overflow:'hidden', pointerEvents:'all' }}>
-            <ItemForm item={form} onSave={upsert} onClose={() => setForm(null)} onAutoSave={form._autoSave ? liveUpsert : null} drawerMode={true}/>
-          </div>
-        </div>
-      )}
-      {linkDlg && selected && <LinkDlg mode={linkDlg} selected={selected} allItems={items} q={linkQ} onQ={setLinkQ} onLink={linkDlg === 'link' ? addLink : addDep} onClose={() => setLinkDlg(null)}/>}
-      {cmdOpen && <CommandPalette items={items} onNav={id => { nav(id); setCmdOpen(false); }} onClose={() => setCmdOpen(false)}/>}
-    </div>
-  );
-}
-
-// ─── APP MAIN ─────────────────────────────────────────────────────────────────
-
-function AppMain({ loggedUser }: { loggedUser: string }) {
-  const isAdmin = isGlobalAdminUser(loggedUser);
-  const [screen,         setScreen]         = useState<'admin'|'workspace'>(isAdmin ? 'admin' : 'workspace');
-  const [previewTenant,  setPreviewTenant]  = useState<Tenant | null>(null);
-  const [tenantId,       setTenantId]       = useState<string | null>(null);
-  const [tenantFeatures, setTenantFeatures] = useState<TenantFeatures>(ALL_FEATURES);
-  const [userRole,       setUserRole]       = useState<string>('editor');
-  const [tenantName,     setTenantName]     = useState<string>('');
-  const [enabledTypes,   setEnabledTypes]   = useState<string[]>(['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
-      if (!user) return;
-      supabase
-        .from('tenant_users')
-        .select('tenant_id, role')
-        .eq('auth_user_id', user.id)
-        .eq('active', true)
-        .single()
-        .then(async ({ data }: { data: any }) => {
-          if (data?.tenant_id) {
-            setTenantId(data.tenant_id as string);
-            setUserRole(data.role ?? 'editor');
-
-            // Load tenant features
-            const { data: tenant } = await supabase
-              .from('tenants')
-              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, enabled_item_types')
-              .eq('id', data.tenant_id)
-              .single();
-
-            if (tenant) {
-              setTenantName(tenant.name ?? '');
-              setTenantFeatures({
-                kanban:    tenant.feat_kanban    ?? true,
-                workitems: tenant.feat_workitems ?? true,
-                create:    tenant.feat_create    ?? true,
-                bot:       tenant.feat_bot       ?? true,
-                reports:   tenant.feat_reports   ?? true,
-              });
-              // null/empty means all types enabled
-              const et = tenant.enabled_item_types;
-              setEnabledTypes(et && et.length > 0 ? et : ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
-            }
-          }
-        });
-    });
-  }, [isAdmin]);
-
-  const [globalAdminDrawerOpen,        setGlobalAdminDrawerOpen]        = useState(false);
-  const [localAdminDrawerOpen,         setLocalAdminDrawerOpen]         = useState(false);
-
-  const features: TenantFeatures      = tenantFeatures;
-  const activeTenantId: string | null = tenantId;
-  const handleSignOut = async () => { await supabase.auth.signOut(); };
-
-  // Everyone defaults to workspace — admin panels are drawers
-  return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ position:'relative', overflow:'hidden' }}>
-      <Workspace
-        loggedUser={loggedUser}
-        isAdmin={isAdmin}
-        features={features}
-        previewTenant={null}
-        onExitPreview={() => {}}
-        tenantId={activeTenantId}
-        onSignOut={handleSignOut}
-        userRole={userRole}
-        tenantName={tenantName}
-        enabledTypes={enabledTypes}
-        onOpenGlobalAdmin={isAdmin ? () => setGlobalAdminDrawerOpen(true) : undefined}
-        onOpenLocalAdmin={(userRole === 'local_admin' || isAdmin) && tenantId
-          ? () => setLocalAdminDrawerOpen(true) : undefined}
-      />
-
-      {/* Global Admin Drawer */}
-      {isAdmin && globalAdminDrawerOpen && (
-        <GlobalAdminDrawer
-          loggedUser={loggedUser}
-          onClose={() => setGlobalAdminDrawerOpen(false)}
-        />
-      )}
-
-      {/* Local Admin Drawer */}
-      {(userRole === 'local_admin' || isAdmin) && localAdminDrawerOpen && tenantId && (
-        <LocalAdminDrawer
-          loggedUser={loggedUser}
-          tenantId={tenantId}
-          onClose={() => setLocalAdminDrawerOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-// ── Thin wrapper components for the drawers ───────────────────────────────────
-function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClose: () => void }) {
-  return (
-    <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
-      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.35)', cursor:'pointer', pointerEvents:'all' }}/>
-      <div onClick={e=>e.stopPropagation()}
-        style={{ width:'40%', minWidth:360, maxWidth:680, height:'100%', background:'#f8fafc',
-          boxShadow:'-6px 0 32px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column',
-          overflow:'hidden', pointerEvents:'all' }}>
-        <div style={{ background:'#0f172a', padding:'0 14px', height:38, display:'flex',
-          alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <img src={LOGO_SRC} alt='logo' style={{ width:20, height:20, borderRadius:4, objectFit:'cover' }}/>
-            <span style={{ fontSize:12, fontWeight:700, color:'white' }}>Global Admin</span>
-          </div>
-          <button onClick={onClose} style={{ color:'#94a3b8', background:'rgba(255,255,255,0.1)',
-            border:'none', fontSize:12, cursor:'pointer', padding:'3px 10px', borderRadius:5, fontWeight:600 }}>✕ Close</button>
-        </div>
-        <div style={{ flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
-          <GlobalAdminPanel loggedUser={loggedUser} onPreviewTenant={() => {}} embedded={true}/>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LocalAdminDrawer({ loggedUser, tenantId, onClose }:
-  { loggedUser: string; tenantId: string; onClose: () => void }) {
-  return (
-    <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
-      <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.35)', cursor:'pointer', pointerEvents:'all' }}/>
-      <div onClick={e=>e.stopPropagation()}
-        style={{ width:'40%', minWidth:320, maxWidth:580, height:'100%', background:'#f8fafc',
-          boxShadow:'-6px 0 32px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column',
-          overflow:'hidden', pointerEvents:'all' }}>
-        <div style={{ background:'#0f172a', padding:'0 16px', height:44, display:'flex',
-          alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ fontSize:14 }}>🏢</span>
-            <span style={{ fontSize:13, fontWeight:700, color:'white' }}>Local Admin</span>
-          </div>
-          <button onClick={onClose} style={{ color:'#94a3b8', background:'none', border:'none',
-            fontSize:20, cursor:'pointer', lineHeight:1, padding:'4px 8px' }}>×</button>
-        </div>
-        <div style={{ flex:1, overflow:'hidden' }}>
-          <LocalAdminPanel loggedUser={loggedUser} tenantId={tenantId}
-            onSignOut={async () => {}} onSwitchToWorkspace={onClose} embedded={true}/>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── SET PASSWORD SCREEN ──────────────────────────────────────────────────────
-
-function SetPasswordScreen({ onDone }: { onDone: () => void }) {
-  const [pwd,     setPwd]     = useState('');
-  const [conf,    setConf]    = useState('');
-  const [showPwd, setShowPwd] = useState(false);
-  const [err,     setErr]     = useState('');
-  const [saving,  setSaving]  = useState(false);
-  const [done,    setDone]    = useState(false);
-
-  const eyeBtn = (show: boolean, toggle: () => void): React.CSSProperties => ({
-    position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
-    background:'none', border:'none', cursor:'pointer', color:'#64748b',
-    fontSize:16, padding:0, lineHeight:1,
-  });
-
-  const submit = async () => {
-    if (pwd.length < 8) { setErr('Password must be at least 8 characters.'); return; }
-    if (pwd !== conf)   { setErr('Passwords do not match.'); return; }
-    setErr(''); setSaving(true);
-
-    const { error } = await supabase.auth.updateUser({ password: pwd });
-    if (error) {
-      setErr(error.message);
-      setSaving(false);
-    } else {
-      // Clear must_change_pwd flag if set
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.email) {
-        await supabase.from('tenant_users')
-          .update({
-            must_change_pwd:    false,
-            temp_password:      null,
-            password_changed_at: new Date().toISOString(),
-          })
-          .eq('email', session.user.email.toLowerCase());
-      }
-      setDone(true);
-      // Sign out after short delay so user sees success message,
-      // then call onDone which resets App state to show login screen
-      setTimeout(async () => {
-        await supabase.auth.signOut();
-        onDone();
-      }, 2500);
-    }
-  };
-
-  const inputWrap: React.CSSProperties = { position:'relative', display:'flex', alignItems:'center' };
-  const inp: React.CSSProperties = {
-    width:'100%', boxSizing:'border-box', paddingRight:40,
-    background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)',
-    borderRadius:10, padding:'11px 14px', color:'white', fontSize:13, outline:'none',
+  const pick=(id:string)=>{ onNav(id); setQ(''); setOpen(false); };
+  const onKey=(e:React.KeyboardEvent)=>{
+    if(!open) return;
+    if(e.key==='ArrowDown'){ e.preventDefault(); setCursor(c=>Math.min(c+1,results.length-1)); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); setCursor(c=>Math.max(c-1,0)); }
+    else if(e.key==='Enter'&&results[cursor]) pick(results[cursor].id);
+    else if(e.key==='Escape'){ setOpen(false); inputRef.current?.blur(); }
   };
 
   return (
-    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
-      <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'40px 36px', maxWidth:400, width:'100%', margin:'0 16px', backdropFilter:'blur(20px)' }}>
-        <div style={{ textAlign:'center', marginBottom:28 }}>
-          <img src={LOGO_SRC} alt='Strat101' style={{ width:52, height:52, borderRadius:14, objectFit:'cover', margin:'0 auto 14px', boxShadow:'0 8px 24px rgba(0,0,0,0.3)' }}/>
-          <div style={{ color:'white', fontWeight:700, fontSize:20, marginBottom:6 }}>
-            {done ? 'Password Set!' : 'Set Your Password'}
-          </div>
-          <div style={{ color:'#94a3b8', fontSize:13 }}>
-            {done ? 'Redirecting you to login…' : 'Choose a strong password to secure your Strat101.com account.'}
-          </div>
-        </div>
-
-        {done ? (
-          <div style={{ textAlign:'center', fontSize:48, margin:'20px 0' }}>✅</div>
-        ) : (
-          <>
-            <div style={{ marginBottom:14 }}>
-              <label style={{ display:'block', color:'#94a3b8', fontSize:11, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>
-                New Password
-              </label>
-              <div style={inputWrap}>
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  value={pwd} onChange={e => setPwd(e.target.value)}
-                  placeholder="Min. 8 characters"
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor='#3b82f6'}
-                  onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'}
-                  onKeyDown={e => e.key === 'Enter' && submit()}
-                />
-                <button style={eyeBtn(showPwd, () => setShowPwd(v => !v))} onClick={() => setShowPwd(v => !v)} type="button">
-                  {showPwd ? '🙈' : '👁️'}
-                </button>
-              </div>
-            </div>
-            <div style={{ marginBottom:20 }}>
-              <label style={{ display:'block', color:'#94a3b8', fontSize:11, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>
-                Confirm Password
-              </label>
-              <div style={inputWrap}>
-                <input
-                  type={showPwd ? 'text' : 'password'}
-                  value={conf} onChange={e => setConf(e.target.value)}
-                  placeholder="Re-enter password"
-                  style={inp}
-                  onFocus={e => e.target.style.borderColor='#3b82f6'}
-                  onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'}
-                  onKeyDown={e => e.key === 'Enter' && submit()}
-                />
-                <button style={eyeBtn(showPwd, () => setShowPwd(v => !v))} onClick={() => setShowPwd(v => !v)} type="button">
-                  {showPwd ? '🙈' : '👁️'}
-                </button>
-              </div>
-              {pwd && conf && pwd !== conf && (
-                <div style={{ color:'#f87171', fontSize:11, marginTop:4 }}>Passwords do not match</div>
-              )}
-              {pwd.length > 0 && pwd.length < 8 && (
-                <div style={{ color:'#fbbf24', fontSize:11, marginTop:4 }}>At least 8 characters required</div>
-              )}
-            </div>
-
-            {/* Strength indicator */}
-            {pwd.length > 0 && (
-              <div style={{ marginBottom:16 }}>
-                <div style={{ display:'flex', gap:4, marginBottom:4 }}>
-                  {[1,2,3,4].map(i => {
-                    const strength = pwd.length >= 12 && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && /[^a-zA-Z0-9]/.test(pwd) ? 4
-                      : pwd.length >= 10 && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) ? 3
-                      : pwd.length >= 8 ? 2 : 1;
-                    return <div key={i} style={{ flex:1, height:3, borderRadius:99, background: i <= strength ? (strength >= 4 ? '#22c55e' : strength >= 3 ? '#84cc16' : strength >= 2 ? '#f59e0b' : '#ef4444') : 'rgba(255,255,255,0.1)' }}/>;
-                  })}
-                </div>
-                <div style={{ fontSize:10, color:'#64748b' }}>
-                  {pwd.length >= 12 && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && /[^a-zA-Z0-9]/.test(pwd) ? '✓ Strong' : pwd.length >= 10 && /[A-Z]/.test(pwd) ? '✓ Good' : pwd.length >= 8 ? '⚠ Fair — add numbers or symbols' : '✗ Too short'}
-                </div>
-              </div>
-            )}
-
-            {err && <div style={{ background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'9px 12px', color:'#fca5a5', fontSize:12, marginBottom:14 }}>{err}</div>}
-
-            <button onClick={submit} disabled={saving || pwd.length < 8 || pwd !== conf}
-              style={{ width:'100%', padding:'12px', borderRadius:10, border:'none', cursor: pwd.length >= 8 && pwd === conf ? 'pointer' : 'not-allowed', background: pwd.length >= 8 && pwd === conf ? 'linear-gradient(135deg,#2563eb,#4f46e5)' : '#334155', color:'white', fontSize:13, fontWeight:700, opacity: pwd.length >= 8 && pwd === conf ? 1 : 0.5 }}>
-              {saving ? 'Saving…' : 'Set Password & Sign In →'}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── APP ROOT ─────────────────────────────────────────────────────────────────
-
-export default function App() {
-  const [loggedIn,        setLoggedIn]        = useState(false);
-  const [loggedUser,      setLoggedUser]      = useState('');
-  const [checking,        setChecking]        = useState(true);
-  const [pendingApproval, setPendingApproval] = useState(false);
-  const [setPasswordMode, setSetPasswordMode] = useState(false); // invite/recovery token in URL
-  const [tokenError,      setTokenError]      = useState('');    // expired/invalid reset link
-
-  useEffect(() => {
-    const resolveUsername = (session: Session | null): string => {
-      if (!session?.user) return '';
-      return session.user.user_metadata?.username
-        || session.user.user_metadata?.full_name
-        || (session.user.email ?? '').split('@')[0];
-    };
-
-    // ── onAuthStateChange must be registered FIRST ────────────────────────────
-    // Supabase fires events synchronously when getSession() resolves.
-    // If we register the listener after getSession, we miss the initial event.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-
-        // ── PASSWORD_RECOVERY: fired when user clicks a "Reset Password" link ──
-        // Supabase exchanges the token, fires this event, session is now active.
-        if (event === 'PASSWORD_RECOVERY') {
-          setLoggedIn(false);
-          setSetPasswordMode(true);
-          setChecking(false);
-          return;
+    <div ref={wrapRef} style={{position:'relative'}}>
+      <div style={{display:'flex',alignItems:'center',gap:5,padding:'4px 8px',background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:6,width:180,boxShadow:open?'0 0 0 2px rgba(147,197,253,0.5)':'none',transition:'box-shadow 0.15s'}}>
+        <input ref={inputRef} value={q} onChange={e=>{setQ(e.target.value);setCursor(0);setOpen(true);}} onFocus={()=>setOpen(true)} onKeyDown={onKey} placeholder="Search…"
+          style={{flex:1,border:'none',outline:'none',background:'transparent',fontSize:12,color:'#e2eaf4'}}/>
+        {q
+          ? <button onClick={()=>{setQ('');setOpen(false);}} style={{border:'none',background:'none',cursor:'pointer',color:'#8baecf',fontSize:13,lineHeight:1,padding:0}}>×</button>
+          : <kbd style={{background:'rgba(255,255,255,0.1)',borderRadius:3,padding:'1px 4px',fontSize:9,color:'#8baecf',fontFamily:'monospace',flexShrink:0}}>⌘K</kbd>
         }
-
-        // ── SIGNED_IN ─────────────────────────────────────────────────────────
-        if (event === 'SIGNED_IN' && session?.user) {
-
-          // Invite/magiclink token: Supabase fires SIGNED_IN (not PASSWORD_RECOVERY)
-          // We detect this via sessionStorage flag set just before getSession call
-          if (sessionStorage.getItem('strat101_set_password') === '1') {
-            sessionStorage.removeItem('strat101_set_password');
-            setLoggedIn(false);
-            setSetPasswordMode(true);
-            setChecking(false);
-            return;
-          }
-
-          // Self-registration: LoginScreen sets this flag before signUp()
-          // We must sign them out and show pending screen
-          if (sessionStorage.getItem('strat101_registering') === '1') {
-            sessionStorage.removeItem('strat101_registering');
-            await supabase.auth.signOut();
-            setPendingApproval(true);
-            setChecking(false);
-            return;
-          }
-
-          // Normal login — trust the session
-          setLoggedUser(resolveUsername(session));
-          setLoggedIn(true);
-          setSetPasswordMode(false);
-          setChecking(false);
-          return;
-        }
-
-        // ── SIGNED_OUT ────────────────────────────────────────────────────────
-        if (event === 'SIGNED_OUT') {
-          // If this sign-out is part of the reset token flow (we signed out the
-          // existing admin session to make room for the token exchange), do NOT
-          // reset state — the token exchange will fire SIGNED_IN/PASSWORD_RECOVERY
-          if (sessionStorage.getItem('strat101_set_password') === '1') {
-            return; // token exchange coming — wait for it
-          }
-          // Registration flow sign-out — pending screen follows
-          if (sessionStorage.getItem('strat101_registering') === '1') {
-            return;
-          }
-          // Normal sign-out — reset all state
-          setLoggedIn(false);
-          setLoggedUser('');
-          setSetPasswordMode(false);
-          setPendingApproval(false);
-          setChecking(false);
-          return;
-        }
-
-        // ── INITIAL_SESSION / TOKEN_REFRESHED ─────────────────────────────────
-        // Fired on page load if a valid session exists in localStorage.
-        // If a reset token is in the URL, ignore this — the sign-out+exchange
-        // cycle will fire SIGNED_IN or PASSWORD_RECOVERY shortly after.
-        if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-          if (sessionStorage.getItem('strat101_set_password') === '1') {
-            // Reset token flow in progress — ignore this session restore
-            return;
-          }
-          if (session?.user) {
-            setLoggedUser(resolveUsername(session));
-            setLoggedIn(true);
-          }
-          setChecking(false);
-          return;
-        }
-      }
-    );
-
-    // ── Detect reset/invite token in URL hash ────────────────────────────────
-    // CRITICAL: Do NOT call history.replaceState here — Supabase needs the hash
-    // to exchange for a session. We detect it first, sign out any existing
-    // session, then let Supabase exchange the token cleanly.
-    const hash = window.location.hash;
-    const hashParams = new URLSearchParams(hash.replace('#', ''));
-    const urlTokenType = hashParams.get('type');
-    const hasResetToken = urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink';
-
-    if (hasResetToken) {
-      // Set flag so SIGNED_IN handler knows this came from a token link
-      sessionStorage.setItem('strat101_set_password', '1');
-
-      // Sign out any existing session (e.g. global admin testing in same browser)
-      // BEFORE calling getSession so Supabase exchanges the new token cleanly.
-      // Without this, getSession restores the existing session and ignores the token.
-      supabase.auth.signOut({ scope: 'local' }).then(() => {
-        // Now call getSession — with no existing session, Supabase will exchange
-        // the hash token and fire PASSWORD_RECOVERY or SIGNED_IN
-        supabase.auth.getSession();
-      });
-      return; // onAuthStateChange handles everything from here
-    }
-
-    // ── Normal page load — no reset token ────────────────────────────────────
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-      if (!session) {
-        setChecking(false);
-      }
-      // If session exists, INITIAL_SESSION fires via onAuthStateChange above
-    });
-
-    // ── Handle expired/invalid token ─────────────────────────────────────────
-    // Supabase sets error params in the hash when a token is invalid or expired:
-    // #error=access_denied&error_description=Token+has+expired+or+is+invalid
-    if (hash.includes('error=') && hash.includes('error_description=')) {
-      const errorDesc = hashParams.get('error_description') ?? 'The link is invalid or has expired.';
-      history.replaceState(null, '', window.location.pathname); // clean URL
-      sessionStorage.removeItem('strat101_set_password');
-      setTokenError(errorDesc.replace(/\+/g, ' '));
-      setChecking(false);
-    }
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (checking) {
-    return (
-      <div style={{ minHeight:'100vh', background:'#0e1f35', display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <div style={{ textAlign:'center' }}>
-          <img src={LOGO_SRC} alt='Strat101' style={{ width:44, height:44, borderRadius:12, objectFit:'cover', margin:'0 auto 14px', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}/>
-          <div style={{ fontSize:12, color:'#475569' }}>Loading…</div>
-        </div>
       </div>
-    );
-  }
-
-  if (setPasswordMode) {
-    return <SetPasswordScreen onDone={() => { setSetPasswordMode(false); setLoggedIn(false); setChecking(false); }}/>;
-  }
-
-  if (tokenError) {
-    return (
-      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
-        <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'40px 36px', maxWidth:400, width:'100%', margin:'0 16px', textAlign:'center' }}>
-          <div style={{ fontSize:48, marginBottom:16 }}>⏰</div>
-          <div style={{ color:'white', fontWeight:700, fontSize:20, marginBottom:10 }}>Link Expired</div>
-          <div style={{ color:'#94a3b8', fontSize:13, lineHeight:1.7, marginBottom:24 }}>
-            {tokenError}
-            <br/><br/>
-            Password reset links expire after <strong style={{ color:'white' }}>24 hours</strong> and can only be used once.
-            Please request a new reset link.
-          </div>
-          <button onClick={() => { setTokenError(''); }}
-            style={{ width:'100%', padding:'12px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#2563eb,#4f46e5)', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
-            Back to Sign In
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (pendingApproval) {
-    return (
-      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
-        <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'48px 40px', maxWidth:420, width:'100%', margin:'0 16px', textAlign:'center', backdropFilter:'blur(20px)' }}>
-          <div style={{ fontSize:56, marginBottom:16 }}>⏳</div>
-          <div style={{ color:'white', fontWeight:700, fontSize:22, marginBottom:12 }}>Awaiting Approval</div>
-          <div style={{ color:'#94a3b8', fontSize:14, lineHeight:1.7, marginBottom:28 }}>
-            Your account is pending review by an administrator. You will be notified once your access has been approved.
-          </div>
-          <div style={{ background:'rgba(37,99,235,0.1)', border:'1px solid rgba(37,99,235,0.25)', borderRadius:12, padding:'16px', marginBottom:24, textAlign:'left' }}>
-            <div style={{ color:'#93c5fd', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:10 }}>What happens next</div>
-            {['An administrator reviews your request', 'Your account is activated', 'You receive confirmation to log in'].map((s, i) => (
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:i < 2 ? 8 : 0 }}>
-                <div style={{ width:20, height:20, borderRadius:'50%', background:'rgba(37,99,235,0.3)', border:'1px solid rgba(37,99,235,0.5)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <span style={{ color:'#93c5fd', fontSize:10, fontWeight:700 }}>{i + 1}</span>
-                </div>
-                <span style={{ color:'#cbd5e1', fontSize:12 }}>{s}</span>
-              </div>
+      {open&&results.length>0&&(
+        <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,background:'white',borderRadius:8,border:'1px solid #e2e8f0',boxShadow:'0 6px 20px rgba(0,0,0,0.15)',zIndex:100,overflow:'hidden',minWidth:280}}>
+          <div style={{maxHeight:320,overflowY:'auto'}}>
+            {results.map((it,idx)=>(
+              <button key={it.id} onClick={()=>pick(it.id)} onMouseEnter={()=>setCursor(idx)}
+                style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'6px 10px',border:'none',cursor:'pointer',textAlign:'left',background:idx===cursor?'#eff6ff':'transparent',borderBottom:'1px solid #f8fafc'}}>
+                <span style={{fontFamily:'monospace',fontSize:11,fontWeight:700,color:'#2563eb',flexShrink:0,minWidth:62}}>{it.key}</span>
+                <span style={{fontSize:11,color:'#94a3b8',flexShrink:0}}>–</span>
+                <span style={{fontSize:12,color:'#1e293b',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.title||'(Untitled)'}</span>
+              </button>
             ))}
           </div>
-          <button onClick={() => { setPendingApproval(false); }}
-            style={{ width:'100%', padding:'11px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#2563eb,#4f46e5)', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
-            Back to Sign In
-          </button>
         </div>
-      </div>
-    );
-  }
-
-  if (!loggedIn) {
-    return <LoginScreen onLogin={u => { setLoggedIn(true); setLoggedUser(u); setPendingApproval(false); }}/>;
-  }
-
-  return <AppMain loggedUser={loggedUser}/>;
+      )}
+    </div>
+  );
 }
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
+// ─── TOP NAV BAR ─────────────────────────────────────────────────────────────
+interface TopNavProps {
+  view:              string;
+  setView:           (view: string) => void;
+  items:             any[];
+  onNavItem:         (id: string) => void;
+  onCreateNew:       (type: string) => void;
+  workItemFilter:    string;
+  setWorkItemFilter: (filter: string) => void;
+  onNew:             () => void;
+  loggedUser:        string;
+  tenantName?:       string;
+  isAdmin:           boolean;
+  features:          TenantFeatures;
+  onSignOut:         () => void;
+  isViewer?:          boolean;
+  onSwitchToAdmin?:   () => void;
+  onOpenGlobalAdmin?:  () => void;
+  onOpenLocalAdmin?: () => void;
+  enabledTypes?:     string[];
+}
 
-// Resolve a Supabase auth email back to the username stored in tenant_users.
-// Falls back to the local part of the email (e.g. "raviboorla") if not found,
-// which is always correct for stratadmin since it has no tenant_users row.
-async function resolveUsernameFromEmail(email: string): Promise<string> {
-  // Use maybeSingle to avoid throwing on RLS-filtered empty results
-  const { data, error } = await supabase
-    .from('tenant_users')
-    .select('username')
-    .eq('email', email.toLowerCase())
-    .maybeSingle();
-  if (error) console.warn('[AUTH] resolveUsernameFromEmail error:', error.message);
-  const username = data?.username ?? email.split('@')[0];
-  return username;
+export default function TopNav({
+  view, setView, items, onNavItem, onCreateNew,
+  workItemFilter, setWorkItemFilter, onNew,
+  loggedUser, tenantName, isAdmin, features, onSignOut, isViewer = false, onSwitchToAdmin,
+  onOpenGlobalAdmin, onOpenLocalAdmin, enabledTypes,
+}: TopNavProps) {
+  const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
+  const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
+  const [wiOpen,     setWiOpen]   = useState(false);
+  const [createOpen, setCreate]   = useState(false);
+  const [mobileMenuOpen, setMobileMenu] = useState(false);
+  const isWI = view==='workitems';
+  const isLV = TYPES.includes(view);
+
+  const [isMobile, setIsMobile] = useState(()=>window.innerWidth<640);
+  const [isTablet, setIsTablet] = useState(()=>window.innerWidth<900);
+  useEffect(()=>{
+    const onResize=()=>{ setIsMobile(window.innerWidth<640); setIsTablet(window.innerWidth<900); };
+    window.addEventListener('resize',onResize);
+    return ()=>window.removeEventListener('resize',onResize);
+  },[]);
+
+  const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(()=>{
+    const h=(e:MouseEvent)=>{ if(navRef.current&&!navRef.current.contains(e.target as Node)){ setWiOpen(false); setCreate(false); setMobileMenu(false); } };
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[]);
+
+  const NAV_ITEMS = [
+    ...(features.kanban    ? [{id:'kanban',    label:'Kanban',     icon:'🗂️'}] : []),
+    ...(features.workitems ? [{id:'workitems', label:'Work Items', icon:'📦'}] : []),
+    ...(features.create    ? [{id:'create',    label:'Create',     icon:'➕'}] : []),
+    ...(features.bot       ? [{id:'bot',       label:'AI Assist',  icon:'🤖'}] : []),
+    ...(features.reports   ? [{id:'reports',   label:'Reports',    icon:'📈'}] : []),
+  ];
+
+  // FIX: Work Items click → go to workitems view directly (no dropdown)
+  // Work Items ARROW click → toggle dropdown
+  // Create click → toggle dropdown (unchanged)
+  const handleNavClick=(id:string)=>{
+    if(id==='kanban'||id==='bot'||id==='reports'){ setWiOpen(false); setCreate(false); setView(id); }
+    else if(id==='workitems'){ setCreate(false); setWiOpen(false); setView('workitems'); setWorkItemFilter('all'); }
+    else if(id==='create'){ setWiOpen(false); if(!isViewer) setCreate((o:boolean)=>!o); }
+  };
+
+  const handleWiArrow=(e:React.MouseEvent)=>{
+    e.stopPropagation();
+    setCreate(false);
+    setWiOpen((o:boolean)=>!o);
+  };
+
+  // FIX: Create is never "active" — it's a dropdown trigger only
+  const isActive=(id:string)=>{
+    if(id==='workitems') return isWI || wiOpen;
+    if(id==='create')    return false;   // never highlighted
+    return view===id;
+  };
+
+  const initials = loggedUser.slice(0,2).toUpperCase();
+
+  // Colour palette — dark navy
+  const NAV_BG        = '#1e3a5f';
+  const BREADCRUMB_BG = '#162d4a';
+  const TEXT_MAIN     = '#e2eaf4';
+  const TEXT_MUTED    = '#8baecf';
+  const TEXT_ACTIVE   = '#ffffff';
+  const ACTIVE_BG     = 'rgba(255,255,255,0.18)';
+
+  return (
+    <header ref={navRef} style={{background:NAV_BG,borderBottom:'1px solid #152d4a',boxShadow:'0 2px 8px rgba(0,0,0,0.25)',flexShrink:0,zIndex:40,position:'relative'}}>
+      <div style={{display:'flex',alignItems:'center',padding:'0 12px',height:44,gap:2}}>
+
+        {/* Brand */}
+        <div style={{display:'flex',alignItems:'center',gap:7,marginRight:isMobile?6:12,paddingRight:isMobile?6:12,borderRight:`1px solid rgba(255,255,255,0.12)`}}>
+          <img src={LOGO_SRC} alt='Strat101' style={{width:28,height:28,borderRadius:8,objectFit:'cover',flexShrink:0,boxShadow:'0 2px 6px rgba(0,0,0,0.3)'}}/>
+          {!isMobile&&<div>
+            <div style={{fontWeight:900,fontSize:14,color:TEXT_ACTIVE,letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
+            <div style={{fontSize:8,color:TEXT_MUTED,letterSpacing:'0.04em',marginTop:1}}>ENABLING TRANSFORMATION JOURNEYS</div>
+          </div>}
+        </div>
+
+        {/* Desktop nav */}
+        {!isMobile&&<nav style={{display:'flex',alignItems:'center',gap:1,flex:1}}>
+          {NAV_ITEMS.map(n=>(
+            <div key={n.id} style={{position:'relative'}}>
+              <button
+                onClick={()=>handleNavClick(n.id)}
+                style={{
+                  display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:6,border:'none',cursor:'pointer',
+                  fontSize:isTablet?11:12,fontWeight:isActive(n.id)?700:500,
+                  background:isActive(n.id)?ACTIVE_BG:'transparent',
+                  color:isActive(n.id)?TEXT_ACTIVE:TEXT_MAIN,
+                  transition:'all 0.15s',
+                  borderBottom:isActive(n.id)?`2px solid rgba(255,255,255,0.6)`:'2px solid transparent',
+                  borderBottomLeftRadius:0,borderBottomRightRadius:0,
+                }}>
+                <span style={{fontSize:13}}>{n.icon}</span>
+                {!isTablet&&<span>{n.label}</span>}
+                {isTablet&&<span style={{fontSize:10,fontWeight:600}}>{n.label.split(' ')[0]}</span>}
+                {/* Work Items: separate arrow button for dropdown */}
+                {n.id==='workitems'&&(
+                  <span
+                    onClick={handleWiArrow}
+                    title="Filter by type"
+                    style={{fontSize:10,opacity:0.7,marginLeft:1,lineHeight:1,padding:'1px 2px',borderRadius:3,cursor:'pointer'}}
+                    onMouseEnter={e=>(e.currentTarget.style.opacity='1')}
+                    onMouseLeave={e=>(e.currentTarget.style.opacity='0.7')}>
+                    {wiOpen?'▴':'▾'}
+                  </span>
+                )}
+                {/* Create: arrow is part of the button */}
+                {n.id==='create'&&(
+                  <span style={{fontSize:10,opacity:0.7,marginLeft:1}}>{createOpen?'▴':'▾'}</span>
+                )}
+              </button>
+
+              {/* Work Items dropdown */}
+              {n.id==='workitems'&&wiOpen&&(
+                <div style={{position:'absolute',top:'calc(100% + 6px)',left:0,background:'white',borderRadius:12,border:'1px solid #e2e8f0',boxShadow:'0 8px 24px rgba(0,0,0,0.12)',padding:8,minWidth:210,zIndex:50}}>
+                  <div style={{padding:'4px 8px 6px',fontSize:10,fontWeight:700,color:'#94a3b8',letterSpacing:'0.06em',textTransform:'uppercase'}}>Filter by type</div>
+                  <button onClick={()=>{setWorkItemFilter('all');setWiOpen(false);setView('workitems');}} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,border:'none',cursor:'pointer',textAlign:'left',background:workItemFilter==='all'&&isWI?'#eff6ff':'transparent',color:workItemFilter==='all'&&isWI?'#1d4ed8':'#374151',fontSize:12,fontWeight:workItemFilter==='all'&&isWI?600:400}}>
+                    <span style={{fontSize:14}}>📦</span><span style={{flex:1}}>All Work Items</span>
+                    <span style={{fontSize:10,background:'#f1f5f9',borderRadius:999,padding:'1px 6px',color:'#64748b'}}>{items.length}</span>
+                  </button>
+                  <div style={{height:1,background:'#f1f5f9',margin:'4px 0'}}/>
+                  {WORK_ITEM_TYPES.filter(t => activeTypes.includes(t)).map(t=>(
+                    <React.Fragment key={t}>
+                      {t==='kr'&&<div style={{height:1,background:'#e2e8f0',margin:'4px 8px'}}/>}
+                      <button onClick={()=>{setWorkItemFilter(t);setWiOpen(false);setView('workitems');}} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,border:'none',cursor:'pointer',textAlign:'left',background:workItemFilter===t&&isWI?'#eff6ff':'transparent',color:workItemFilter===t&&isWI?'#1d4ed8':'#374151',fontSize:12,fontWeight:workItemFilter===t&&isWI?600:400}}>
+                        <span style={{fontSize:14}}>{TC[t].i}</span><span style={{flex:1}}>{TC[t].l}</span>
+                        <span style={{fontSize:10,background:'#f1f5f9',borderRadius:999,padding:'1px 6px',color:'#64748b'}}>{items.filter(i=>i.type===t).length}</span>
+                      </button>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
+
+              {/* Create dropdown */}
+              {n.id==='create'&&createOpen&&!isViewer&&(
+                <div style={{position:'absolute',top:'calc(100% + 6px)',left:0,background:'white',borderRadius:12,border:'1px solid #e2e8f0',boxShadow:'0 8px 24px rgba(0,0,0,0.12)',padding:8,minWidth:200,zIndex:50}}>
+                  <div style={{padding:'4px 8px 6px',fontSize:10,fontWeight:700,color:'#94a3b8',letterSpacing:'0.06em',textTransform:'uppercase'}}>Create new</div>
+                  {WORK_ITEM_TYPES.filter(t => activeTypes.includes(t)).map(t=>(
+                    <React.Fragment key={t}>
+                      {t==='kr'&&<div style={{height:1,background:'#e2e8f0',margin:'4px 8px'}}/>}
+                      <button onClick={()=>{onCreateNew(t);setCreate(false);}} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,border:'none',cursor:'pointer',textAlign:'left',background:'transparent',color:'#374151',fontSize:12,fontWeight:400,transition:'background 0.1s'}}
+                        onMouseEnter={e=>e.currentTarget.style.background=t==='kr'?'#f0f9ff':'#f0fdf4'}
+                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <span style={{fontSize:14}}>{TC[t].i}</span><span style={{flex:1}}>{TC[t].l}</span>
+                        <span style={{fontSize:13,color:t==='kr'?'#0284c7':'#16a34a',fontWeight:700}}>＋</span>
+                      </button>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>}
+
+        {/* Mobile nav */}
+        {isMobile&&<nav style={{display:'flex',alignItems:'center',gap:1,flex:1}}>
+          {NAV_ITEMS.map(n=>(
+            <div key={n.id} style={{position:'relative'}}>
+              <button onClick={()=>{handleNavClick(n.id);setMobileMenu(false);}} style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'4px 8px',borderRadius:6,border:'none',cursor:'pointer',gap:2,background:isActive(n.id)?ACTIVE_BG:'transparent',transition:'all 0.15s'}}>
+                <span style={{fontSize:16}}>{n.icon}</span>
+                <span style={{fontSize:8,fontWeight:isActive(n.id)?700:500,color:isActive(n.id)?TEXT_ACTIVE:TEXT_MAIN,lineHeight:1}}>{n.label.split(' ')[0]}</span>
+              </button>
+            </div>
+          ))}
+        </nav>}
+
+        {/* Right controls */}
+        <div style={{display:'flex',alignItems:'center',gap:6,marginLeft:'auto',paddingLeft:10,borderLeft:'1px solid rgba(255,255,255,0.12)'}}>
+          <InlineSearch items={items} onNav={onNavItem}/>
+          {!isTablet&&<div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:6,fontSize:11,color:TEXT_MAIN,fontWeight:500,whiteSpace:'nowrap'}}>
+            <span style={{fontSize:11}}>📅</span>{dateStr}
+          </div>}
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            {onOpenGlobalAdmin&&(
+              <button onClick={onOpenGlobalAdmin} title="Global Admin"
+                style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,border:'none',background:'linear-gradient(135deg,#2563eb,#4f46e5)',color:'white',fontSize:11,fontWeight:700,cursor:'pointer',boxShadow:'0 2px 6px rgba(37,99,235,0.5)',whiteSpace:'nowrap'}}>
+                ⚡ Global Admin
+              </button>
+            )}
+            {onOpenLocalAdmin&&(
+              <button onClick={onOpenLocalAdmin} title="Local Admin"
+                style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,border:'none',background:'linear-gradient(135deg,#0284c7,#0369a1)',color:'white',fontSize:11,fontWeight:700,cursor:'pointer',boxShadow:'0 2px 6px rgba(2,132,199,0.5)',whiteSpace:'nowrap'}}>
+                🏢 Local Admin
+              </button>
+            )}
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
+              <span style={{fontSize:10,color:TEXT_MUTED,fontWeight:600}}>{loggedUser}</span>
+              <button onClick={onSignOut} title="Sign out"
+                style={{display:'flex',alignItems:'center',padding:'3px 10px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:700,color:'#f87171',transition:'background 0.15s'}}
+                onMouseEnter={e=>{e.currentTarget.style.background='rgba(239,68,68,0.2)';}}
+                onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';}}>
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Breadcrumb strip */}
+      <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(255,255,255,0.06)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6}}>
+        <span style={{fontSize:11,color:TEXT_MUTED}}>{tenantName||'Strat101.com'}</span>
+        <span style={{fontSize:11,color:TEXT_MUTED}}>›</span>
+        <span style={{fontSize:11,fontWeight:600,color:TEXT_ACTIVE}}>
+          {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i} ${TC[workItemFilter]?.l}s`):`${TC[view]?.i} ${TC[view]?.l}s`}
+        </span>
+        {(isLV||isWI)&&(
+          <>
+            <span style={{fontSize:11,color:TEXT_MUTED}}>|</span>
+            <span style={{fontSize:11,color:TEXT_MUTED,fontWeight:500}}>
+              {isLV?items.filter(i=>i.type===view).length:workItemFilter==='all'?items.length:items.filter(i=>i.type===workItemFilter).length} items
+            </span>
+          </>
+        )}
+        {isLV&&(
+          <button onClick={onNew} style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:4,padding:'3px 10px',background:'rgba(37,99,235,0.7)',color:'white',border:'1px solid rgba(255,255,255,0.2)',borderRadius:5,cursor:'pointer',fontSize:11,fontWeight:600}}>
+            + New {TC[view]?.l}
+          </button>
+        )}
+      </div>
+    </header>
+  );
 }
