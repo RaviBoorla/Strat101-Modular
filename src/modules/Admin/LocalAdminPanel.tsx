@@ -114,7 +114,7 @@ export default function LocalGlobalAdminPanel({ loggedUser, tenantId, onSignOut,
         <div style={{flex:1,overflow:'auto'}}>
           {tab === 'users'        && <UsersTab        users={users} tenantId={tenantId} tenantName={tenant?.name??''} loggedUser={loggedUser} onRefresh={loadAll}/>}
           {tab === 'features'     && <FeaturesTab     tenant={tenant} tenantId={tenantId} loggedUser={loggedUser} onRefresh={loadAll}/>}
-          {tab === 'subscription' && <SubscriptionTab tenant={tenant}/>}
+          {tab === 'subscription' && <SubscriptionTab tenant={tenant} loggedUser={loggedUser}/>}
         </div>
       )}
     </div>
@@ -496,8 +496,38 @@ function FeaturesTab({ tenant, tenantId, loggedUser, onRefresh }:
 // ═══════════════════════════════════════════════════════════════════════════════
 // SUBSCRIPTION TAB (read-only)
 // ═══════════════════════════════════════════════════════════════════════════════
-function SubscriptionTab({ tenant }: { tenant: any }) {
+function SubscriptionTab({ tenant, loggedUser }: { tenant: any; loggedUser: string }) {
   if (!tenant) return null;
+
+  const [reason,       setReason]       = React.useState('');
+  const [submitting,   setSubmitting]   = React.useState(false);
+  const [submitted,    setSubmitted]    = React.useState(false);
+  const [hasPending,   setHasPending]   = React.useState(false);
+  const [err,          setErr]          = React.useState('');
+
+  const isSuspended = tenant.sub_status === 'suspended' || tenant.sub_status === 'cancelled' || !tenant.active;
+
+  React.useEffect(() => {
+    if (!isSuspended) return;
+    supabase.from('suspension_requests')
+      .select('id').eq('tenant_id', tenant.id).eq('status', 'pending').maybeSingle()
+      .then(({ data }) => setHasPending(!!data));
+  }, [tenant.id, isSuspended]);
+
+  const submitReinstate = async () => {
+    if (!reason.trim()) { setErr('Please provide a reason for the reinstatement request.'); return; }
+    setSubmitting(true); setErr('');
+    const { error } = await supabase.from('suspension_requests').insert({
+      tenant_id:    tenant.id,
+      tenant_name:  tenant.name,
+      requested_by: loggedUser,
+      reason:       reason.trim(),
+      status:       'pending',
+    });
+    if (error) { setErr(error.message); }
+    else { setSubmitted(true); setHasPending(true); }
+    setSubmitting(false);
+  };
 
   const STATUS_COLOR: Record<string,string|undefined> = {
     active:'#16a34a', trialling:'#2563eb', past_due:'#dc2626',
@@ -510,7 +540,6 @@ function SubscriptionTab({ tenant }: { tenant: any }) {
     { label:'Billing Name',  value: tenant.billing_name  || '—' },
     { label:'Billing Email', value: tenant.billing_email || '—' },
     { label:'Auto Renew',    value: tenant.auto_renew ? 'Yes' : 'No' },
-    { label:'Item Limit',    value: String(tenant.item_count ?? '—') },
   ];
 
   return (
@@ -519,7 +548,8 @@ function SubscriptionTab({ tenant }: { tenant: any }) {
         <div style={{fontSize:13,fontWeight:700,color:'#111827',marginBottom:4}}>Subscription Details</div>
         <div style={{fontSize:11,color:'#64748b'}}>Contact the platform administrator to make changes to your subscription.</div>
       </div>
-      <div style={{background:'white',border:'1px solid #e2e8f0',borderRadius:10,overflow:'hidden'}}>
+
+      <div style={{background:'white',border:'1px solid #e2e8f0',borderRadius:10,overflow:'hidden',marginBottom:12}}>
         {rows.map((r,i)=>(
           <div key={r.label} style={{display:'flex',padding:'12px 16px',borderBottom:i<rows.length-1?'1px solid #f1f5f9':'none'}}>
             <div style={{width:140,fontSize:12,color:'#64748b',fontWeight:600}}>{r.label}</div>
@@ -527,9 +557,48 @@ function SubscriptionTab({ tenant }: { tenant: any }) {
           </div>
         ))}
       </div>
-      <div style={{marginTop:12,padding:'10px 14px',background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,fontSize:11,color:'#64748b'}}>
-        🔒 Subscription details are read-only. To upgrade your plan or update billing information, contact <strong>Support@Strat101.com</strong>.
-      </div>
+
+      {/* Suspension reinstatement request section */}
+      {isSuspended && (
+        <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:10,padding:16,marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:'#dc2626',marginBottom:6}}>⛔ Account Suspended</div>
+          <div style={{fontSize:12,color:'#7f1d1d',marginBottom:14,lineHeight:1.6}}>
+            Your account has been suspended by the platform administrator. All user access has been revoked. As the Local Admin, you can request reinstatement.
+          </div>
+          {submitted || hasPending ? (
+            <div style={{background:'#fef3c7',border:'1px solid #fde68a',borderRadius:8,padding:'10px 14px'}}>
+              <div style={{fontSize:12,fontWeight:600,color:'#92400e',marginBottom:2}}>⏳ Reinstatement Request Pending</div>
+              <div style={{fontSize:11,color:'#78350f'}}>Your request has been sent to the Global Admin for review. You will be notified once a decision is made.</div>
+            </div>
+          ) : (
+            <>
+              <div style={{marginBottom:8}}>
+                <label style={{display:'block',fontSize:11,fontWeight:600,color:'#374151',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>
+                  Reason for Reinstatement Request
+                </label>
+                <textarea
+                  value={reason}
+                  onChange={e => setReason(e.target.value)}
+                  rows={3}
+                  placeholder="Explain why the account should be reinstated..."
+                  style={{width:'100%',boxSizing:'border-box',border:'1px solid #e2e8f0',borderRadius:7,padding:'8px 10px',fontSize:12,resize:'none',outline:'none'}}
+                />
+              </div>
+              {err && <div style={{color:'#dc2626',fontSize:11,marginBottom:8}}>{err}</div>}
+              <button onClick={submitReinstate} disabled={submitting||!reason.trim()}
+                style={{padding:'8px 16px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:reason.trim()?'pointer':'not-allowed',opacity:reason.trim()?1:0.5}}>
+                {submitting?'Submitting…':'Request Reinstatement'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {!isSuspended && (
+        <div style={{padding:'10px 14px',background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:8,fontSize:11,color:'#64748b'}}>
+          🔒 Subscription details are read-only. To upgrade your plan or update billing information, contact <strong>Support@Strat101.com</strong>.
+        </div>
+      )}
     </div>
   );
 }
