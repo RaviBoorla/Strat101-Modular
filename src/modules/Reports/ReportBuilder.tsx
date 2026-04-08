@@ -168,11 +168,14 @@ export function ReportResults({ result, grpBy }: ReportResultsProps) {
 // ─── REPORT BUILDER ───────────────────────────────────────────────────────────
 interface ReportBuilderProps {
   items: any[];
+  enabledTypes?: string[];
 }
 
-export default function ReportBuilder({ items }: ReportBuilderProps) {
+export default function ReportBuilder({ items, enabledTypes }: ReportBuilderProps) {
+  const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
+  const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
   const [rtype, setRtype] = useState('histogram');
-  const [types, setTypes] = useState(new Set(TYPES));
+  const [types, setTypes] = useState(new Set(activeTypes));
   const [flds, setFlds] = useState(new Set(['key','title','type','status','priority','health','risk','riskStatement','owner','progress','currentStatus']));
   const [grpBy, setGrpBy] = useState('status');
   const [result, setResult] = useState<any>(null);
@@ -226,10 +229,10 @@ export default function ReportBuilder({ items }: ReportBuilderProps) {
           <div>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:3 }}>
               <SLbl>Work Items</SLbl>
-              <button onClick={() => { setTypes(new Set(TYPES)); setResult(null); }} style={{ fontSize:10, color:'#2563eb', background:'none', border:'none', cursor:'pointer', fontWeight:600, padding:0 }}>All</button>
+              <button onClick={() => { setTypes(new Set(activeTypes)); setResult(null); }} style={{ fontSize:10, color:'#2563eb', background:'none', border:'none', cursor:'pointer', fontWeight:600, padding:0 }}>All</button>
             </div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:3 }}>
-              {TYPES.map(t => (
+              {activeTypes.map(t => (
                 <button key={t} onClick={() => togT(t)}
                   style={{ padding:'2px 6px', borderRadius:5, border:'1px solid', fontSize:10, cursor:'pointer', fontWeight:500, transition:'all 0.1s',
                     ...(types.has(t) ? {background:'#eff6ff',borderColor:'#93c5fd',color:'#1d4ed8'} : {background:'#f8fafc',borderColor:'#e2e8f0',color:'#94a3b8'}) }}>
