@@ -132,7 +132,7 @@ function PasswordResetModal({user,onClose}:{user:TenantUser;onClose:()=>void}){
       const res = await fetch('/api/reset-password', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ email: user.email }),
+        body:    JSON.stringify({ email: user.email, adminInitiated: true }),
       });
       const data = await res.json();
       if (!res.ok) {
