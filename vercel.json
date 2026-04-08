@@ -4,5 +4,11 @@
       "source": "/((?!assets/|api/|favicon).*)",
       "destination": "/index.html"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/password-expiry-cron",
+      "schedule": "0 8 * * *"
+    }
   ]
 }
