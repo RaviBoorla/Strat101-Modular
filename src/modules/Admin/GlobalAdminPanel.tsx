@@ -408,18 +408,50 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
 
 // ── FEATURES TAB ─────────────────────────────────────────────────────────────
 function FeaturesTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
+  const ALL_ITEM_TYPES = [
+    {key:'vision',     label:'Vision',      icon:'🔭'},
+    {key:'mission',    label:'Mission',     icon:'🎯'},
+    {key:'goal',       label:'Goal',        icon:'🏆'},
+    {key:'okr',        label:'OKR',         icon:'📊'},
+    {key:'kr',         label:'Key Result',  icon:'🔑'},
+    {key:'initiative', label:'Initiative',  icon:'🚀'},
+    {key:'program',    label:'Program',     icon:'📁'},
+    {key:'project',    label:'Project',     icon:'📋'},
+    {key:'task',       label:'Task',        icon:'✅'},
+    {key:'subtask',    label:'Subtask',     icon:'🔸'},
+  ];
+
+  const enabledSet = new Set<string>(
+    tenant.enabledItemTypes && tenant.enabledItemTypes.length > 0
+      ? tenant.enabledItemTypes
+      : ALL_ITEM_TYPES.map(t => t.key)
+  );
+
+  const toggleItemType = (key: string) => {
+    const next = new Set(enabledSet);
+    if (next.has(key)) { next.delete(key); } else { next.add(key); }
+    // Must always have at least one type
+    if (next.size === 0) return;
+    onUpdate({...tenant, enabledItemTypes: Array.from(next)});
+  };
+
   const toggleFeature=(key:FeatureKey)=>onUpdate({...tenant,features:{...tenant.features,[key]:!tenant.features[key]}});
+
   return(
     <div>
-      <div style={{display:'flex',justifyContent:'flex-end',gap:6,marginBottom:14}}>
-        <button onClick={()=>onUpdate({...tenant,features:{kanban:true,workitems:true,create:true,bot:true,reports:true}})} style={{padding:'4px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
-        <button onClick={()=>onUpdate({...tenant,features:{kanban:false,workitems:false,create:false,bot:false,reports:false}})} style={{padding:'4px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
+      {/* Module feature toggles */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+        <div style={{fontSize:11,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.04em'}}>Modules</div>
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={()=>onUpdate({...tenant,features:{kanban:true,workitems:true,create:true,bot:true,reports:true}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
+          <button onClick={()=>onUpdate({...tenant,features:{kanban:false,workitems:false,create:false,bot:false,reports:false}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
+        </div>
       </div>
       {FEATURE_DEFS.map(fd=>{
         const on=tenant.features[fd.key];
         const emoji=FEATURE_EMOJI[fd.key];
         return(
-          <div key={fd.key} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:9,border:`1px solid ${on?'#bfdbfe':'#e2e8f0'}`,background:on?'#f0f9ff':'#f8fafc',marginBottom:8}}>
+          <div key={fd.key} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',borderRadius:9,border:`1px solid ${on?'#bfdbfe':'#e2e8f0'}`,background:on?'#f0f9ff':'#f8fafc',marginBottom:6}}>
             <span style={{fontSize:18,width:26,textAlign:'center'}}>{emoji}</span>
             <span style={{flex:1,fontSize:13,fontWeight:500,color:on?'#1e40af':'#374151'}}>{fd.label}</span>
             <span style={{fontSize:11,color:on?'#16a34a':'#94a3b8',fontWeight:600,minWidth:52,textAlign:'right'}}>{on?'Enabled':'Disabled'}</span>
@@ -427,6 +459,38 @@ function FeaturesTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}
           </div>
         );
       })}
+
+      {/* Work item type toggles */}
+      <div style={{marginTop:20,marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div style={{fontSize:11,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.04em'}}>Work Item Types</div>
+        <div style={{display:'flex',gap:6}}>
+          <button onClick={()=>onUpdate({...tenant,enabledItemTypes:ALL_ITEM_TYPES.map(t=>t.key)})}
+            style={{padding:'3px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
+          <button onClick={()=>onUpdate({...tenant,enabledItemTypes:['vision']})}
+            style={{padding:'3px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
+        </div>
+      </div>
+      <div style={{fontSize:11,color:'#64748b',marginBottom:10,lineHeight:1.5}}>
+        Enable only the work item types this tenant uses. Disabled types are hidden from Create, Kanban, Work Items and Reports.
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+        {ALL_ITEM_TYPES.map(t=>{
+          const on = enabledSet.has(t.key);
+          return(
+            <div key={t.key} onClick={()=>toggleItemType(t.key)}
+              style={{display:'flex',alignItems:'center',gap:8,padding:'9px 12px',borderRadius:9,
+                border:`1px solid ${on?'#bfdbfe':'#e2e8f0'}`,background:on?'#f0f9ff':'#f8fafc',
+                cursor:'pointer',userSelect:'none',transition:'all 0.15s'}}>
+              <span style={{fontSize:16}}>{t.icon}</span>
+              <span style={{flex:1,fontSize:12,fontWeight:on?600:400,color:on?'#1e40af':'#64748b'}}>{t.label}</span>
+              <div style={{width:18,height:18,borderRadius:'50%',border:`2px solid ${on?'#2563eb':'#cbd5e1'}`,
+                background:on?'#2563eb':'white',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                {on&&<span style={{color:'white',fontSize:10,lineHeight:1}}>✓</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
