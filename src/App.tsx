@@ -201,11 +201,14 @@ function PreviewBanner({ tenant, onExit }: { tenant: Tenant; onExit: () => void 
 // ─── WORKSPACE ────────────────────────────────────────────────────────────────
 
 function Workspace({
-  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut, userRole = 'editor', onSwitchToAdmin, onOpenGlobalAdmin, onOpenLocalAdmin, tenantName = '',
+  loggedUser, isAdmin, features, previewTenant, onExitPreview, tenantId, onSignOut, userRole = 'editor', onSwitchToAdmin, onOpenGlobalAdmin, onOpenLocalAdmin, tenantName = '', enabledTypes,
 }: {
   loggedUser: string; isAdmin: boolean; features: TenantFeatures;
-  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void; userRole?: string; onSwitchToAdmin?: () => void; onOpenGlobalAdmin?: () => void; onOpenLocalAdmin?: () => void; tenantName?: string;
+  previewTenant: Tenant | null; onExitPreview: () => void; tenantId: string | null; onSignOut: () => void; userRole?: string; onSwitchToAdmin?: () => void; onOpenGlobalAdmin?: () => void; onOpenLocalAdmin?: () => void; tenantName?: string; enabledTypes?: string[];
 }) {
+  const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
+  const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
+
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [view,    setView]    = useState('kanban');
@@ -399,7 +402,8 @@ function Workspace({
     (view === 'kanban'  && !features.kanban)   ||
     (view === 'reports' && !features.reports)  ||
     (view === 'bot'     && !features.bot)      ||
-    (isWorkItems        && !features.workitems);
+    (isWorkItems        && !features.workitems)||
+    (TYPES.includes(view) && !activeTypes.includes(view));
 
   if (loading) {
     return (
@@ -407,7 +411,8 @@ function Workspace({
         {previewTenant && <PreviewBanner tenant={previewTenant} onExit={onExitPreview}/>}
         <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}} onCreateNew={()=>{}}
           workItemFilter={workItemFilter} setWorkItemFilter={setWIF} onNew={()=>{}}
-          loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut} isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}/>
+          loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut} isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}
+          enabledTypes={activeTypes}/>
         <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{ textAlign:'center' }}>
             <div style={{ fontSize:32, marginBottom:12 }}>&#9203;</div>
@@ -425,16 +430,17 @@ function Workspace({
         onCreateNew={createAndOpen} workItemFilter={workItemFilter} setWorkItemFilter={setWIF}
         onNew={() => !isViewer && isListView && setForm(mkBlank(view, items))}
         loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut}
-        isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}/>
+        isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}
+        enabledTypes={activeTypes}/>
       <div className="flex flex-1 overflow-hidden relative">
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex-1 overflow-auto">
             {!disabledView ? (
               <>
-                {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField}/>}
-                {view === 'reports' && features.reports   && <ReportBuilder items={items}/>}
+                {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes}/>}
+                {view === 'reports' && features.reports   && <ReportBuilder items={items} enabledTypes={activeTypes}/>}
                 {view === 'bot'     && features.bot       && <BotPanel items={items}/>}
-                {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter}/>}
+                {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
                 {isListView                               && <ListView type={view} items={items.filter(i => i.type === view)} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
               </>
             ) : (
@@ -494,6 +500,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
   const [tenantFeatures, setTenantFeatures] = useState<TenantFeatures>(ALL_FEATURES);
   const [userRole,       setUserRole]       = useState<string>('editor');
   const [tenantName,     setTenantName]     = useState<string>('');
+  const [enabledTypes,   setEnabledTypes]   = useState<string[]>(['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }: { data: { user: any } }) => {
@@ -512,7 +519,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
             // Load tenant features
             const { data: tenant } = await supabase
               .from('tenants')
-              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports')
+              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, enabled_item_types')
               .eq('id', data.tenant_id)
               .single();
 
@@ -525,6 +532,9 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
                 bot:       tenant.feat_bot       ?? true,
                 reports:   tenant.feat_reports   ?? true,
               });
+              // null/empty means all types enabled
+              const et = tenant.enabled_item_types;
+              setEnabledTypes(et && et.length > 0 ? et : ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
             }
           }
         });
@@ -551,6 +561,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
         onSignOut={handleSignOut}
         userRole={userRole}
         tenantName={tenantName}
+        enabledTypes={enabledTypes}
         onOpenGlobalAdmin={isAdmin ? () => setGlobalAdminDrawerOpen(true) : undefined}
         onOpenLocalAdmin={(userRole === 'local_admin' || isAdmin) && tenantId
           ? () => setLocalAdminDrawerOpen(true) : undefined}
