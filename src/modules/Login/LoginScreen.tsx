@@ -145,18 +145,23 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       setLoading(false); return;
     }
 
-    // Send password reset email via Supabase Auth
-    // redirectTo must be in Supabase Dashboard → Auth → URL Configuration → Redirect URLs
-    // After clicking the link, Supabase redirects to: https://strat101.com/#access_token=...&type=recovery
-    // App.tsx detects type=recovery and shows SetPasswordScreen
-    const { error } = await supabase.auth.resetPasswordForEmail(userRow.email, {
-      redirectTo: window.location.origin,
-    });
-
-    if (error) {
-      setErr(error.message);
-    } else {
-      setForgotSent(true);
+    // Send password reset via /api/reset-password edge function
+    // Same flow as admin-initiated reset — uses Resend API directly with branded email
+    // generate_link type=recovery → user clicks → PASSWORD_RECOVERY event → SetPasswordScreen
+    try {
+      const res = await fetch('/api/reset-password', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: userRow.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data.error ?? 'Failed to send reset link. Please try again.');
+      } else {
+        setForgotSent(true);
+      }
+    } catch {
+      setErr('Network error. Please try again.');
     }
     setLoading(false);
   };
