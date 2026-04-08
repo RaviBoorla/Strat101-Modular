@@ -791,30 +791,33 @@ export default function App() {
         || (session.user.email ?? '').split('@')[0];
     };
 
-    // Check session on load — but don't auto-login if a reset/invite token is in the URL
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-      const h = window.location.hash;
-      const p = new URLSearchParams(h.replace('#', ''));
-      const t = p.get('type');
-      const hasResetToken = t === 'invite' || t === 'recovery' || t === 'magiclink';
-
-      if (session?.user && !hasResetToken) {
-        setLoggedUser(resolveUsername(session));
-        setLoggedIn(true);
-      }
-      // If hasResetToken — let onAuthStateChange handle it (fires right after)
-      if (!hasResetToken) setChecking(false);
-    });
-
-    // Detect invite/recovery tokens in URL hash
-    // Detect invite/recovery tokens on initial load (page refresh after email click)
+    // Detect invite/recovery/magiclink tokens in URL hash BEFORE getSession
+    // Supabase JS client reads the hash and exchanges it for a session automatically
     const hash = window.location.hash;
     const hashParams = new URLSearchParams(hash.replace('#', ''));
     const urlTokenType = hashParams.get('type');
-    if (urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink') {
-      // Token is in the URL — Supabase will fire SIGNED_IN shortly, flag it now
+    const hasResetToken = urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink';
+    if (hasResetToken) {
       sessionStorage.setItem('strat101_set_password', '1');
     }
+
+    // Check session on load
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
+      if (session?.user && !hasResetToken) {
+        // Normal returning user — check they have an active account
+        setLoggedUser(resolveUsername(session));
+        setLoggedIn(true);
+        setChecking(false);
+      } else if (session?.user && hasResetToken) {
+        // Session from invite/reset token — show set password screen immediately
+        // Clear hash from URL so it doesn't re-trigger on refresh
+        history.replaceState(null, '', window.location.pathname);
+        setSetPasswordMode(true);
+        setChecking(false);
+      } else {
+        setChecking(false);
+      }
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
