@@ -35,9 +35,12 @@ interface WorkItemsViewProps {
   sel: string | null;
   onSel: (id: string) => void;
   filter: string;
+  enabledTypes?: string[];
 }
 
-export default function WorkItemsView({ items, sel, onSel, filter }: WorkItemsViewProps) {
+export default function WorkItemsView({ items, sel, onSel, filter, enabledTypes }: WorkItemsViewProps) {
+  const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
+  const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
   const [sortCol, setSortCol] = useState('type');
   const [sortDir, setSortDir] = useState('asc');
   const onSort = (col: string) => { setSortDir(d => sortCol===col?(d==='asc'?'desc':'asc'):'asc'); setSortCol(col); };
