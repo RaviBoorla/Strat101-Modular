@@ -12,10 +12,8 @@ export default async function handler(req: Request): Promise<Response> {
   const appUrl         = (process.env.APP_URL ?? process.env.VITE_APP_URL ?? 'https://strat101.com').replace(/\/$/, '');
 
   // Log env state — visible in Vercel function logs
-  console.log('ENV:', { hasServiceKey: !!serviceRoleKey, hasUrl: !!supabaseUrl, hasResend: !!resendKey, appUrl });
 
   if (!serviceRoleKey || !supabaseUrl) {
-    console.error('MISSING ENV VARS — serviceRoleKey:', !!serviceRoleKey, 'supabaseUrl:', !!supabaseUrl);
     return new Response(JSON.stringify({ error: 'Server misconfigured.', hasServiceKey: !!serviceRoleKey, hasUrl: !!supabaseUrl }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     });
@@ -49,7 +47,6 @@ export default async function handler(req: Request): Promise<Response> {
 
   if (sendInvite !== false) {
     // Generate invite link
-    console.log('Calling generate_link for:', email);
     const invRes = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
       method: 'POST', headers: adminHeaders,
       body: JSON.stringify({
@@ -59,16 +56,12 @@ export default async function handler(req: Request): Promise<Response> {
     });
 
     const invData = await invRes.json();
-    console.log('generate_link status:', invRes.status, 'ok:', invRes.ok);
-    console.log('generate_link response keys:', Object.keys(invData));
 
     if (invRes.ok) {
       authUserId = invData?.user?.id ?? invData?.id ?? null;
       confirmUrl = invData?.action_link ?? invData?.properties?.action_link ?? '';
-      console.log('authUserId:', authUserId, 'confirmUrl length:', confirmUrl.length, 'confirmUrl prefix:', confirmUrl.substring(0, 60));
       if (!authUserId) authUserId = await findUser();
     } else {
-      console.log('generate_link failed:', JSON.stringify(invData));
       // User may already exist — find them and send magiclink
       if (invData.code === 'email_exists' || JSON.stringify(invData).includes('already')) {
         authUserId = await findUser();
@@ -79,14 +72,12 @@ export default async function handler(req: Request): Promise<Response> {
           });
           const mlData = await mlRes.json();
           confirmUrl = mlData?.action_link ?? mlData?.properties?.action_link ?? '';
-          console.log('magiclink status:', mlRes.status, 'confirmUrl length:', confirmUrl.length);
         }
       }
     }
 
     // Send email via Resend API
     if (confirmUrl && resendKey) {
-      console.log('Sending email via Resend to:', email);
       const emailRes = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -98,7 +89,6 @@ export default async function handler(req: Request): Promise<Response> {
         }),
       });
       const emailData = await emailRes.json();
-      console.log('Resend status:', emailRes.status, 'response:', JSON.stringify(emailData));
 
       return new Response(JSON.stringify({
         id: authUserId, email, inviteSent: emailRes.ok,
@@ -111,7 +101,7 @@ export default async function handler(req: Request): Promise<Response> {
 
     return new Response(JSON.stringify({
       id: authUserId, email, inviteSent: false,
-      message: !resendKey ? 'RESEND_API_KEY missing' : !confirmUrl ? 'No confirmation URL generated' : 'Unknown error',
+      message: 'Account created but invite email could not be sent. Contact support.',
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
@@ -234,9 +224,6 @@ function buildEmail(fullName: string, username: string, email: string, confirmUr
         </td></tr>
       </table>
 
-      <!-- CTA Button — confirmUrl is the Supabase action_link which verifies the
-           token and redirects to strat101.com/#access_token=...&type=invite
-           The app detects type=invite on load and shows the SetPasswordScreen -->
       <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
         <tr>
           <td align="center">
