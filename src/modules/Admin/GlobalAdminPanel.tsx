@@ -10,7 +10,6 @@ import {
   deleteTenant  as apiDeleteTenant,
   saveUser      as apiSaveUser,
   deleteUser    as apiDeleteUser,
-  recordPasswordReset as apiRecordPasswordReset,
   saveInvoice   as apiSaveInvoice,
   updateInvoiceStatus as apiUpdateInvoiceStatus,
 } from "../../lib/globalAdminApi";
@@ -335,9 +334,6 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
     setUserModal(null);
     await apiSaveUser(u, tenant.id);
   };
-  // applyReset no longer used — PasswordResetModal handles sending directly
-  // Kept as no-op for safety
-  const applyReset=async(_u:TenantUser)=>{ setResetModal(null); };
   const delUser=async(id:string)=>{
     onUpdate({...tenant,users:tenant.users.filter(u=>u.id!==id)});
     setConfirmDel(null);
@@ -853,14 +849,9 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
         .select('tenant_id')
         .eq('role', 'local_admin')
         .eq('active', true);
-
-      // Tenants that have at least one active local admin
       const tenantsWithLocalAdmin = new Set(
         (localAdmins ?? []).map((a: any) => a.tenant_id)
       );
-
-      // Global admin only sees pending users whose tenant has NO local admin
-      // (if a local admin exists, they handle their own tenant's approvals)
       const users = (allPendingUsers ?? []).filter(
         (u: any) => !tenantsWithLocalAdmin.has(u.tenant_id)
       );
@@ -1006,7 +997,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
               ⚡ Approvals
             </div>
             {filteredTenants.map(t=>(
-              <div key={t.id} onClick={()=>{ console.log('[GlobalAdmin] selected tenant:', t); setSelectedTenant(t); }}
+              <div key={t.id} onClick={()=>setSelectedTenant(t)}
                 style={{padding:'8px 12px',cursor:'pointer',borderBottom:'1px solid #f8fafc',
                   background:selectedTenant?.id===t.id?'#eff6ff':'transparent'}}>
                 <div style={{fontSize:11,fontWeight:600,color:selectedTenant?.id===t.id?'#2563eb':'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.name}</div>
