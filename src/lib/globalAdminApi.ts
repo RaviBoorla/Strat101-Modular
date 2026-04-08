@@ -64,6 +64,11 @@ export async function saveTenant(tenant: Tenant): Promise<void> {
     feat_create:    tenant.features.create,
     feat_bot:       tenant.features.bot,
     feat_reports:   tenant.features.reports,
+    // Company profile
+    industry:        tenant.industry      ?? null,
+    sector:          tenant.sector        ?? null,
+    // Password policy
+    pwd_expiry_days: tenant.pwdExpiryDays ?? null,
   });
   if (error) console.error('[globalAdminApi] saveTenant FAILED:', error.message, '| code:', error.code);
 }
@@ -297,8 +302,11 @@ function dbRowToTenant(row: any, userRows: any[], invoiceRows: any[]): Tenant {
       bot:       row.feat_bot       ?? true,
       reports:   row.feat_reports   ?? true,
     },
-    users:        userRows.map(dbRowToUser),
+    users:          userRows.map(dbRowToUser),
     subscription,
+    industry:       row.industry        ?? undefined,
+    sector:         row.sector          ?? undefined,
+    pwdExpiryDays:  row.pwd_expiry_days ?? null,
   };
 }
 
@@ -316,7 +324,9 @@ function dbRowToUser(u: any): TenantUser {
     lastLoginIp:     u.last_login_ip   ?? undefined,
     tempPassword:    u.temp_password   ?? undefined,
     passwordResetAt: u.password_reset_at ? formatTs(u.password_reset_at) : undefined,
-    mustChangePwd:   u.must_change_pwd ?? false,
+    mustChangePwd:        u.must_change_pwd     ?? false,
+    passwordChangedAt:    u.password_changed_at
+                            ? formatTs(u.password_changed_at) : undefined,
   };
 }
 
