@@ -33,7 +33,8 @@ export interface TenantUser {
   tempPassword?:   string;   // set on new user creation or password reset
   sendInvite?:     boolean;  // if true, edge function sends password setup email
   passwordResetAt?: string;
-  mustChangePwd?:  boolean;
+  mustChangePwd?:       boolean;
+  passwordChangedAt?:   string;
 }
 
 export type SubStatus = 'trialling' | 'active' | 'past_due' | 'cancelled' | 'suspended';
@@ -69,13 +70,18 @@ export interface Subscription {
 }
 
 export interface Tenant {
-  id:           string;
-  name:         string;
-  slug:         string;
-  plan:         'starter' | 'pro' | 'enterprise';
-  active:       boolean;
-  createdAt:    string;
-  features:     TenantFeatures;
-  users:        TenantUser[];
-  subscription: Subscription;
+  id:             string;
+  name:           string;
+  slug:           string;
+  plan:           'starter' | 'pro' | 'enterprise';
+  active:         boolean;
+  createdAt:      string;
+  features:       TenantFeatures;
+  users:          TenantUser[];
+  subscription:   Subscription;
+  // Company profile
+  industry?:      string;
+  sector?:        string;
+  // Password policy (per-tenant)
+  pwdExpiryDays?: number | null;  // null = disabled, 30 | 60 | 90
 }
