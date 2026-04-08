@@ -665,13 +665,136 @@ function InvoicesTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}
 }
 
 // ── MANAGE DRAWER ────────────────────────────────────────────────────────────
+// ── SECURITY TAB ─────────────────────────────────────────────────────────────
+function SecurityTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
+  const [pwdExpiry,  setPwdExpiry]  = useState<number|null>(tenant.pwdExpiryDays??null);
+  const [industry,   setIndustry]   = useState(tenant.industry??'');
+  const [sector,     setSector]     = useState(tenant.sector??'');
+  const [saving,     setSaving]     = useState(false);
+  const [saved,      setSaved]      = useState(false);
+
+  const INDUSTRIES = [
+    'Technology','Financial Services','Healthcare','Manufacturing',
+    'Retail & E-Commerce','Education','Professional Services',
+    'Real Estate','Energy & Utilities','Media & Entertainment',
+    'Transport & Logistics','Government & Public Sector',
+    'Non-Profit','Construction','Agriculture','Other',
+  ];
+
+  const savePolicy = async () => {
+    setSaving(true);
+    const updated = {...tenant, pwdExpiryDays:pwdExpiry, industry:industry||undefined, sector:sector||undefined};
+    onUpdate(updated);
+    await supabase.from('tenants').update({
+      pwd_expiry_days: pwdExpiry,
+      industry:        industry || null,
+      sector:          sector   || null,
+    }).eq('id', tenant.id);
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  // Compute password expiry status per user
+  const now = Date.now();
+  const expiryMs = pwdExpiry ? pwdExpiry * 86400000 : null;
+  const usersWithStatus = tenant.users.filter(u => u.active).map(u => {
+    const changedAt = u.passwordChangedAt ? new Date(u.passwordChangedAt).getTime() : null;
+    const daysLeft  = changedAt && expiryMs
+      ? Math.ceil((changedAt + expiryMs - now) / 86400000)
+      : null;
+    const status    = !expiryMs ? 'no-policy'
+      : !changedAt              ? 'never-set'
+      : daysLeft! <= 0          ? 'expired'
+      : daysLeft! <= 10         ? 'expiring-soon'
+      : 'ok';
+    return {...u, daysLeft, status};
+  });
+
+  return (
+    <div style={{padding:4}}>
+      {/* Company Profile */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:12,fontWeight:700,color:'#374151',marginBottom:12,textTransform:'uppercase',letterSpacing:'0.04em'}}>Company Profile</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:4}}>
+          <div>
+            <label style={{display:'block',fontSize:11,fontWeight:600,color:'#64748b',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:4}}>Industry</label>
+            <select value={industry} onChange={e=>setIndustry(e.target.value)} style={{width:'100%',border:'1px solid #e2e8f0',borderRadius:7,padding:'7px 10px',fontSize:12,color:'#374151',outline:'none',background:'white'}}>
+              <option value="">— Not set —</option>
+              {INDUSTRIES.map(i=><option key={i} value={i}>{i}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{display:'block',fontSize:11,fontWeight:600,color:'#64748b',textTransform:'uppercase',letterSpacing:'0.04em',marginBottom:4}}>Sector</label>
+            <input value={sector} onChange={e=>setSector(e.target.value)} placeholder="e.g. Investment Banking"
+              style={{width:'100%',boxSizing:'border-box',border:'1px solid #e2e8f0',borderRadius:7,padding:'7px 10px',fontSize:12,color:'#374151',outline:'none'}}/>
+          </div>
+        </div>
+      </div>
+
+      {/* Password Policy */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:12,fontWeight:700,color:'#374151',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.04em'}}>Password Expiry Policy</div>
+        <div style={{fontSize:11,color:'#64748b',marginBottom:12}}>
+          Set a mandatory password rotation period for all users in this tenant.
+          Users receive reminder emails at 10, 3 and 1 day before expiry.
+        </div>
+        <div style={{display:'flex',gap:10,alignItems:'center',marginBottom:16}}>
+          {[null,30,60,90].map(d=>(
+            <button key={String(d)} onClick={()=>setPwdExpiry(d)}
+              style={{padding:'7px 16px',borderRadius:8,border:`2px solid ${pwdExpiry===d?'#2563eb':'#e2e8f0'}`,
+                background:pwdExpiry===d?'#eff6ff':'white',
+                color:pwdExpiry===d?'#2563eb':'#64748b',fontSize:12,fontWeight:pwdExpiry===d?700:400,cursor:'pointer'}}>
+              {d===null?'Off':`${d} days`}
+            </button>
+          ))}
+        </div>
+        {pwdExpiry && (
+          <div style={{padding:'10px 14px',background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:8,fontSize:11,color:'#1d4ed8',marginBottom:12}}>
+            Users will be prompted to reset every <strong>{pwdExpiry} days</strong>.
+            Reminders sent at <strong>10, 3 and 1 day</strong> before expiry.
+            Accounts not reset after expiry will be flagged and access restricted.
+          </div>
+        )}
+        <button onClick={savePolicy} disabled={saving}
+          style={{padding:'7px 16px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer',opacity:saving?0.7:1}}>
+          {saving?'Saving…':saved?'✓ Saved':'Save Policy'}
+        </button>
+      </div>
+
+      {/* User password status */}
+      {expiryMs && usersWithStatus.length > 0 && (
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:'#374151',marginBottom:10,textTransform:'uppercase',letterSpacing:'0.04em'}}>User Password Status</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {usersWithStatus.map(u=>{
+              const color = u.status==='expired'?'#dc2626':u.status==='expiring-soon'?'#f59e0b':u.status==='never-set'?'#7c3aed':'#16a34a';
+              const label = u.status==='expired'?'Expired':u.status==='expiring-soon'?`${u.daysLeft}d left`:u.status==='never-set'?'Never set':'OK';
+              return(
+                <div key={u.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:'white',border:'1px solid #e2e8f0',borderRadius:8}}>
+                  <div style={{fontSize:12}}>
+                    <span style={{fontWeight:600,color:'#111827'}}>{u.fullName}</span>
+                    <span style={{color:'#94a3b8',marginLeft:6}}>@{u.username}</span>
+                  </div>
+                  <span style={{fontSize:11,fontWeight:700,color,padding:'2px 8px',borderRadius:99,background:`${color}18`}}>{label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;onClose:()=>void;onUpdate:(t:Tenant)=>void;embedded?:boolean}){
-  const [tab,setTab]=useState<'users'|'features'|'subscription'|'invoices'>('users');
+  const [tab,setTab]=useState<'users'|'features'|'subscription'|'invoices'|'security'>('users');
   const TABS=[
     {id:'users'        as const, label:'Users'},
     {id:'features'     as const, label:'Features'},
     {id:'subscription' as const, label:'Subscription'},
     {id:'invoices'     as const, label:'Invoices'},
+    {id:'security'     as const, label:'🔒 Security'},
   ];
   if (embedded) {
     return (
@@ -698,6 +821,8 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           {tab==='features'     &&<FeaturesTab     tenant={tenant} onUpdate={onUpdate}/>}
           {tab==='subscription' &&<SubscriptionTab tenant={tenant} onUpdate={onUpdate}/>}
           {tab==='invoices'     &&<InvoicesTab     tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='security'     &&<SecurityTab     tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='security'     &&<SecurityTab     tenant={tenant} onUpdate={onUpdate}/>}
         </div>
       </div>
     );
@@ -732,6 +857,7 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           {tab==='features'     &&<FeaturesTab     tenant={tenant} onUpdate={onUpdate}/>}
           {tab==='subscription' &&<SubscriptionTab tenant={tenant} onUpdate={onUpdate}/>}
           {tab==='invoices'     &&<InvoicesTab     tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='security'     &&<SecurityTab     tenant={tenant} onUpdate={onUpdate}/>}
         </div>
       </div>
     </div>
@@ -740,10 +866,21 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
 
 // ── TENANT FORM ──────────────────────────────────────────────────────────────
 function TenantForm({tenant,onSave,onClose}:{tenant:Tenant|null;onSave:(t:Tenant)=>void;onClose:()=>void}){
-  const [name,  setName]  =useState(tenant?.name??'');
-  const [slug,  setSlug]  =useState(tenant?.slug??'');
-  const [plan,  setPlan]  =useState<Tenant['plan']>(tenant?.plan??'starter');
-  const [active,setActive]=useState(tenant?.active??true);
+  const INDUSTRIES = [
+    'Technology','Financial Services','Healthcare','Manufacturing',
+    'Retail & E-Commerce','Education','Professional Services',
+    'Real Estate','Energy & Utilities','Media & Entertainment',
+    'Transport & Logistics','Government & Public Sector',
+    'Non-Profit','Construction','Agriculture','Other',
+  ];
+  const [name,      setName]      = useState(tenant?.name??'');
+  const [slug,      setSlug]      = useState(tenant?.slug??'');
+  const [plan,      setPlan]      = useState<Tenant['plan']>(tenant?.plan??'starter');
+  const [active,    setActive]    = useState(tenant?.active??true);
+  const [industry,  setIndustry]  = useState(tenant?.industry??'');
+  const [sector,    setSector]    = useState(tenant?.sector??'');
+  const [pwdExpiry, setPwdExpiry] = useState<number|null>(tenant?.pwdExpiryDays??null);
+
   const save=()=>{
     if(!name.trim()||!slug.trim()) return;
     const lim=PLAN_LIMITS[plan];
@@ -754,35 +891,64 @@ function TenantForm({tenant,onSave,onClose}:{tenant:Tenant|null;onSave:(t:Tenant
       itemCount:0,itemLimit:lim.items,userCount:0,userLimit:lim.users,aiCalls:0,aiCallLimit:lim.aiCalls,invoices:[],
     };
     const t:Tenant=tenant
-      ?{...tenant,name:name.trim(),slug:slug.trim().toLowerCase(),plan,active}
-      :{id:gId(),name:name.trim(),slug:slug.trim().toLowerCase(),plan,active,createdAt:td(),features:base,users:[],subscription:baseSub};
+      ?{...tenant,name:name.trim(),slug:slug.trim().toLowerCase(),plan,active,
+          industry:industry||undefined,sector:sector||undefined,pwdExpiryDays:pwdExpiry}
+      :{id:gId(),name:name.trim(),slug:slug.trim().toLowerCase(),plan,active,createdAt:td(),
+          features:base,users:[],subscription:baseSub,
+          industry:industry||undefined,sector:sector||undefined,pwdExpiryDays:pwdExpiry};
     onSave(t);
   };
+
   return(
     <Modal title={tenant?`Edit - ${tenant.name}`:'New Tenant'} onClose={onClose}>
-      <FL label="Tenant Name"><input value={name} onChange={e=>setName(e.target.value)} style={inp} autoFocus placeholder="e.g. Acme Corporation"/></FL>
+      <FL label="Tenant Name">
+        <input value={name} onChange={e=>setName(e.target.value)} style={inp} autoFocus placeholder="e.g. Acme Corporation"/>
+      </FL>
       <FL label="Slug">
         <input value={slug} onChange={e=>setSlug(e.target.value.replace(/[^a-z0-9-]/g,''))} style={inp} placeholder="e.g. acme-corp"/>
         <div style={{fontSize:10,color:'#94a3b8',marginTop:3}}>Lowercase, numbers and hyphens only</div>
       </FL>
-      <FL label="Plan">
-        <select value={plan} onChange={e=>setPlan(e.target.value as Tenant['plan'])} style={sel}>
-          <option value="starter">Starter - {fmtGBP(PLAN_PRICE.starter)}/mo</option>
-          <option value="pro">Pro - {fmtGBP(PLAN_PRICE.pro)}/mo</option>
-          <option value="enterprise">Enterprise - {fmtGBP(PLAN_PRICE.enterprise)}/mo</option>
-        </select>
-      </FL>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:4}}>
+        <FL label="Industry">
+          <select value={industry} onChange={e=>setIndustry(e.target.value)} style={sel}>
+            <option value="">— Select Industry —</option>
+            {INDUSTRIES.map(i=><option key={i} value={i}>{i}</option>)}
+          </select>
+        </FL>
+        <FL label="Sector / Sub-industry">
+          <input value={sector} onChange={e=>setSector(e.target.value)} style={inp} placeholder="e.g. Investment Banking"/>
+        </FL>
+        <FL label="Plan">
+          <select value={plan} onChange={e=>setPlan(e.target.value as Tenant['plan'])} style={sel}>
+            <option value="starter">Starter - {fmtGBP(PLAN_PRICE.starter)}/mo</option>
+            <option value="pro">Pro - {fmtGBP(PLAN_PRICE.pro)}/mo</option>
+            <option value="enterprise">Enterprise - {fmtGBP(PLAN_PRICE.enterprise)}/mo</option>
+          </select>
+        </FL>
+        <FL label="Password Expiry">
+          <select value={pwdExpiry??''} onChange={e=>setPwdExpiry(e.target.value?Number(e.target.value):null)} style={sel}>
+            <option value="">Disabled (no expiry)</option>
+            <option value="30">30 days</option>
+            <option value="60">60 days</option>
+            <option value="90">90 days</option>
+          </select>
+        </FL>
+      </div>
       <FL label="Status">
-        <div style={{display:'flex',alignItems:'center',gap:8}}><Toggle on={active} onToggle={()=>setActive((a:boolean)=>!a)}/><span style={{fontSize:12,color:active?'#16a34a':'#94a3b8',fontWeight:600}}>{active?'Active':'Inactive'}</span></div>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+          <Toggle on={active} onToggle={()=>setActive((a:boolean)=>!a)}/>
+          <span style={{fontSize:12,color:active?'#16a34a':'#94a3b8',fontWeight:600}}>{active?'Active':'Inactive'}</span>
+        </div>
       </FL>
-      <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:4}}>
+      <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:8}}>
         <button onClick={onClose} style={{padding:'7px 14px',borderRadius:7,border:'1px solid #e2e8f0',background:'white',fontSize:12,cursor:'pointer',color:'#374151'}}>Cancel</button>
-        <button onClick={save} disabled={!name.trim()||!slug.trim()} style={{padding:'7px 14px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer',opacity:name.trim()&&slug.trim()?1:0.4}}>{tenant?'Save':'Create Tenant'}</button>
+        <button onClick={save} disabled={!name.trim()||!slug.trim()} style={{padding:'7px 14px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer',opacity:name.trim()&&slug.trim()?1:0.4}}>
+          {tenant?'Save Changes':'Create Tenant'}
+        </button>
       </div>
     </Modal>
   );
 }
-
 // ── TENANT ROW ───────────────────────────────────────────────────────────────
 function TenantRow({tenant,onEdit,onToggleActive,onPreview,onManage}:{tenant:Tenant;onEdit:()=>void;onToggleActive:()=>void;onPreview:()=>void;onManage:()=>void}){
   const ps=PLAN_STYLE[tenant.plan];
