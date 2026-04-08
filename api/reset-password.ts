@@ -54,7 +54,6 @@ export default async function handler(req: Request): Promise<Response> {
   });
 
   const linkData = await linkRes.json();
-  console.log('[reset-password] generate_link status:', linkRes.status, 'ok:', linkRes.ok);
 
   if (!linkRes.ok) {
     console.error('[reset-password] generate_link failed:', JSON.stringify(linkData));
@@ -65,7 +64,6 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const resetUrl = linkData?.action_link ?? linkData?.properties?.action_link ?? '';
-  console.log('[reset-password] resetUrl length:', resetUrl.length);
 
   if (!resetUrl) {
     return new Response(JSON.stringify({ error: 'No reset URL returned from Supabase.' }), {
@@ -75,7 +73,6 @@ export default async function handler(req: Request): Promise<Response> {
 
   // Send branded email via Resend
   if (!resendKey) {
-    console.warn('[reset-password] No RESEND_API_KEY — cannot send email');
     return new Response(JSON.stringify({ error: 'Email service not configured.' }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     });
@@ -94,7 +91,6 @@ export default async function handler(req: Request): Promise<Response> {
   });
 
   const emailData = await emailRes.json();
-  console.log('[reset-password] Resend status:', emailRes.status, 'id:', emailData?.id);
 
   if (!emailRes.ok) {
     console.error('[reset-password] Resend failed:', JSON.stringify(emailData));
