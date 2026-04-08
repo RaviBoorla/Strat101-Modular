@@ -125,9 +125,12 @@ interface KanbanBoardProps {
   onNew: (type: string) => void;
   onStatusChange: (id: string, status: string) => void;
   onFieldChange: (id: string, field: string, value: string) => void;
+  enabledTypes?: string[];
 }
 
-export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, onFieldChange }: KanbanBoardProps) {
+export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, onFieldChange, enabledTypes }: KanbanBoardProps) {
+  const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
+  const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
   const [tf, setTf] = useState('all');
   const [dragId, setDragId] = useState<string|null>(null);
   const [dragOver, setDragOver] = useState<string|null>(null);
@@ -145,7 +148,7 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
 
   const SWIM_COLS: Record<string, string[]> = {
     status:     STATS,
-    component:  TYPES.filter(t => t!=='kr'),
+    component:  TYPES.filter(t => t!=='kr' && activeTypes.includes(t)),
     priority:   PRIS,
     risk:       RSKS,
     health:     HLTHS,
@@ -217,7 +220,7 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
     ['impactType','💹 Impact'],
   ];
 
-  const WORK_ITEM_TYPES_KANBAN = ['vision','mission','goal','okr','initiative','program','project','task','subtask'];
+  const WORK_ITEM_TYPES_KANBAN = ['vision','mission','goal','okr','initiative','program','project','task','subtask'].filter(t => activeTypes.includes(t));
 
   return (
     <div className="p-2 flex flex-col h-full overflow-hidden">
