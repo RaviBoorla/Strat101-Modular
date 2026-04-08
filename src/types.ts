@@ -84,4 +84,6 @@ export interface Tenant {
   sector?:        string;
   // Password policy (per-tenant)
   pwdExpiryDays?: number | null;  // null = disabled, 30 | 60 | 90
+  // Work item type activation (null/empty = all enabled)
+  enabledItemTypes?: string[];
 }
