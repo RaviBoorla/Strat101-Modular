@@ -791,33 +791,51 @@ export default function App() {
         || (session.user.email ?? '').split('@')[0];
     };
 
-    // Check session on load
+    // Check session on load — but don't auto-login if a reset/invite token is in the URL
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-      if (session?.user) {
+      const h = window.location.hash;
+      const p = new URLSearchParams(h.replace('#', ''));
+      const t = p.get('type');
+      const hasResetToken = t === 'invite' || t === 'recovery' || t === 'magiclink';
+
+      if (session?.user && !hasResetToken) {
         setLoggedUser(resolveUsername(session));
         setLoggedIn(true);
       }
-      setChecking(false);
+      // If hasResetToken — let onAuthStateChange handle it (fires right after)
+      if (!hasResetToken) setChecking(false);
     });
 
     // Detect invite/recovery tokens in URL hash
-    // Supabase appends #access_token=...&type=invite or type=recovery after redirect
+    // Detect invite/recovery tokens on initial load (page refresh after email click)
+    const hash = window.location.hash;
+    const hashParams = new URLSearchParams(hash.replace('#', ''));
+    const urlTokenType = hashParams.get('type');
+    if (urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink') {
+      // Token is in the URL — Supabase will fire SIGNED_IN shortly, flag it now
+      sessionStorage.setItem('strat101_set_password', '1');
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
-        if (event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') {
-          // Password recovery flow — show set password screen
-          setSetPasswordMode(false);
+        // PASSWORD_RECOVERY event = user clicked a reset link
+        if (event === 'PASSWORD_RECOVERY') {
+          setSetPasswordMode(true);
+          setChecking(false);
           return;
         }
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Check URL hash for invite/recovery type
-          const hash = window.location.hash;
-          const params = new URLSearchParams(hash.replace('#', ''));
-          const tokenType = params.get('type');
 
-          if (tokenType === 'invite' || tokenType === 'recovery' || tokenType === 'magiclink') {
-            // User clicked invite/reset link — show set password form
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Check if this sign-in came from an invite/recovery/magiclink token
+          const currentHash = window.location.hash;
+          const currentParams = new URLSearchParams(currentHash.replace('#', ''));
+          const tokenType = currentParams.get('type');
+          const flagged = sessionStorage.getItem('strat101_set_password') === '1';
+
+          if (tokenType === 'invite' || tokenType === 'recovery' || tokenType === 'magiclink' || flagged) {
+            sessionStorage.removeItem('strat101_set_password');
             setSetPasswordMode(true);
+            setChecking(false);
             return;
           }
 
@@ -835,6 +853,7 @@ export default function App() {
           setLoggedIn(false);
           setLoggedUser('');
           setSetPasswordMode(false);
+          setPendingApproval(false);
         }
       }
     );
