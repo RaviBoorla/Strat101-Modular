@@ -145,9 +145,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       setLoading(false); return;
     }
 
-    // Send password reset email via Supabase — goes through Resend SMTP
+    // Send password reset email via Supabase Auth
+    // redirectTo must be in Supabase Dashboard → Auth → URL Configuration → Redirect URLs
+    // After clicking the link, Supabase redirects to: https://strat101.com/#access_token=...&type=recovery
+    // App.tsx detects type=recovery and shows SetPasswordScreen
     const { error } = await supabase.auth.resetPasswordForEmail(userRow.email, {
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: window.location.origin,
     });
 
     if (error) {
