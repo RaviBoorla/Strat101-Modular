@@ -635,17 +635,155 @@ function LocalAdminDrawer({ loggedUser, tenantId, onClose }:
   );
 }
 
+// ─── SET PASSWORD SCREEN ──────────────────────────────────────────────────────
+
+function SetPasswordScreen({ onDone }: { onDone: () => void }) {
+  const [pwd,     setPwd]     = useState('');
+  const [conf,    setConf]    = useState('');
+  const [showPwd, setShowPwd] = useState(false);
+  const [err,     setErr]     = useState('');
+  const [saving,  setSaving]  = useState(false);
+  const [done,    setDone]    = useState(false);
+
+  const eyeBtn = (show: boolean, toggle: () => void): React.CSSProperties => ({
+    position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+    background:'none', border:'none', cursor:'pointer', color:'#64748b',
+    fontSize:16, padding:0, lineHeight:1,
+  });
+
+  const submit = async () => {
+    if (pwd.length < 8) { setErr('Password must be at least 8 characters.'); return; }
+    if (pwd !== conf)   { setErr('Passwords do not match.'); return; }
+    setErr(''); setSaving(true);
+
+    const { error } = await supabase.auth.updateUser({ password: pwd });
+    if (error) {
+      setErr(error.message);
+      setSaving(false);
+    } else {
+      setDone(true);
+      // Also clear must_change_pwd flag if set
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.email) {
+        await supabase.from('tenant_users')
+          .update({ must_change_pwd: false, temp_password: null })
+          .eq('email', session.user.email.toLowerCase());
+      }
+      setTimeout(() => {
+        supabase.auth.signOut().then(onDone);
+      }, 2500);
+    }
+  };
+
+  const inputWrap: React.CSSProperties = { position:'relative', display:'flex', alignItems:'center' };
+  const inp: React.CSSProperties = {
+    width:'100%', boxSizing:'border-box', paddingRight:40,
+    background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)',
+    borderRadius:10, padding:'11px 14px', color:'white', fontSize:13, outline:'none',
+  };
+
+  return (
+    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
+      <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'40px 36px', maxWidth:400, width:'100%', margin:'0 16px', backdropFilter:'blur(20px)' }}>
+        <div style={{ textAlign:'center', marginBottom:28 }}>
+          <img src={LOGO_SRC} alt='Strat101' style={{ width:52, height:52, borderRadius:14, objectFit:'cover', margin:'0 auto 14px', boxShadow:'0 8px 24px rgba(0,0,0,0.3)' }}/>
+          <div style={{ color:'white', fontWeight:700, fontSize:20, marginBottom:6 }}>
+            {done ? 'Password Set!' : 'Set Your Password'}
+          </div>
+          <div style={{ color:'#94a3b8', fontSize:13 }}>
+            {done ? 'Redirecting you to login…' : 'Choose a strong password to secure your Strat101.com account.'}
+          </div>
+        </div>
+
+        {done ? (
+          <div style={{ textAlign:'center', fontSize:48, margin:'20px 0' }}>✅</div>
+        ) : (
+          <>
+            <div style={{ marginBottom:14 }}>
+              <label style={{ display:'block', color:'#94a3b8', fontSize:11, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>
+                New Password
+              </label>
+              <div style={inputWrap}>
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  value={pwd} onChange={e => setPwd(e.target.value)}
+                  placeholder="Min. 8 characters"
+                  style={inp}
+                  onFocus={e => e.target.style.borderColor='#3b82f6'}
+                  onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'}
+                  onKeyDown={e => e.key === 'Enter' && submit()}
+                />
+                <button style={eyeBtn(showPwd, () => setShowPwd(v => !v))} onClick={() => setShowPwd(v => !v)} type="button">
+                  {showPwd ? '🙈' : '👁️'}
+                </button>
+              </div>
+            </div>
+            <div style={{ marginBottom:20 }}>
+              <label style={{ display:'block', color:'#94a3b8', fontSize:11, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>
+                Confirm Password
+              </label>
+              <div style={inputWrap}>
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  value={conf} onChange={e => setConf(e.target.value)}
+                  placeholder="Re-enter password"
+                  style={inp}
+                  onFocus={e => e.target.style.borderColor='#3b82f6'}
+                  onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.15)'}
+                  onKeyDown={e => e.key === 'Enter' && submit()}
+                />
+                <button style={eyeBtn(showPwd, () => setShowPwd(v => !v))} onClick={() => setShowPwd(v => !v)} type="button">
+                  {showPwd ? '🙈' : '👁️'}
+                </button>
+              </div>
+              {pwd && conf && pwd !== conf && (
+                <div style={{ color:'#f87171', fontSize:11, marginTop:4 }}>Passwords do not match</div>
+              )}
+              {pwd.length > 0 && pwd.length < 8 && (
+                <div style={{ color:'#fbbf24', fontSize:11, marginTop:4 }}>At least 8 characters required</div>
+              )}
+            </div>
+
+            {/* Strength indicator */}
+            {pwd.length > 0 && (
+              <div style={{ marginBottom:16 }}>
+                <div style={{ display:'flex', gap:4, marginBottom:4 }}>
+                  {[1,2,3,4].map(i => {
+                    const strength = pwd.length >= 12 && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && /[^a-zA-Z0-9]/.test(pwd) ? 4
+                      : pwd.length >= 10 && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) ? 3
+                      : pwd.length >= 8 ? 2 : 1;
+                    return <div key={i} style={{ flex:1, height:3, borderRadius:99, background: i <= strength ? (strength >= 4 ? '#22c55e' : strength >= 3 ? '#84cc16' : strength >= 2 ? '#f59e0b' : '#ef4444') : 'rgba(255,255,255,0.1)' }}/>;
+                  })}
+                </div>
+                <div style={{ fontSize:10, color:'#64748b' }}>
+                  {pwd.length >= 12 && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd) && /[^a-zA-Z0-9]/.test(pwd) ? '✓ Strong' : pwd.length >= 10 && /[A-Z]/.test(pwd) ? '✓ Good' : pwd.length >= 8 ? '⚠ Fair — add numbers or symbols' : '✗ Too short'}
+                </div>
+              </div>
+            )}
+
+            {err && <div style={{ background:'rgba(239,68,68,0.12)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:8, padding:'9px 12px', color:'#fca5a5', fontSize:12, marginBottom:14 }}>{err}</div>}
+
+            <button onClick={submit} disabled={saving || pwd.length < 8 || pwd !== conf}
+              style={{ width:'100%', padding:'12px', borderRadius:10, border:'none', cursor: pwd.length >= 8 && pwd === conf ? 'pointer' : 'not-allowed', background: pwd.length >= 8 && pwd === conf ? 'linear-gradient(135deg,#2563eb,#4f46e5)' : '#334155', color:'white', fontSize:13, fontWeight:700, opacity: pwd.length >= 8 && pwd === conf ? 1 : 0.5 }}>
+              {saving ? 'Saving…' : 'Set Password & Sign In →'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [loggedIn,   setLoggedIn]   = useState(false);
-  const [loggedUser, setLoggedUser] = useState('');
-  const [checking,   setChecking]   = useState(true);
-
+  const [loggedIn,        setLoggedIn]        = useState(false);
+  const [loggedUser,      setLoggedUser]      = useState('');
+  const [checking,        setChecking]        = useState(true);
   const [pendingApproval, setPendingApproval] = useState(false);
+  const [setPasswordMode, setSetPasswordMode] = useState(false); // invite/recovery token in URL
 
   useEffect(() => {
-    // Resolve display username from session — no DB queries, never hangs
     const resolveUsername = (session: Session | null): string => {
       if (!session?.user) return '';
       return session.user.user_metadata?.username
@@ -653,7 +791,7 @@ export default function App() {
         || (session.user.email ?? '').split('@')[0];
     };
 
-    // Check session on load — fast, no DB query
+    // Check session on load
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
       if (session?.user) {
         setLoggedUser(resolveUsername(session));
@@ -662,23 +800,41 @@ export default function App() {
       setChecking(false);
     });
 
-    // Auth state changes — trust JWT only, no DB queries
-    // Registration sets sessionStorage flag so we know to sign out immediately
+    // Detect invite/recovery tokens in URL hash
+    // Supabase appends #access_token=...&type=invite or type=recovery after redirect
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event: AuthChangeEvent, session: Session | null) => {
-        if (session?.user) {
-          // If this is a registration session, sign out immediately
+      async (event: AuthChangeEvent, session: Session | null) => {
+        if (event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') {
+          // Password recovery flow — show set password screen
+          setSetPasswordMode(false);
+          return;
+        }
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Check URL hash for invite/recovery type
+          const hash = window.location.hash;
+          const params = new URLSearchParams(hash.replace('#', ''));
+          const tokenType = params.get('type');
+
+          if (tokenType === 'invite' || tokenType === 'recovery' || tokenType === 'magiclink') {
+            // User clicked invite/reset link — show set password form
+            setSetPasswordMode(true);
+            return;
+          }
+
+          // Registration session — sign out immediately
           if (sessionStorage.getItem('strat101_registering') === '1') {
             sessionStorage.removeItem('strat101_registering');
             await supabase.auth.signOut();
             setPendingApproval(true);
             return;
           }
+
           setLoggedUser(resolveUsername(session));
           setLoggedIn(true);
-        } else {
+        } else if (!session) {
           setLoggedIn(false);
           setLoggedUser('');
+          setSetPasswordMode(false);
         }
       }
     );
@@ -694,6 +850,10 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (setPasswordMode) {
+    return <SetPasswordScreen onDone={() => { setSetPasswordMode(false); setLoggedIn(false); }}/>;
   }
 
   if (pendingApproval) {
