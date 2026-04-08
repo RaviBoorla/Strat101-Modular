@@ -145,9 +145,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       setLoading(false); return;
     }
 
-    // Send password reset via /api/reset-password edge function
-    // Same flow as admin-initiated reset — uses Resend API directly with branded email
-    // generate_link type=recovery → user clicks → PASSWORD_RECOVERY event → SetPasswordScreen
     try {
       const res = await fetch('/api/reset-password', {
         method:  'POST',
@@ -225,8 +222,6 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     const email    = regEmail.trim().toLowerCase();
     const now      = new Date().toISOString();
 
-    // 1. Create Supabase auth user
-    // Set flag so App.tsx auth listener knows to sign this session out immediately
     sessionStorage.setItem('strat101_registering', '1');
     const { data: authData, error: signUpErr } = await supabase.auth.signUp({
       email,
