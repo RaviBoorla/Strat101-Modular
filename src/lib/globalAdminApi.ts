@@ -69,6 +69,8 @@ export async function saveTenant(tenant: Tenant): Promise<void> {
     sector:          tenant.sector        ?? null,
     // Password policy
     pwd_expiry_days: tenant.pwdExpiryDays ?? null,
+    // Work item type activation
+    enabled_item_types: tenant.enabledItemTypes ?? null,
   });
   if (error) console.error('[globalAdminApi] saveTenant FAILED:', error.message, '| code:', error.code);
 }
@@ -304,9 +306,10 @@ function dbRowToTenant(row: any, userRows: any[], invoiceRows: any[]): Tenant {
     },
     users:          userRows.map(dbRowToUser),
     subscription,
-    industry:       row.industry        ?? undefined,
-    sector:         row.sector          ?? undefined,
-    pwdExpiryDays:  row.pwd_expiry_days ?? null,
+    industry:         row.industry          ?? undefined,
+    sector:           row.sector            ?? undefined,
+    pwdExpiryDays:    row.pwd_expiry_days   ?? null,
+    enabledItemTypes: row.enabled_item_types ?? null,
   };
 }
 
