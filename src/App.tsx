@@ -93,7 +93,6 @@ async function loadItems(tenantId: string): Promise<any[]> {
 }
 
 async function persistItem(item: any, tenantId: string): Promise<void> {
-  console.log('[PERSIST] called — tenantId:', tenantId, '| id:', item.id, '| type:', item.type, '| title:', item.title);
   const { data, error, status, statusText } = await supabase.from('work_items').upsert({
     id: item.id, tenant_id: tenantId, key: item.key, type: item.type,
     title:             item.title            || '',
@@ -119,11 +118,9 @@ async function persistItem(item: any, tenantId: string): Promise<void> {
     updated_at:     new Date().toISOString(),
     updated_by:     item.updatedBy     || null,
   });
-  console.log('[PERSIST] result — status:', status, statusText, '| error:', error, '| data:', data);
   if (error) {
     console.error('[PERSIST] FAILED:', error.message, '| code:', error.code, '| hint:', error.hint, '| details:', error.details);
   } else {
-    console.log('[PERSIST] SUCCESS — rows saved:', data);
   }
 }
 
@@ -258,17 +255,14 @@ function Workspace({
   const stamp = (it: any) => ({ ...it, updatedAt: tsNow(), updatedBy: LOGGED_IN });
 
   const applyAndPersist = async (updated: any) => {
-    console.log('[APPLY] tenantId at save time:', tenantId, '| loggedUser:', loggedUser, '| isAdmin:', isAdmin);
     setItems(p => p.some(x => x.id === updated.id)
       ? p.map(x => x.id === updated.id ? updated : x)
       : [...p, updated]);
     if (tenantId) {
-      console.log('[APPLY] tenantId is set — calling persistItem');
       await persistItem(updated, tenantId);
       await syncLinks(updated.id, updated.links, tenantId);
       await syncDeps(updated.id, updated.dependencies, tenantId);
     } else {
-      console.warn('[APPLY] tenantId is NULL — item saved locally only, NOT written to Supabase');
     }
   };
 
@@ -665,7 +659,11 @@ function SetPasswordScreen({ onDone }: { onDone: () => void }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email) {
         await supabase.from('tenant_users')
-          .update({ must_change_pwd: false, temp_password: null })
+          .update({
+            must_change_pwd:    false,
+            temp_password:      null,
+            password_changed_at: new Date().toISOString(),
+          })
           .eq('email', session.user.email.toLowerCase());
       }
       setDone(true);
@@ -785,6 +783,7 @@ export default function App() {
   const [checking,        setChecking]        = useState(true);
   const [pendingApproval, setPendingApproval] = useState(false);
   const [setPasswordMode, setSetPasswordMode] = useState(false); // invite/recovery token in URL
+  const [tokenError,      setTokenError]      = useState('');    // expired/invalid reset link
 
   useEffect(() => {
     const resolveUsername = (session: Session | null): string => {
@@ -842,57 +841,86 @@ export default function App() {
 
         // ── SIGNED_OUT ────────────────────────────────────────────────────────
         if (event === 'SIGNED_OUT') {
-          // Only reset state if we're not mid-flow (registration sign-out, etc.)
-          if (sessionStorage.getItem('strat101_registering') !== '1' &&
-              sessionStorage.getItem('strat101_set_password') !== '1') {
-            setLoggedIn(false);
-            setLoggedUser('');
-            setSetPasswordMode(false);
-            setPendingApproval(false);
+          // If this sign-out is part of the reset token flow (we signed out the
+          // existing admin session to make room for the token exchange), do NOT
+          // reset state — the token exchange will fire SIGNED_IN/PASSWORD_RECOVERY
+          if (sessionStorage.getItem('strat101_set_password') === '1') {
+            return; // token exchange coming — wait for it
           }
+          // Registration flow sign-out — pending screen follows
+          if (sessionStorage.getItem('strat101_registering') === '1') {
+            return;
+          }
+          // Normal sign-out — reset all state
+          setLoggedIn(false);
+          setLoggedUser('');
+          setSetPasswordMode(false);
+          setPendingApproval(false);
           setChecking(false);
           return;
         }
 
         // ── INITIAL_SESSION / TOKEN_REFRESHED ─────────────────────────────────
         // Fired on page load if a valid session exists in localStorage.
-        // Do NOT show set-password screen for these — it's a normal session restore.
-        if ((event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
-          setLoggedUser(resolveUsername(session));
-          setLoggedIn(true);
+        // If a reset token is in the URL, ignore this — the sign-out+exchange
+        // cycle will fire SIGNED_IN or PASSWORD_RECOVERY shortly after.
+        if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+          if (sessionStorage.getItem('strat101_set_password') === '1') {
+            // Reset token flow in progress — ignore this session restore
+            return;
+          }
+          if (session?.user) {
+            setLoggedUser(resolveUsername(session));
+            setLoggedIn(true);
+          }
           setChecking(false);
           return;
-        }
-
-        // No session on initial load
-        if (event === 'INITIAL_SESSION' && !session) {
-          setChecking(false);
         }
       }
     );
 
-    // ── Set sessionStorage flag BEFORE getSession ─────────────────────────────
-    // The URL hash (#access_token=...&type=invite/recovery) is read by Supabase's
-    // JS client inside getSession(). We must set our flag BEFORE that so when
-    // onAuthStateChange fires SIGNED_IN, we know it came from a token link.
-    // CRITICAL: Do NOT call history.replaceState here — Supabase needs the hash.
+    // ── Detect reset/invite token in URL hash ────────────────────────────────
+    // CRITICAL: Do NOT call history.replaceState here — Supabase needs the hash
+    // to exchange for a session. We detect it first, sign out any existing
+    // session, then let Supabase exchange the token cleanly.
     const hash = window.location.hash;
     const hashParams = new URLSearchParams(hash.replace('#', ''));
     const urlTokenType = hashParams.get('type');
-    if (urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink') {
+    const hasResetToken = urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink';
+
+    if (hasResetToken) {
+      // Set flag so SIGNED_IN handler knows this came from a token link
       sessionStorage.setItem('strat101_set_password', '1');
+
+      // Sign out any existing session (e.g. global admin testing in same browser)
+      // BEFORE calling getSession so Supabase exchanges the new token cleanly.
+      // Without this, getSession restores the existing session and ignores the token.
+      supabase.auth.signOut({ scope: 'local' }).then(() => {
+        // Now call getSession — with no existing session, Supabase will exchange
+        // the hash token and fire PASSWORD_RECOVERY or SIGNED_IN
+        supabase.auth.getSession();
+      });
+      return; // onAuthStateChange handles everything from here
     }
 
-    // ── getSession: exchanges hash token if present, restores session otherwise ─
+    // ── Normal page load — no reset token ────────────────────────────────────
     supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-      // onAuthStateChange handles everything — getSession just triggers the exchange.
-      // If no session and no token, we need to stop checking.
       if (!session) {
-        const hasToken = sessionStorage.getItem('strat101_set_password') === '1';
-        if (!hasToken) setChecking(false);
+        setChecking(false);
       }
-      // If session exists, INITIAL_SESSION event will have already fired via onAuthStateChange
+      // If session exists, INITIAL_SESSION fires via onAuthStateChange above
     });
+
+    // ── Handle expired/invalid token ─────────────────────────────────────────
+    // Supabase sets error params in the hash when a token is invalid or expired:
+    // #error=access_denied&error_description=Token+has+expired+or+is+invalid
+    if (hash.includes('error=') && hash.includes('error_description=')) {
+      const errorDesc = hashParams.get('error_description') ?? 'The link is invalid or has expired.';
+      history.replaceState(null, '', window.location.pathname); // clean URL
+      sessionStorage.removeItem('strat101_set_password');
+      setTokenError(errorDesc.replace(/\+/g, ' '));
+      setChecking(false);
+    }
 
     return () => subscription.unsubscribe();
   }, []);
@@ -910,6 +938,27 @@ export default function App() {
 
   if (setPasswordMode) {
     return <SetPasswordScreen onDone={() => { setSetPasswordMode(false); setLoggedIn(false); setChecking(false); }}/>;
+  }
+
+  if (tokenError) {
+    return (
+      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
+        <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'40px 36px', maxWidth:400, width:'100%', margin:'0 16px', textAlign:'center' }}>
+          <div style={{ fontSize:48, marginBottom:16 }}>⏰</div>
+          <div style={{ color:'white', fontWeight:700, fontSize:20, marginBottom:10 }}>Link Expired</div>
+          <div style={{ color:'#94a3b8', fontSize:13, lineHeight:1.7, marginBottom:24 }}>
+            {tokenError}
+            <br/><br/>
+            Password reset links expire after <strong style={{ color:'white' }}>24 hours</strong> and can only be used once.
+            Please request a new reset link.
+          </div>
+          <button onClick={() => { setTokenError(''); }}
+            style={{ width:'100%', padding:'12px', borderRadius:10, border:'none', background:'linear-gradient(135deg,#2563eb,#4f46e5)', color:'white', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (pendingApproval) {
@@ -962,6 +1011,5 @@ async function resolveUsernameFromEmail(email: string): Promise<string> {
     .maybeSingle();
   if (error) console.warn('[AUTH] resolveUsernameFromEmail error:', error.message);
   const username = data?.username ?? email.split('@')[0];
-  console.log('[AUTH] resolved username:', username, 'from email:', email);
   return username;
 }
