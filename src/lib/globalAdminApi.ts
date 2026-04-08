@@ -66,7 +66,6 @@ export async function saveTenant(tenant: Tenant): Promise<void> {
     feat_reports:   tenant.features.reports,
   });
   if (error) console.error('[globalAdminApi] saveTenant FAILED:', error.message, '| code:', error.code);
-  else console.log('[globalAdminApi] saveTenant SUCCESS — id:', tenant.id);
 }
 
 export async function suspendTenant(id: string, active: boolean): Promise<void> {
@@ -118,9 +117,6 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
             .maybeSingle();
           authUserId = linked?.auth_user_id ?? null;
         }
-        console.log('[globalAdminApi] auth user created — id:', authUserId,
-          '| invite sent:', data.inviteSent);
-        if (data.message) console.log('[globalAdminApi]', data.message);
       }
     } catch (e: any) {
       console.error('[globalAdminApi] create-user fetch error:', e.message);
@@ -141,8 +137,7 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
       active:          user.active,
       approval_status: 'approved',   // admin-created users are pre-approved
     });
-    if (error) console.error('[globalAdminApi] saveUser INSERT FAILED:', error.message);
-    else console.log('[globalAdminApi] saveUser INSERT SUCCESS — username:', user.username, '| auth_user_id:', authUserId);
+    if (error) console.error('[globalAdminApi] saveUser insert failed:', error.message);
   } else {
     const { error } = await supabase.from('tenant_users').update({
       auth_user_id:     authUserId,
@@ -155,8 +150,7 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
       password_reset_at:user.passwordResetAt || null,
       must_change_pwd:  user.mustChangePwd   ?? false,
     }).eq('id', user.id);
-    if (error) console.error('[globalAdminApi] saveUser UPDATE FAILED:', error.message);
-    else console.log('[globalAdminApi] saveUser UPDATE SUCCESS — username:', user.username);
+    if (error) console.error('[globalAdminApi] saveUser update failed:', error.message);
   }
 }
 
@@ -193,7 +187,6 @@ export async function deleteUser(userId: string): Promise<void> {
       console.error('[globalAdminApi] delete-user fetch error:', e.message);
     }
   }
-  console.log('[globalAdminApi] deleteUser SUCCESS — username:', userRow?.username);
 }
 
 /**
@@ -234,13 +227,11 @@ export async function recordPasswordReset(
         const d = await res.json().catch(() => ({}));
         console.error('[globalAdminApi] set-password failed:', d.error);
       } else {
-        console.log('[globalAdminApi] Supabase Auth password updated for:', userRow.email);
       }
     } catch (e: any) {
       console.error('[globalAdminApi] set-password fetch error:', e.message);
     }
   } else {
-    console.warn('[globalAdminApi] recordPasswordReset — no auth_user_id, only DB updated');
   }
 }
 
@@ -314,7 +305,7 @@ function dbRowToTenant(row: any, userRows: any[], invoiceRows: any[]): Tenant {
 function dbRowToUser(u: any): TenantUser {
   return {
     id:              u.id,
-    authUserId:      u.auth_user_id  ?? undefined,   // ← was missing before
+    authUserId:      u.auth_user_id  ?? undefined,
     username:        u.username,
     fullName:        u.full_name,
     email:           u.email,
@@ -352,14 +343,6 @@ function formatTs(iso: string): string {
     });
   } catch { return iso; }
 }
-
-// ─── Deprecated — kept for import compatibility ───────────────────────────────
-// These previously queried a non-existent 'approval_requests' table.
-// Approval logic is now handled directly via tenant_users.approval_status
-// and tenants.approval_status in GlobalAdminPanel.tsx.
-export async function fetchApprovals(): Promise<any[]> { return []; }
-export async function approveRequest(_id: string, _by: string): Promise<void> {}
-export async function rejectRequest(_id: string, _by: string, _notes?: string): Promise<void> {}
 
 export async function recordLoginEvent(
   userId: string, ip: string, device: string,
