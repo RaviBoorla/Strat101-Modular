@@ -532,4 +532,4 @@ function SubscriptionTab({ tenant }: { tenant: any }) {
       </div>
     </div>
   );
-}
+}r
