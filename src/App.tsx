@@ -661,16 +661,19 @@ function SetPasswordScreen({ onDone }: { onDone: () => void }) {
       setErr(error.message);
       setSaving(false);
     } else {
-      setDone(true);
-      // Also clear must_change_pwd flag if set
+      // Clear must_change_pwd flag if set
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.email) {
         await supabase.from('tenant_users')
           .update({ must_change_pwd: false, temp_password: null })
           .eq('email', session.user.email.toLowerCase());
       }
-      setTimeout(() => {
-        supabase.auth.signOut().then(onDone);
+      setDone(true);
+      // Sign out after short delay so user sees success message,
+      // then call onDone which resets App state to show login screen
+      setTimeout(async () => {
+        await supabase.auth.signOut();
+        onDone();
       }, 2500);
     }
   };
@@ -791,75 +794,106 @@ export default function App() {
         || (session.user.email ?? '').split('@')[0];
     };
 
-    // Detect invite/recovery/magiclink tokens in URL hash BEFORE getSession
-    // Supabase JS client reads the hash and exchanges it for a session automatically
-    const hash = window.location.hash;
-    const hashParams = new URLSearchParams(hash.replace('#', ''));
-    const urlTokenType = hashParams.get('type');
-    const hasResetToken = urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink';
-    if (hasResetToken) {
-      sessionStorage.setItem('strat101_set_password', '1');
-    }
-
-    // Check session on load
-    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
-      if (session?.user && !hasResetToken) {
-        // Normal returning user — check they have an active account
-        setLoggedUser(resolveUsername(session));
-        setLoggedIn(true);
-        setChecking(false);
-      } else if (session?.user && hasResetToken) {
-        // Session from invite/reset token — show set password screen immediately
-        // Clear hash from URL so it doesn't re-trigger on refresh
-        history.replaceState(null, '', window.location.pathname);
-        setSetPasswordMode(true);
-        setChecking(false);
-      } else {
-        setChecking(false);
-      }
-    });
-
+    // ── onAuthStateChange must be registered FIRST ────────────────────────────
+    // Supabase fires events synchronously when getSession() resolves.
+    // If we register the listener after getSession, we miss the initial event.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
-        // PASSWORD_RECOVERY event = user clicked a reset link
+
+        // ── PASSWORD_RECOVERY: fired when user clicks a "Reset Password" link ──
+        // Supabase exchanges the token, fires this event, session is now active.
         if (event === 'PASSWORD_RECOVERY') {
+          setLoggedIn(false);
           setSetPasswordMode(true);
           setChecking(false);
           return;
         }
 
+        // ── SIGNED_IN ─────────────────────────────────────────────────────────
         if (event === 'SIGNED_IN' && session?.user) {
-          // Check if this sign-in came from an invite/recovery/magiclink token
-          const currentHash = window.location.hash;
-          const currentParams = new URLSearchParams(currentHash.replace('#', ''));
-          const tokenType = currentParams.get('type');
-          const flagged = sessionStorage.getItem('strat101_set_password') === '1';
 
-          if (tokenType === 'invite' || tokenType === 'recovery' || tokenType === 'magiclink' || flagged) {
+          // Invite/magiclink token: Supabase fires SIGNED_IN (not PASSWORD_RECOVERY)
+          // We detect this via sessionStorage flag set just before getSession call
+          if (sessionStorage.getItem('strat101_set_password') === '1') {
             sessionStorage.removeItem('strat101_set_password');
+            setLoggedIn(false);
             setSetPasswordMode(true);
             setChecking(false);
             return;
           }
 
-          // Registration session — sign out immediately
+          // Self-registration: LoginScreen sets this flag before signUp()
+          // We must sign them out and show pending screen
           if (sessionStorage.getItem('strat101_registering') === '1') {
             sessionStorage.removeItem('strat101_registering');
             await supabase.auth.signOut();
             setPendingApproval(true);
+            setChecking(false);
             return;
           }
 
+          // Normal login — trust the session
           setLoggedUser(resolveUsername(session));
           setLoggedIn(true);
-        } else if (!session) {
-          setLoggedIn(false);
-          setLoggedUser('');
           setSetPasswordMode(false);
-          setPendingApproval(false);
+          setChecking(false);
+          return;
+        }
+
+        // ── SIGNED_OUT ────────────────────────────────────────────────────────
+        if (event === 'SIGNED_OUT') {
+          // Only reset state if we're not mid-flow (registration sign-out, etc.)
+          if (sessionStorage.getItem('strat101_registering') !== '1' &&
+              sessionStorage.getItem('strat101_set_password') !== '1') {
+            setLoggedIn(false);
+            setLoggedUser('');
+            setSetPasswordMode(false);
+            setPendingApproval(false);
+          }
+          setChecking(false);
+          return;
+        }
+
+        // ── INITIAL_SESSION / TOKEN_REFRESHED ─────────────────────────────────
+        // Fired on page load if a valid session exists in localStorage.
+        // Do NOT show set-password screen for these — it's a normal session restore.
+        if ((event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
+          setLoggedUser(resolveUsername(session));
+          setLoggedIn(true);
+          setChecking(false);
+          return;
+        }
+
+        // No session on initial load
+        if (event === 'INITIAL_SESSION' && !session) {
+          setChecking(false);
         }
       }
     );
+
+    // ── Set sessionStorage flag BEFORE getSession ─────────────────────────────
+    // The URL hash (#access_token=...&type=invite/recovery) is read by Supabase's
+    // JS client inside getSession(). We must set our flag BEFORE that so when
+    // onAuthStateChange fires SIGNED_IN, we know it came from a token link.
+    // CRITICAL: Do NOT call history.replaceState here — Supabase needs the hash.
+    const hash = window.location.hash;
+    const hashParams = new URLSearchParams(hash.replace('#', ''));
+    const urlTokenType = hashParams.get('type');
+    if (urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink') {
+      sessionStorage.setItem('strat101_set_password', '1');
+    }
+
+    // ── getSession: exchanges hash token if present, restores session otherwise ─
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: Session | null } }) => {
+      // onAuthStateChange handles everything — getSession just triggers the exchange.
+      // If no session and no token, we need to stop checking.
+      if (!session) {
+        const hasToken = sessionStorage.getItem('strat101_set_password') === '1';
+        if (!hasToken) setChecking(false);
+      }
+      // If session exists, INITIAL_SESSION event will have already fired via onAuthStateChange
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -875,7 +909,7 @@ export default function App() {
   }
 
   if (setPasswordMode) {
-    return <SetPasswordScreen onDone={() => { setSetPasswordMode(false); setLoggedIn(false); }}/>;
+    return <SetPasswordScreen onDone={() => { setSetPasswordMode(false); setLoggedIn(false); setChecking(false); }}/>;
   }
 
   if (pendingApproval) {
