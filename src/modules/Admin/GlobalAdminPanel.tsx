@@ -301,7 +301,6 @@ function UserForm({user,tenantName,onSave,onClose}:{user:TenantUser|null;tenantN
 
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginTop:4}}>
         <FL label="Role"><select value={role} onChange={e=>setRole(e.target.value as UserRole)} style={sel}>
-          <option value="global_admin">Global Admin</option>
           <option value="local_admin">Local Admin</option>
           <option value="editor">Editor</option>
           <option value="viewer">Viewer</option>
@@ -384,9 +383,7 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
         })
       }
       <div style={{marginTop:14,display:'flex',gap:12,flexWrap:'wrap'}}>
-        {(['global_admin','local_admin','editor','viewer']).filter(r=>
-          r!=='global_admin'||tenant.slug==='strat101'
-        ).map(r=>(
+        {(['local_admin','editor','viewer']).map(r=>(
           <div key={r} style={{display:'flex',alignItems:'center',gap:4}}>
             <Pill label={r} color={getRoleStyle(r).color} bg={getRoleStyle(r).bg}/>
             <span style={{fontSize:10,color:'#94a3b8'}}>{r==='global_admin'?'Platform only':r==='local_admin'?'Tenant admin':r==='editor'?'Create & edit':'Read-only'}</span>
@@ -451,10 +448,48 @@ function SubscriptionTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>v
 
   const saveSub=async()=>{
     const lim=PLAN_LIMITS[planLocal];
-    const updatedTenant={...tenant,plan:planLocal,subscription:{...sub,status,billingName:billingName.trim(),billingEmail:billingEmail.trim(),vatId:vatId.trim(),cardLast4:cardLast4.slice(-4),cardExpiry:cardExpiry.trim(),autoRenew,trialEnd:trialEnd||sub.trialEnd,itemLimit:lim.items,userLimit:lim.users,aiCallLimit:lim.aiCalls}};
+    const isSuspended = status==='suspended'||status==='cancelled';
+    const wasActive   = tenant.subscription.status!=='suspended'&&tenant.subscription.status!=='cancelled';
+    const nowActive   = !isSuspended;
+
+    const updatedTenant={
+      ...tenant,
+      plan:planLocal,
+      active: nowActive,
+      subscription:{
+        ...sub, status,
+        billingName:billingName.trim(), billingEmail:billingEmail.trim(),
+        vatId:vatId.trim(), cardLast4:cardLast4.slice(-4),
+        cardExpiry:cardExpiry.trim(), autoRenew,
+        trialEnd:trialEnd||sub.trialEnd,
+        itemLimit:lim.items, userLimit:lim.users, aiCallLimit:lim.aiCalls,
+      },
+    };
+
     onUpdate(updatedTenant);
     setEditing(false);
     await apiSaveTenant(updatedTenant);
+
+    // Sync tenant active flag with subscription status
+    await supabase.from('tenants').update({ active: nowActive }).eq('id', tenant.id);
+
+    // Suspend all users except local_admin when tenant is suspended/cancelled
+    if (isSuspended && wasActive) {
+      await supabase
+        .from('tenant_users')
+        .update({ active: false })
+        .eq('tenant_id', tenant.id)
+        .neq('role', 'local_admin');
+    }
+
+    // Reactivate users (except those manually deactivated) when tenant is reinstated
+    if (!isSuspended && !wasActive) {
+      await supabase
+        .from('tenant_users')
+        .update({ active: true })
+        .eq('tenant_id', tenant.id)
+        .eq('approval_status', 'approved');
+    }
   };
 
   const monthlyPrice=PLAN_PRICE[tenant.plan];
@@ -862,18 +897,23 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
         .eq('approval_status', 'pending')
         .order('approval_requested_at', { ascending: true });
 
-      const { data: featReqs, error: featErr } = await supabase
+      const { data: featReqs } = await supabase
         .from('feature_requests')
         .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: true });
 
-      if (featErr) console.error('[GlobalAdminPanel] feature_requests query failed:', featErr.message);
+      const { data: suspReqs } = await supabase
+        .from('suspension_requests')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
 
       setPending([
-        ...(users      ?? []).map((u:any) => ({ ...u, _type:'user'    })),
-        ...(newTenants ?? []).map((t:any) => ({ ...t, _type:'tenant'  })),
-        ...(featReqs   ?? []).map((f:any) => ({ ...f, _type:'feature' })),
+        ...(users      ?? []).map((u:any) => ({ ...u, _type:'user'      })),
+        ...(newTenants ?? []).map((t:any) => ({ ...t, _type:'tenant'    })),
+        ...(featReqs   ?? []).map((f:any) => ({ ...f, _type:'feature'   })),
+        ...(suspReqs   ?? []).map((s:any) => ({ ...s, _type:'reinstate' })),
       ]);
     } finally { setPendingLoad(false); }
   }, []);
@@ -907,6 +947,26 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
   const approveTenant = async (tenantId: string) => {
     await supabase.from('tenants').update({ approval_status:'approved', active:true }).eq('id', tenantId);
     await Promise.all([loadPending(), reload()]);
+  };
+
+  const approveReinstate = async (req: any) => {
+    // Reactivate tenant
+    await supabase.from('tenants').update({ active: true, sub_status: 'active' }).eq('id', req.tenant_id);
+    // Restore all approved users
+    await supabase.from('tenant_users').update({ active: true })
+      .eq('tenant_id', req.tenant_id).eq('approval_status', 'approved');
+    // Mark request done
+    await supabase.from('suspension_requests').update({
+      status: 'approved', actioned_by: loggedUser, actioned_at: new Date().toISOString(),
+    }).eq('id', req.id);
+    await Promise.all([loadPending(), reload()]);
+  };
+
+  const rejectReinstate = async (req: any) => {
+    await supabase.from('suspension_requests').update({
+      status: 'rejected', actioned_by: loggedUser, actioned_at: new Date().toISOString(),
+    }).eq('id', req.id);
+    await loadPending();
   };
 
   const approveFeatureRequest = async (req: any) => {
@@ -958,9 +1018,27 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
 
   // ── Toggle active / suspend - dedicated API call ───────────────────────────
   const toggleActive = async (t:Tenant) => {
-    const updated = {...t, active:!t.active};
+    const nowActive = !t.active;
+    const updated = {...t, active:nowActive};
     applyUpdate(updated);
-    await apiSuspendTenant(t.id, !t.active);
+    await apiSuspendTenant(t.id, nowActive);
+
+    // Revoke all non-local-admin users when suspending
+    if (!nowActive) {
+      await supabase
+        .from('tenant_users')
+        .update({ active: false })
+        .eq('tenant_id', t.id)
+        .neq('role', 'local_admin');
+    }
+    // Restore approved users when reinstating
+    if (nowActive) {
+      await supabase
+        .from('tenant_users')
+        .update({ active: true })
+        .eq('tenant_id', t.id)
+        .eq('approval_status', 'approved');
+    }
   };
 
   const filtered=tenants.filter(t=>{
@@ -1029,7 +1107,7 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:11,fontWeight:700,color:'#111827',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-                          {item._type==='user'?`${item.full_name} (@${item.username})`:item._type==='tenant'?`New: ${item.name}`:`${FEATURE_LABELS[item.feature_key]??item.feature_key} — ${item.tenant_name}`}
+                          {item._type==='user'?`${item.full_name} (@${item.username})`:item._type==='tenant'?`New: ${item.name}`:item._type==='reinstate'?`Reinstate: ${item.tenant_name}`:`${FEATURE_LABELS[item.feature_key]??item.feature_key} — ${item.tenant_name}`}
                         </div>
                         <div style={{fontSize:10,color:'#64748b',marginTop:2}}>
                           {item._type==='user'?item.email:item._type==='tenant'?`by ${item.requested_by}`:`by ${item.requested_by} | ${item.reason}`}
@@ -1044,6 +1122,10 @@ export default function GlobalAdminPanel({loggedUser,onPreviewTenant,embedded=fa
                         {item._type==='feature'&&<>
                           <button onClick={()=>approveFeatureRequest(item)} style={{padding:'3px 8px',borderRadius:5,border:'none',background:'#16a34a',color:'white',fontSize:10,fontWeight:600,cursor:'pointer'}}>Approve</button>
                           <button onClick={()=>{setRejectingFeat(item);setRejectionNote('');}} style={{padding:'3px 8px',borderRadius:5,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:10,fontWeight:600,cursor:'pointer'}}>Reject</button>
+                        </>}
+                        {item._type==='reinstate'&&<>
+                          <button onClick={()=>approveReinstate(item)} style={{padding:'3px 8px',borderRadius:5,border:'none',background:'#16a34a',color:'white',fontSize:10,fontWeight:600,cursor:'pointer'}}>Reinstate</button>
+                          <button onClick={()=>rejectReinstate(item)} style={{padding:'3px 8px',borderRadius:5,border:'1px solid #fca5a5',background:'white',color:'#dc2626',fontSize:10,fontWeight:600,cursor:'pointer'}}>Reject</button>
                         </>}
                       </div>
                     </div>
