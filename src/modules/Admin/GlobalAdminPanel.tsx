@@ -117,40 +117,84 @@ function Modal({title,onClose,children,width=460}:{title:string;onClose:()=>void
 }
 
 // ── PASSWORD RESET MODAL ─────────────────────────────────────────────────────
-function PasswordResetModal({user,onReset,onClose}:{user:TenantUser;onReset:(u:TenantUser)=>void;onClose:()=>void}){
-  const tempPwd=`Temp${Math.random().toString(36).slice(2,7).toUpperCase()}!1`;
-  const [copied,setCopied]=useState(false);
-  const doReset=()=>onReset({...user,tempPassword:tempPwd,passwordResetAt:tsNow(),mustChangePwd:true});
-  const copy=()=>{navigator.clipboard.writeText(tempPwd).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});};
-  const alreadyReset=!!user.tempPassword;
+function PasswordResetModal({user,onClose}:{user:TenantUser;onClose:()=>void}){
+  const [sending,  setSending]  = useState(false);
+  const [sent,     setSent]     = useState(false);
+  const [err,      setErr]      = useState('');
+
+  const sendResetLink = async () => {
+    if (!user.email) { setErr('No email address on record for this user.'); return; }
+    setSending(true); setErr('');
+    try {
+      // Call the same reset-password edge function used by the forgot password flow.
+      // This uses supabase.auth.resetPasswordForEmail via our backend so it goes
+      // through Resend with the correct branded email.
+      const res = await fetch('/api/reset-password', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: user.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErr(data.error ?? 'Failed to send reset link.');
+      } else {
+        setSent(true);
+      }
+    } catch (e: any) {
+      setErr(e.message ?? 'Network error.');
+    }
+    setSending(false);
+  };
+
   return(
-    <Modal title={`Reset Password - ${user.fullName}`} onClose={onClose} width={420}>
-      {alreadyReset?(
-        <div style={{marginBottom:14,padding:12,background:'#fffbeb',borderRadius:8,border:'1px solid #fde68a'}}>
-          <div style={{fontSize:11,fontWeight:600,color:'#92400e',marginBottom:4}}>Pending reset already issued</div>
-          <div style={{fontSize:11,color:'#78350f'}}>Issued: {user.passwordResetAt}<br/>User has not yet changed their password.</div>
-        </div>
-      ):(
-        <div style={{marginBottom:14,padding:12,background:'#f0fdf4',borderRadius:8,border:'1px solid #bbf7d0'}}>
-          <div style={{fontSize:11,color:'#166534'}}>A temporary password will be generated. The user must change it on next login.</div>
-        </div>
+    <Modal title={`Reset Password — ${user.fullName}`} onClose={onClose} width={420}>
+      {!sent ? (
+        <>
+          <div style={{marginBottom:16,padding:14,background:'#eff6ff',borderRadius:8,border:'1px solid #bfdbfe'}}>
+            <div style={{fontSize:12,fontWeight:700,color:'#1d4ed8',marginBottom:6}}>🔑 Send Password Reset Link</div>
+            <div style={{fontSize:12,color:'#1e40af',lineHeight:1.6}}>
+              A password reset link will be emailed to <strong>{user.email}</strong>.
+              The user clicks the link and sets their own new password.
+              No temporary password is shared.
+            </div>
+          </div>
+          <div style={{marginBottom:8,padding:10,background:'#f8fafc',borderRadius:7,border:'1px solid #e2e8f0'}}>
+            <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
+              <tbody>
+                <tr><td style={{color:'#64748b',paddingBottom:4,width:80}}>User</td><td style={{color:'#111827',fontWeight:600}}>{user.fullName}</td></tr>
+                <tr><td style={{color:'#64748b',paddingBottom:4}}>Username</td><td style={{color:'#111827',fontWeight:600}}>@{user.username}</td></tr>
+                <tr><td style={{color:'#64748b'}}>Email</td><td style={{color:'#111827',fontWeight:600}}>{user.email}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style={{fontSize:10,color:'#94a3b8',marginBottom:16,lineHeight:1.5,marginTop:8}}>
+            The link expires in <strong>24 hours</strong>. The user can only use it once.
+          </div>
+          {err && <div style={{background:'#fef2f2',border:'1px solid #fecaca',borderRadius:7,padding:'8px 12px',color:'#dc2626',fontSize:12,marginBottom:12}}>{err}</div>}
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button onClick={onClose} style={{padding:'7px 16px',borderRadius:7,border:'1px solid #e2e8f0',background:'white',fontSize:12,cursor:'pointer',color:'#374151'}}>Cancel</button>
+            <button onClick={sendResetLink} disabled={sending}
+              style={{padding:'7px 16px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer',opacity:sending?0.7:1}}>
+              {sending ? 'Sending…' : 'Send Reset Link →'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{textAlign:'center',padding:'20px 0'}}>
+            <div style={{fontSize:44,marginBottom:12}}>📧</div>
+            <div style={{color:'#111827',fontWeight:700,fontSize:15,marginBottom:8}}>Reset Link Sent</div>
+            <div style={{color:'#64748b',fontSize:13,lineHeight:1.7}}>
+              A password reset link has been sent to<br/>
+              <strong style={{color:'#111827'}}>{user.email}</strong>
+            </div>
+            <div style={{marginTop:12,color:'#94a3b8',fontSize:11}}>Link valid for 24 hours · single use</div>
+          </div>
+          <div style={{display:'flex',justifyContent:'center',marginTop:8}}>
+            <button onClick={onClose} style={{padding:'8px 24px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>Done</button>
+          </div>
+        </>
       )}
-      <div style={{marginBottom:14}}>
-        <div style={{fontSize:11,fontWeight:600,color:'#374151',marginBottom:6}}>Generated temporary password:</div>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <code style={{flex:1,background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:7,padding:'8px 12px',fontSize:13,fontWeight:700,color:'#1e293b',letterSpacing:'0.05em',fontFamily:'monospace'}}>{tempPwd}</code>
-          <button onClick={copy} style={{padding:'8px 12px',borderRadius:7,border:'1px solid #e2e8f0',background:'white',fontSize:11,cursor:'pointer',color:'#374151',whiteSpace:'nowrap',fontWeight:600}}>{copied?'Copied':'Copy'}</button>
-        </div>
-      </div>
-      <div style={{fontSize:10,color:'#94a3b8',marginBottom:16,lineHeight:1.5}}>
-        Share this password with <strong>{user.fullName}</strong> via a secure channel. It expires after first use.
-      </div>
-      <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-        <button onClick={onClose} style={{padding:'7px 14px',borderRadius:7,border:'1px solid #e2e8f0',background:'white',fontSize:12,cursor:'pointer',color:'#374151'}}>Cancel</button>
-        <button onClick={doReset} style={{padding:'7px 14px',borderRadius:7,border:'none',background:'#2563eb',color:'white',fontSize:12,fontWeight:600,cursor:'pointer'}}>
-          {alreadyReset?'Re-issue Reset':'Issue Reset'}
-        </button>
-      </div>
     </Modal>
   );
 }
@@ -291,12 +335,9 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
     setUserModal(null);
     await apiSaveUser(u, tenant.id);
   };
-  const applyReset=async(u:TenantUser)=>{
-    const updated={...tenant,users:tenant.users.map(x=>x.id===u.id?u:x)};
-    onUpdate(updated);
-    setResetModal(null);
-    if(u.tempPassword) await apiRecordPasswordReset(u.id, u.tempPassword);
-  };
+  // applyReset no longer used — PasswordResetModal handles sending directly
+  // Kept as no-op for safety
+  const applyReset=async(_u:TenantUser)=>{ setResetModal(null); };
   const delUser=async(id:string)=>{
     onUpdate({...tenant,users:tenant.users.filter(u=>u.id!==id)});
     setConfirmDel(null);
@@ -357,7 +398,7 @@ function UsersTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}){
         ))}
       </div>
       {userModal  &&<UserForm user={userModal==='new'?null:userModal} tenantName={tenant.name} onSave={saveUser} onClose={()=>setUserModal(null)}/>}
-      {resetModal &&<PasswordResetModal user={resetModal} onReset={applyReset} onClose={()=>setResetModal(null)}/>}
+      {resetModal &&<PasswordResetModal user={resetModal} onClose={()=>setResetModal(null)}/>}
       {histModal  &&<LoginHistoryModal  user={histModal}  onClose={()=>setHistModal(null)}/>}
       {confirmDel &&(
         <Modal title="Remove User" onClose={()=>setConfirmDel(null)} width={360}>
