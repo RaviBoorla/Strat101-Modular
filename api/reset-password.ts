@@ -28,7 +28,7 @@ export default async function handler(req: Request): Promise<Response> {
     });
   }
 
-  const { email } = body;
+  const { email, adminInitiated } = body;
   if (!email) {
     return new Response(JSON.stringify({ error: 'Missing email.' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
@@ -81,7 +81,7 @@ export default async function handler(req: Request): Promise<Response> {
     });
   }
 
-  const emailHtml = buildResetEmail(resetUrl, appUrl);
+  const emailHtml = buildResetEmail(resetUrl, appUrl, !!adminInitiated);
   const emailRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
@@ -110,7 +110,7 @@ export default async function handler(req: Request): Promise<Response> {
   );
 }
 
-function buildResetEmail(resetUrl: string, appUrl: string): string {
+function buildResetEmail(resetUrl: string, appUrl: string, adminInitiated = false): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Reset your Strat101.com password</title></head>
@@ -136,7 +136,10 @@ function buildResetEmail(resetUrl: string, appUrl: string): string {
       Reset your password
     </div>
     <div style="color:#94a3b8;font-size:14px;line-height:1.7;">
-      Your administrator has requested a password reset for your account.
+      ${adminInitiated
+        ? 'Your administrator has requested a password reset for your account.'
+        : 'We received a request to reset your password.'
+      }
       Click the button below to set a new password.
     </div>
   </td></tr>
@@ -144,13 +147,21 @@ function buildResetEmail(resetUrl: string, appUrl: string): string {
   <!-- BODY -->
   <tr><td style="background:#0f1f35;border-left:1px solid rgba(255,255,255,0.08);border-right:1px solid rgba(255,255,255,0.08);padding:32px 28px;">
 
+    ${adminInitiated ? `
     <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:14px 18px;margin-bottom:24px;">
-      <div style="color:#fbbf24;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">⚠ Security Notice</div>
+      <div style="color:#fbbf24;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">&#9888; Security Notice</div>
       <div style="color:#fde68a;font-size:12px;line-height:1.6;">
         This reset was initiated by your platform administrator.
         If you did not expect this, contact <a href="mailto:Support@Strat101.com" style="color:#60a5fa;text-decoration:none;">Support@Strat101.com</a> immediately.
       </div>
-    </div>
+    </div>` : `
+    <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2);border-radius:10px;padding:14px 18px;margin-bottom:24px;">
+      <div style="color:#93c5fd;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">&#128274; Password Reset Requested</div>
+      <div style="color:#bfdbfe;font-size:12px;line-height:1.6;">
+        If you didn't request this reset, you can safely ignore this email.
+        Your password will not change until you click the link below.
+      </div>
+    </div>`}
 
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:16px;">
       <tr><td align="center">
@@ -186,7 +197,10 @@ function buildResetEmail(resetUrl: string, appUrl: string): string {
         <a href="mailto:Support@Strat101.com" style="color:#93c5fd;text-decoration:none;font-weight:600;">Support@Strat101.com</a>
       </div>
       <div style="color:#475569;font-size:10px;margin-top:8px;line-height:1.6;">
-        This reset was requested by your platform administrator.<br/>
+        ${adminInitiated
+          ? 'This reset was requested by your platform administrator.'
+          : 'You requested this password reset from the Strat101.com login screen.'
+        }<br/>
         If unexpected, contact <a href="mailto:Support@Strat101.com" style="color:#60a5fa;text-decoration:none;">Support@Strat101.com</a>.
       </div>
     </td></tr></table>
