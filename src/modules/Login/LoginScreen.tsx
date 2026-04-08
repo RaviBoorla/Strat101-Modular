@@ -356,15 +356,9 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                     onFocus={e=>e.target.style.borderColor='#3b82f6'}
                     onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
                 </div>
-                <div style={{marginBottom:8}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                    <label style={labelStyle}>Password</label>
-                    <button onClick={()=>{setForgotMode(true);setForgotSent(false);setForgotUser('');setErr('');}}
-                      style={{background:'none',border:'none',color:'#60a5fa',fontSize:11,cursor:'pointer',padding:0,fontWeight:600}}>
-                      Forgot password?
-                    </button>
-                  </div>
-                  <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+                <div style={{marginBottom:20}}>
+                  <label style={labelStyle}>Password</label>
+                  <div style={{position:'relative',display:'flex',alignItems:'center'}}> 
                     <input type={showPwd?'text':'password'} value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>e.key==='Enter'&&attemptLogin()}
                       style={{...inputStyle,paddingRight:40}}
                       onFocus={e=>e.target.style.borderColor='#3b82f6'}
@@ -377,9 +371,15 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </div>
                 {err && <div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,padding:'9px 12px',color:'#fca5a5',fontSize:12,marginBottom:14}}>{err}</div>}
                 <button onClick={attemptLogin} disabled={loading||!uid.trim()||!pwd.trim()}
-                  style={{width:'100%',padding:'12px',borderRadius:10,border:'none',cursor:'pointer',background:loading?'#334155':'linear-gradient(135deg,#2563eb,#4f46e5)',color:'white',fontSize:13,fontWeight:700,marginBottom:16,opacity:uid.trim()&&pwd.trim()?1:0.5}}>
+                  style={{width:'100%',padding:'12px',borderRadius:10,border:'none',cursor:'pointer',background:loading?'#334155':'linear-gradient(135deg,#2563eb,#4f46e5)',color:'white',fontSize:13,fontWeight:700,marginBottom:10,opacity:uid.trim()&&pwd.trim()?1:0.5}}>
                   {loading ? 'Signing in…' : 'Sign In →'}
                 </button>
+                <div style={{textAlign:'center',marginBottom:16}}>
+                  <button onClick={()=>{setForgotMode(true);setForgotSent(false);setForgotUser('');setErr('');}}
+                    style={{background:'none',border:'none',color:'#60a5fa',fontSize:12,cursor:'pointer',padding:0,fontWeight:600}}>
+                    Forgot password?
+                  </button>
+                </div>
                 <div style={{textAlign:'center',fontSize:12,color:'#64748b'}}>
                   Don't have an account?{' '}
                   <button onClick={()=>switchMode('register')} style={{background:'none',border:'none',color:'#60a5fa',fontWeight:600,cursor:'pointer',fontSize:12,padding:0}}>Create one</button>
