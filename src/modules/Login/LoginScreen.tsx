@@ -49,6 +49,14 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   const [tenantChecked, setTenantChecked] = useState(false);
   const [isNewTenant,   setIsNewTenant]   = useState(false);
 
+  // Password visibility toggles
+  const [showPwd,     setShowPwd]     = useState(false);
+  const [showRegPwd,  setShowRegPwd]  = useState(false);
+  // Forgot password mode
+  const [forgotMode,  setForgotMode]  = useState(false);
+  const [forgotUser,  setForgotUser]  = useState('');
+  const [forgotSent,  setForgotSent]  = useState(false);
+
   // Shared
   const [err,     setErr]     = useState('');
   const [info,    setInfo]    = useState('');
@@ -109,6 +117,45 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     } else {
       onLogin(username);
     }
+  };
+
+  // ── FORGOT PASSWORD ──────────────────────────────────────────────────────
+  const sendForgotPassword = async () => {
+    const username = forgotUser.trim().toLowerCase();
+    if (!username) { setErr('Please enter your username.'); return; }
+    setErr(''); setLoading(true);
+
+    // Look up email from username
+    const { data: userRow } = await supabase
+      .from('tenant_users')
+      .select('email, active, approval_status')
+      .eq('username', username)
+      .maybeSingle();
+
+    if (!userRow) {
+      setErr('Username not found. Please check your User ID.');
+      setLoading(false); return;
+    }
+    if (userRow.approval_status === 'pending') {
+      setErr('Your account is still awaiting approval.');
+      setLoading(false); return;
+    }
+    if (!userRow.active) {
+      setErr('This account is inactive. Please contact your administrator.');
+      setLoading(false); return;
+    }
+
+    // Send password reset email via Supabase — goes through Resend SMTP
+    const { error } = await supabase.auth.resetPasswordForEmail(userRow.email, {
+      redirectTo: `${window.location.origin}/`,
+    });
+
+    if (error) {
+      setErr(error.message);
+    } else {
+      setForgotSent(true);
+    }
+    setLoading(false);
   };
 
   // ── REGISTER STEP 1: validate credentials ────────────────────────────────
@@ -309,12 +356,24 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                     onFocus={e=>e.target.style.borderColor='#3b82f6'}
                     onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
                 </div>
-                <div style={{marginBottom:20}}>
-                  <label style={labelStyle}>Password</label>
-                  <input type="password" value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>e.key==='Enter'&&attemptLogin()}
-                    style={inputStyle}
-                    onFocus={e=>e.target.style.borderColor='#3b82f6'}
-                    onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
+                <div style={{marginBottom:8}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                    <label style={labelStyle}>Password</label>
+                    <button onClick={()=>{setForgotMode(true);setForgotSent(false);setForgotUser('');setErr('');}}
+                      style={{background:'none',border:'none',color:'#60a5fa',fontSize:11,cursor:'pointer',padding:0,fontWeight:600}}>
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+                    <input type={showPwd?'text':'password'} value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>e.key==='Enter'&&attemptLogin()}
+                      style={{...inputStyle,paddingRight:40}}
+                      onFocus={e=>e.target.style.borderColor='#3b82f6'}
+                      onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
+                    <button type="button" onClick={()=>setShowPwd(v=>!v)}
+                      style={{position:'absolute',right:12,background:'none',border:'none',cursor:'pointer',color:'#64748b',fontSize:15,padding:0,lineHeight:1}}>
+                      {showPwd?'🙈':'👁️'}
+                    </button>
+                  </div>
                 </div>
                 {err && <div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,padding:'9px 12px',color:'#fca5a5',fontSize:12,marginBottom:14}}>{err}</div>}
                 <button onClick={attemptLogin} disabled={loading||!uid.trim()||!pwd.trim()}
@@ -369,18 +428,30 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
                   <div>
                     <label style={labelStyle}>Password</label>
-                    <input type="password" value={regPwd} onChange={e=>setRegPwd(e.target.value)} placeholder="Min. 8 characters"
-                      style={inputStyle}
-                      onFocus={e=>e.target.style.borderColor='#3b82f6'}
-                      onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
+                    <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+                      <input type={showRegPwd?'text':'password'} value={regPwd} onChange={e=>setRegPwd(e.target.value)} placeholder="Min. 8 characters"
+                        style={{...inputStyle,paddingRight:38}}
+                        onFocus={e=>e.target.style.borderColor='#3b82f6'}
+                        onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
+                      <button type="button" onClick={()=>setShowRegPwd(v=>!v)}
+                        style={{position:'absolute',right:10,background:'none',border:'none',cursor:'pointer',color:'#64748b',fontSize:14,padding:0,lineHeight:1}}>
+                        {showRegPwd?'🙈':'👁️'}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label style={labelStyle}>Confirm Password</label>
-                    <input type="password" value={regPwdConf} onChange={e=>setRegPwdConf(e.target.value)}
-                      onKeyDown={e=>e.key==='Enter'&&validateCredentials()}
-                      placeholder="Re-enter password" style={inputStyle}
-                      onFocus={e=>e.target.style.borderColor='#3b82f6'}
-                      onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
+                    <div style={{position:'relative',display:'flex',alignItems:'center'}}>
+                      <input type={showRegPwd?'text':'password'} value={regPwdConf} onChange={e=>setRegPwdConf(e.target.value)}
+                        onKeyDown={e=>e.key==='Enter'&&validateCredentials()}
+                        placeholder="Re-enter password" style={{...inputStyle,paddingRight:38}}
+                        onFocus={e=>e.target.style.borderColor='#3b82f6'}
+                        onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
+                      <button type="button" onClick={()=>setShowRegPwd(v=>!v)}
+                        style={{position:'absolute',right:10,background:'none',border:'none',cursor:'pointer',color:'#64748b',fontSize:14,padding:0,lineHeight:1}}>
+                        {showRegPwd?'🙈':'👁️'}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 {/* Password strength */}
@@ -510,6 +581,60 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       </div>
 
       {/* Footer */}
+      {/* ── FORGOT PASSWORD MODAL ── */}
+      {forgotMode && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,backdropFilter:'blur(4px)'}}>
+          <div style={{background:'#0f1f35',border:'1px solid rgba(255,255,255,0.12)',borderRadius:20,padding:'36px 32px',maxWidth:380,width:'90%',margin:'0 16px',boxShadow:'0 25px 60px rgba(0,0,0,0.5)'}}>
+            {!forgotSent ? (
+              <>
+                <div style={{textAlign:'center',marginBottom:24}}>
+                  <div style={{fontSize:40,marginBottom:12}}>🔑</div>
+                  <div style={{color:'white',fontWeight:700,fontSize:18,marginBottom:8}}>Reset Password</div>
+                  <div style={{color:'#94a3b8',fontSize:13,lineHeight:1.6}}>Enter your username and we'll send a password reset link to your registered email.</div>
+                </div>
+                <div style={{marginBottom:16}}>
+                  <label style={labelStyle}>Your Username</label>
+                  <input value={forgotUser} onChange={e=>setForgotUser(e.target.value)}
+                    autoFocus placeholder="Enter your username"
+                    onKeyDown={e=>e.key==='Enter'&&sendForgotPassword()}
+                    style={inputStyle}
+                    onFocus={e=>e.target.style.borderColor='#3b82f6'}
+                    onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
+                </div>
+                {err&&<div style={{background:'rgba(239,68,68,0.12)',border:'1px solid rgba(239,68,68,0.3)',borderRadius:8,padding:'9px 12px',color:'#fca5a5',fontSize:12,marginBottom:14}}>{err}</div>}
+                <button onClick={sendForgotPassword} disabled={loading||!forgotUser.trim()}
+                  style={{width:'100%',padding:'12px',borderRadius:10,border:'none',cursor:forgotUser.trim()?'pointer':'not-allowed',background:forgotUser.trim()?'linear-gradient(135deg,#2563eb,#4f46e5)':'#334155',color:'white',fontSize:13,fontWeight:700,marginBottom:12,opacity:forgotUser.trim()?1:0.5}}>
+                  {loading?'Sending…':'Send Reset Link →'}
+                </button>
+                <button onClick={()=>{setForgotMode(false);setErr('');}}
+                  style={{width:'100%',padding:'10px',borderRadius:10,border:'1px solid rgba(255,255,255,0.1)',background:'transparent',color:'#94a3b8',fontSize:12,cursor:'pointer'}}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{textAlign:'center',marginBottom:24}}>
+                  <div style={{fontSize:48,marginBottom:12}}>📧</div>
+                  <div style={{color:'white',fontWeight:700,fontSize:18,marginBottom:10}}>Check Your Email</div>
+                  <div style={{color:'#94a3b8',fontSize:13,lineHeight:1.7}}>
+                    A password reset link has been sent to the email registered with username <strong style={{color:'white'}}>{forgotUser}</strong>.
+                    The link expires in <strong style={{color:'#60a5fa'}}>24 hours</strong>.
+                  </div>
+                </div>
+                <div style={{background:'rgba(37,99,235,0.1)',border:'1px solid rgba(37,99,235,0.25)',borderRadius:10,padding:'12px 16px',marginBottom:20}}>
+                  <div style={{color:'#93c5fd',fontSize:11,fontWeight:700,marginBottom:4}}>Didn't receive it?</div>
+                  <div style={{color:'#64748b',fontSize:12,lineHeight:1.6}}>Check your spam folder, or contact <a href="mailto:Support@Strat101.com" style={{color:'#60a5fa'}}>Support@Strat101.com</a></div>
+                </div>
+                <button onClick={()=>{setForgotMode(false);setForgotSent(false);setErr('');}}
+                  style={{width:'100%',padding:'12px',borderRadius:10,border:'none',cursor:'pointer',background:'linear-gradient(135deg,#2563eb,#4f46e5)',color:'white',fontSize:13,fontWeight:700}}>
+                  Back to Sign In
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div style={{padding:'14px 32px',background:'#a3bbff',borderTop:'1px solid #7a9ee8',display:'flex',justifyContent:'center',alignItems:'center',gap:16}}>
         <span style={{color:'#0c2040',fontSize:11,fontWeight:600}}>®Strat101.com</span>
         <span style={{color:'#4a6a9e'}}>|</span>
