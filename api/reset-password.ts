@@ -43,13 +43,17 @@ export default async function handler(req: Request): Promise<Response> {
 
   // Generate a recovery link via Supabase Admin API
   // type=recovery fires PASSWORD_RECOVERY event in the app when user clicks it
+  // redirect_to must be the exact app URL — Supabase appends the token as a hash
+  // so the app receives #access_token=...&type=recovery
+  const redirectTo = appUrl.replace(/\/$/, '');
+
   const linkRes = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
     method: 'POST',
     headers: adminHeaders,
     body: JSON.stringify({
       type:  'recovery',
       email,
-      options: { redirect_to: appUrl },
+      options: { redirect_to: redirectTo },
     }),
   });
 
@@ -180,6 +184,7 @@ function buildResetEmail(resetUrl: string, appUrl: string, adminInitiated = fals
     </table>
     <div style="color:#475569;font-size:11px;text-align:center;margin-top:16px;line-height:1.6;">
       This link expires in <strong style="color:#93c5fd;">24 hours</strong> and can only be used once.<br/>
+      Open the link in a browser — do not forward this email.<br/>
       After resetting, log in at <strong style="color:white;">${appUrl}</strong>
     </div>
 
