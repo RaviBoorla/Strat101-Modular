@@ -46,8 +46,8 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
         <input ref={inputRef} value={q} onChange={e=>{setQ(e.target.value);setCursor(0);setOpen(true);}} onFocus={()=>setOpen(true)} onKeyDown={onKey} placeholder="Search…"
           style={{flex:1,border:'none',outline:'none',background:'transparent',fontSize:12,color:'#e2eaf4'}}/>
         {q
-          ? <button onClick={()=>{setQ('');setOpen(false);}} style={{border:'none',background:'none',cursor:'pointer',color:'#64748b',fontSize:13,lineHeight:1,padding:0}}>×</button>
-          : <kbd style={{background:'rgba(0,0,0,0.08)',borderRadius:3,padding:'1px 4px',fontSize:9,color:'#64748b',fontFamily:'monospace',flexShrink:0}}>⌘K</kbd>
+          ? <button onClick={()=>{setQ('');setOpen(false);}} style={{border:'none',background:'none',cursor:'pointer',color:'#8baecf',fontSize:13,lineHeight:1,padding:0}}>×</button>
+          : <kbd style={{background:'rgba(255,255,255,0.1)',borderRadius:3,padding:'1px 4px',fontSize:9,color:'#8baecf',fontFamily:'monospace',flexShrink:0}}>⌘K</kbd>
         }
       </div>
       {open&&results.length>0&&(
@@ -153,15 +153,15 @@ export default function TopNav({
   const initials = loggedUser.slice(0,2).toUpperCase();
 
   // Colour palette — dark navy
-  const NAV_BG        = '#f1f9f1';
-  const BREADCRUMB_BG = '#eaf5ea';
+  const NAV_BG        = '#1e3a5f';
+  const BREADCRUMB_BG = '#162d4a';
   const TEXT_MAIN     = '#e2eaf4';
-  const TEXT_MUTED    = '#64748b';
+  const TEXT_MUTED    = '#8baecf';
   const TEXT_ACTIVE   = '#ffffff';
   const ACTIVE_BG     = 'rgba(255,255,255,0.18)';
 
   return (
-    <header ref={navRef} style={{background:NAV_BG,borderBottom:'1px solid #d5ebd5',boxShadow:'0 2px 8px rgba(0,0,0,0.25)',flexShrink:0,zIndex:40,position:'relative'}}>
+    <header ref={navRef} style={{background:NAV_BG,borderBottom:'1px solid #152d4a',boxShadow:'0 2px 8px rgba(0,0,0,0.25)',flexShrink:0,zIndex:40,position:'relative'}}>
       <div style={{display:'flex',alignItems:'center',padding:'0 12px',height:44,gap:2}}>
 
         {/* Brand */}
@@ -284,7 +284,7 @@ export default function TopNav({
             <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
               <span style={{fontSize:10,color:TEXT_MUTED,fontWeight:600}}>{loggedUser}</span>
               <button onClick={onSignOut} title="Sign out"
-                style={{display:'flex',alignItems:'center',padding:'3px 10px',background:'rgba(0,0,0,0.06)',border:'1px solid rgba(0,0,0,0.1)',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:700,color:'#b71c1c',transition:'background 0.15s'}}
+                style={{display:'flex',alignItems:'center',padding:'3px 10px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.2)',borderRadius:5,cursor:'pointer',fontSize:10,fontWeight:700,color:'#f87171',transition:'background 0.15s'}}
                 onMouseEnter={e=>{e.currentTarget.style.background='rgba(239,68,68,0.2)';}}
                 onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.1)';}}>
                 Sign Out
@@ -295,7 +295,7 @@ export default function TopNav({
       </div>
 
       {/* Breadcrumb strip */}
-      <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(0,0,0,0.05)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6}}>
+      <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(255,255,255,0.06)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6}}>
         <span style={{fontSize:11,color:TEXT_MUTED}}>{tenantName||'Strat101.com'}</span>
         <span style={{fontSize:11,color:TEXT_MUTED}}>›</span>
         <span style={{fontSize:11,fontWeight:600,color:TEXT_ACTIVE}}>
