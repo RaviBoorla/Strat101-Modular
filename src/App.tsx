@@ -465,7 +465,7 @@ function Workspace({
         )}
       </div>
       <footer style={{ background:'#eaf5ea', borderTop:'1px solid #d5ebd5', padding:'3px 16px', display:'flex', alignItems:'center', justifyContent:'center', gap:12, flexShrink:0 }}>
-        <span style={{ fontSize:11, color:'#0c2d4a', letterSpacing:'0.02em' }}>
+        <span style={{ fontSize:11, color:'#111', letterSpacing:'0.02em' }}>
           ®Strat101.com  |  ©Copyright 2026. All rights Reserved.  |  Contact:{' '}
           <a href="mailto:Support@Strat101.com" style={{ color:'#111', textDecoration:'none', fontWeight:600 }}>Support@Strat101.com</a>
         </span>
