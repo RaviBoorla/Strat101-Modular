@@ -308,10 +308,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 45%,#0f2744 100%)',fontFamily:'system-ui,sans-serif'}}>
 
       {/* Top bar */}
-      <div style={{padding:'18px 32px',display:'flex',alignItems:'center',gap:10,background:'#f1f9f1',borderBottom:'1px solid #d5ebd5'}}>
+      <div style={{padding:'18px 32px',display:'flex',alignItems:'center',gap:10,background:'#a3bbff',borderBottom:'1px solid #7a9ee8'}}>
         <img src={LOGO_SRC} alt='Strat101' style={{width:36,height:36,borderRadius:10,objectFit:'cover',boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}/>
         <div>
-          <div style={{color:'#111',fontWeight:900,fontSize:18,letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
+          <div style={{color:'#0c2040',fontWeight:900,fontSize:18,letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
           <div style={{color:'#1a3a6e',fontSize:9,letterSpacing:'0.1em',marginTop:2}}>ENABLING TRANSFORMATION JOURNEYS</div>
         </div>
       </div>
@@ -638,12 +638,12 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         </div>
       )}
 
-      <div style={{padding:'14px 32px',background:'#eaf5ea',borderTop:'1px solid #d5ebd5',display:'flex',justifyContent:'center',alignItems:'center',gap:16}}>
-        <span style={{color:'#111',fontSize:11,fontWeight:600}}>®Strat101.com</span>
+      <div style={{padding:'14px 32px',background:'#a3bbff',borderTop:'1px solid #7a9ee8',display:'flex',justifyContent:'center',alignItems:'center',gap:16}}>
+        <span style={{color:'#0c2040',fontSize:11,fontWeight:600}}>®Strat101.com</span>
         <span style={{color:'#4a6a9e'}}>|</span>
-        <span style={{color:'#111',fontSize:11}}>©Copyright 2026. All rights Reserved.</span>
+        <span style={{color:'#0c2040',fontSize:11}}>©Copyright 2026. All rights Reserved.</span>
         <span style={{color:'#4a6a9e'}}>|</span>
-        <a href="mailto:Support@Strat101.com" style={{color:'#111',fontSize:11,textDecoration:'none',fontWeight:600}}>Support@Strat101.com</a>
+        <a href="mailto:Support@Strat101.com" style={{color:'#0c2040',fontSize:11,textDecoration:'none',fontWeight:600}}>Support@Strat101.com</a>
       </div>
     </div>
   );
