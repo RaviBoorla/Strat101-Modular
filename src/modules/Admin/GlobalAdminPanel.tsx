@@ -27,7 +27,7 @@ const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
 ];
 
 const FEATURE_EMOJI: Record<FeatureKey, string> = {
-  kanban:'🗂️', workitems:'📦', create:'➕', bot:'🤖', reports:'📈',
+  kanban:'🗂️', workitems:'📦', create:'➕', bot:'🤖', reports:'📈', ride:'⚡',
 };
 
 const PLAN_STYLE: Record<string, {color:string;bg:string}> = {
@@ -443,8 +443,8 @@ function FeaturesTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.04em'}}>Modules</div>
         <div style={{display:'flex',gap:6}}>
-          <button onClick={()=>onUpdate({...tenant,features:{kanban:true,workitems:true,create:true,bot:true,reports:true}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
-          <button onClick={()=>onUpdate({...tenant,features:{kanban:false,workitems:false,create:false,bot:false,reports:false}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
+          <button onClick={()=>onUpdate({...tenant,features:{kanban:true,workitems:true,create:true,bot:true,reports:true,ride:true}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
+          <button onClick={()=>onUpdate({...tenant,features:{kanban:false,workitems:false,create:false,bot:false,reports:false,ride:false}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
         </div>
       </div>
       {FEATURE_DEFS.map(fd=>{
@@ -947,7 +947,7 @@ function TenantForm({tenant,onSave,onClose}:{tenant:Tenant|null;onSave:(t:Tenant
   const save=()=>{
     if(!name.trim()||!slug.trim()) return;
     const lim=PLAN_LIMITS[plan];
-    const base={kanban:true,workitems:true,create:true,bot:true,reports:true};
+    const base={kanban:true,workitems:true,create:true,bot:true,reports:true,ride:false};
     const baseSub:Subscription={
       status:'trialling',trialStart:td(),trialEnd:'',currentPeriodStart:td(),currentPeriodEnd:'',
       autoRenew:true,billingEmail:'',billingName:'',
