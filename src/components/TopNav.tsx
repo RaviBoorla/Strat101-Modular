@@ -245,6 +245,20 @@ export default function TopNav({
                       </button>
                     </React.Fragment>
                   ))}
+                  {features.ride&&(<>
+                    <div style={{height:1,background:'#e2e8f0',margin:'6px 4px'}}/>
+                    <div style={{padding:'3px 8px 4px',fontSize:10,fontWeight:700,color:'#94a3b8',letterSpacing:'0.06em',textTransform:'uppercase'}}>RiDe Intel</div>
+                    {([['risk','⚡','Risk','#fef2f2','#dc2626'],['decision','🎯','Decision','#eef2ff','#6366f1']] as const).map(([t,ic,lb,bg,col])=>(
+                      <button key={t} onClick={()=>{onCreateNew(t);setCreate(false);}}
+                        style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'7px 10px',borderRadius:8,border:'none',cursor:'pointer',textAlign:'left',background:'transparent',color:'#374151',fontSize:12,fontWeight:400,transition:'background 0.1s'}}
+                        onMouseEnter={e=>e.currentTarget.style.background=bg}
+                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <span style={{fontSize:14}}>{ic}</span>
+                        <span style={{flex:1}}>{lb}</span>
+                        <span style={{fontSize:13,color:col,fontWeight:700}}>＋</span>
+                      </button>
+                    ))}
+                  </>)}
                 </div>
               )}
             </div>
