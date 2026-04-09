@@ -124,14 +124,14 @@ export default function BotPanel({ items }: BotPanelProps) {
 
       {/* ── Header ── */}
       <div className="shrink-0 flex items-center justify-between px-5 py-3 border-b"
-        style={{ background: "#f1f9f1", borderColor: "#d5ebd5" }}>
+        style={{ background: "#a3bbff", borderColor: "#7a9ee8" }}>
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center rounded-xl shrink-0"
             style={{ width:32, height:32, background:"linear-gradient(135deg,#2563eb,#4f46e5)", boxShadow:"0 2px 8px rgba(37,99,235,0.35)" }}>
             <span style={{ fontSize: 16 }}>🤖</span>
           </div>
           <div>
-            <div style={{ fontSize:14, fontWeight:700, color:"#111" }}>Strat101.com AI Assist</div>
+            <div style={{ fontSize:14, fontWeight:700, color:"#0c2d4a" }}>Strat101.com AI Assist</div>
             <div style={{ fontSize:11, color:"#1a5276" }}>
               Powered by Claude · {items.length} items in context
             </div>
