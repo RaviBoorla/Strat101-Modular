@@ -37,10 +37,10 @@ function buildSystemPrompt(items: any[]): string {
     keyResult:     it.keyResult      || "",
   }));
 
-  return `You are the Strat101.com AI Assist \u2014 a dedicated strategic intelligence bot for this tenant\u2019s transformation portfolio.
+  return `You are the Strat101.com AI Assist — a dedicated strategic intelligence bot for this tenant's transformation portfolio.
 
-You have full read access to the tenant\u2019s live item registry, which contains ${items.length} items structured in a 9-level hierarchy:
-Vision \u2192 Mission \u2192 Goal \u2192 OKR \u2192 Key Result \u2192 Initiative \u2192 Program \u2192 Project \u2192 Task \u2192 Subtask
+You have full read access to the tenant's live item registry, which contains ${items.length} items structured in a 9-level hierarchy:
+Vision → Mission → Goal → OKR → Key Result → Initiative → Program → Project → Task → Subtask
 
 Your role is to help the user understand their portfolio: surface risks, report on progress, identify blockers, highlight dependencies, and provide concise briefings. Be direct, structured, and use the actual data. When referencing items always include their key (e.g. V-0001, O-0002).
 
@@ -124,16 +124,16 @@ export default function BotPanel({ items }: BotPanelProps) {
 
       {/* ── Header ── */}
       <div className="shrink-0 flex items-center justify-between px-5 py-3 border-b"
-        style={{ background: "#a3bbff", borderColor: "#7a9ee8" }}>
+        style={{ background: "#f1f9f1", borderColor: "#d5ebd5" }}>
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center rounded-xl shrink-0"
             style={{ width:32, height:32, background:"linear-gradient(135deg,#2563eb,#4f46e5)", boxShadow:"0 2px 8px rgba(37,99,235,0.35)" }}>
             <span style={{ fontSize: 16 }}>🤖</span>
           </div>
           <div>
-            <div style={{ fontSize:14, fontWeight:700, color:"#0c2d4a" }}>Strat101.com AI Assist</div>
+            <div style={{ fontSize:14, fontWeight:700, color:"#111" }}>Strat101.com AI Assist</div>
             <div style={{ fontSize:11, color:"#1a5276" }}>
-              Powered by Claude \u00b7 {items.length} items in context
+              Powered by Claude · {items.length} items in context
             </div>
           </div>
         </div>
@@ -158,7 +158,7 @@ export default function BotPanel({ items }: BotPanelProps) {
               Ask anything about your portfolio
             </div>
             <div style={{ fontSize:12, color:"#64748b", maxWidth:420, textAlign:"center", marginBottom:32, lineHeight:1.6 }}>
-              I have access to all {items.length} items in this workspace \u2014 risks, OKRs,
+              I have access to all {items.length} items in this workspace — risks, OKRs,
               owners, progress, dependencies and more.
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, width:"100%", maxWidth:680 }}>
@@ -239,7 +239,7 @@ export default function BotPanel({ items }: BotPanelProps) {
                 style={{ flexShrink:0, padding:"5px 12px", borderRadius:999, border:"1px solid #e2e8f0", background:"white", color:"#475569", fontSize:11, whiteSpace:"nowrap", cursor:"pointer", transition:"all 0.15s", opacity:loading ? 0.4 : 1 }}
                 onMouseEnter={e => { if (!loading) { e.currentTarget.style.borderColor="#93c5fd"; e.currentTarget.style.color="#1d4ed8"; } }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor="#e2e8f0"; e.currentTarget.style.color="#475569"; }}>
-                {s.slice(0, 48)}{s.length > 48 ? "\u2026" : ""}
+                {s.slice(0, 48)}{s.length > 48 ? "…" : ""}
               </button>
             ))}
           </div>
@@ -256,7 +256,7 @@ export default function BotPanel({ items }: BotPanelProps) {
             onKeyDown={onKey}
             rows={1}
             disabled={loading}
-            placeholder="Ask about risks, progress, owners, OKRs\u2026 (Enter to send)"
+            placeholder="Ask about risks, progress, owners, OKRs… (Enter to send)"
             style={{ flex:1, background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:12, padding:"10px 14px", color:"#1e293b", fontSize:13, lineHeight:1.5, minHeight:42, maxHeight:120, outline:"none", resize:"none", transition:"border-color 0.15s", opacity:loading ? 0.5 : 1 }}
             onFocus={e => e.target.style.borderColor="#93c5fd"}
             onBlur={e  => e.target.style.borderColor="#e2e8f0"}
@@ -269,7 +269,7 @@ export default function BotPanel({ items }: BotPanelProps) {
           </button>
         </div>
         <div style={{ fontSize:10, color:"#94a3b8", textAlign:"center", marginTop:4 }}>
-          Enter to send \u00b7 Shift+Enter for new line \u00b7 Context: {items.length} portfolio items
+          Enter to send · Shift+Enter for new line · Context: {items.length} portfolio items
         </div>
       </div>
 
