@@ -24,6 +24,7 @@ const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
   { key:'create',    label:'Create',     icon:'Create'    },
   { key:'bot',       label:'AI Assist',  icon:'AIAssist'  },
   { key:'reports',   label:'Reports',    icon:'Reports'   },
+  { key:'ride',      label:'RiDe Intel', icon:'RiDe'      },
 ];
 
 const FEATURE_EMOJI: Record<FeatureKey, string> = {
