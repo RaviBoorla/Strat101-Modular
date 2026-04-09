@@ -685,11 +685,12 @@ function SetPasswordScreen({ onDone }: { onDone: () => void }) {
           .eq('email', session.user.email.toLowerCase());
       }
       setDone(true);
-      // Sign out after short delay so user sees success message,
-      // then call onDone which resets App state to show login screen
+      // After 2.5s show success, then clear state and sign out.
+      // Order matters: clear ref first so SIGNED_OUT handler doesn't
+      // misinterpret the sign-out as a mid-flow interruption.
       setTimeout(async () => {
+        onDone(); // clears setPasswordMode + ref first
         await supabase.auth.signOut();
-        onDone();
       }, 2500);
     }
   };
@@ -802,6 +803,7 @@ export default function App() {
   const [pendingApproval, setPendingApproval] = useState(false);
   const [setPasswordMode, setSetPasswordMode] = useState(false); // invite/recovery token in URL
   const [tokenError,      setTokenError]      = useState('');    // expired/invalid reset link
+  const setPasswordModeRef = React.useRef(false); // ref so closures see current value
 
   useEffect(() => {
     const resolveUsername = (session: Session | null): string => {
@@ -820,8 +822,11 @@ export default function App() {
         // ── PASSWORD_RECOVERY: fired when user clicks a "Reset Password" link ──
         // Supabase exchanges the token, fires this event, session is now active.
         if (event === 'PASSWORD_RECOVERY') {
+          // Clear the flag — recovery token is consumed, we are now in set-password mode
+          sessionStorage.removeItem('strat101_set_password');
           setLoggedIn(false);
           setSetPasswordMode(true);
+          setPasswordModeRef.current = true;
           setChecking(false);
           return;
         }
@@ -835,6 +840,7 @@ export default function App() {
             sessionStorage.removeItem('strat101_set_password');
             setLoggedIn(false);
             setSetPasswordMode(true);
+            setPasswordModeRef.current = true;
             setChecking(false);
             return;
           }
@@ -849,6 +855,11 @@ export default function App() {
             return;
           }
 
+          // If we are in set-password mode, a SIGNED_IN can fire after
+          // updateUser() — ignore it, SetPasswordScreen handles completion.
+          if (setPasswordModeRef.current) {
+            return;
+          }
           // Normal login — trust the session
           setLoggedUser(resolveUsername(session));
           setLoggedIn(true);
@@ -859,14 +870,22 @@ export default function App() {
 
         // ── SIGNED_OUT ────────────────────────────────────────────────────────
         if (event === 'SIGNED_OUT') {
-          // If this sign-out is part of the reset token flow (we signed out the
-          // existing admin session to make room for the token exchange), do NOT
-          // reset state — the token exchange will fire SIGNED_IN/PASSWORD_RECOVERY
+          // Reset token flow: signOut({scope:'local'}) fires SIGNED_OUT before
+          // the token exchange fires PASSWORD_RECOVERY/SIGNED_IN.
+          // Do NOT clear state — the next event will set it correctly.
           if (sessionStorage.getItem('strat101_set_password') === '1') {
-            return; // token exchange coming — wait for it
+            return;
           }
           // Registration flow sign-out — pending screen follows
           if (sessionStorage.getItem('strat101_registering') === '1') {
+            return;
+          }
+          // SetPasswordScreen signs out after password is saved (the 2.5s delay).
+          // By that time setPasswordMode is still true — onDone() handles the
+          // state reset, so we must NOT let SIGNED_OUT clear it mid-flight.
+          // We detect this by checking setPasswordMode via a ref (set below).
+          // Simple guard: if SIGNED_OUT fires and setPasswordMode ref is true, skip.
+          if (setPasswordModeRef.current) {
             return;
           }
           // Normal sign-out — reset all state
@@ -955,7 +974,7 @@ export default function App() {
   }
 
   if (setPasswordMode) {
-    return <SetPasswordScreen onDone={() => { setSetPasswordMode(false); setLoggedIn(false); setChecking(false); }}/>;
+    return <SetPasswordScreen onDone={() => { setSetPasswordMode(false); setPasswordModeRef.current = false; setLoggedIn(false); setChecking(false); }}/>;
   }
 
   if (tokenError) {
