@@ -64,6 +64,7 @@ export async function saveTenant(tenant: Tenant): Promise<void> {
     feat_create:    tenant.features.create,
     feat_bot:       tenant.features.bot,
     feat_reports:   tenant.features.reports,
+    feat_ride:      tenant.features.ride,
     // Company profile
     industry:        tenant.industry      ?? null,
     sector:          tenant.sector        ?? null,
@@ -303,6 +304,7 @@ function dbRowToTenant(row: any, userRows: any[], invoiceRows: any[]): Tenant {
       create:    row.feat_create    ?? true,
       bot:       row.feat_bot       ?? true,
       reports:   row.feat_reports   ?? true,
+      ride:      row.feat_ride      ?? false,
     },
     users:          userRows.map(dbRowToUser),
     subscription,
