@@ -522,27 +522,40 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
             setTenantId(data.tenant_id as string);
             setUserRole(data.role ?? 'editor');
 
-            // Load tenant features
+            // Helper to load + apply tenant features — called on mount and on realtime update
+            const applyTenantRow = (t: any) => {
+              setTenantName(t.name ?? '');
+              setTenantFeatures({
+                kanban:    t.feat_kanban    ?? true,
+                workitems: t.feat_workitems ?? true,
+                create:    t.feat_create    ?? true,
+                bot:       t.feat_bot       ?? true,
+                reports:   t.feat_reports   ?? true,
+                ride:      t.feat_ride      ?? false,
+              });
+              const et = t.enabled_item_types;
+              setEnabledTypes(et && et.length > 0 ? et : ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
+            };
+
+            // Load tenant features on mount
             const { data: tenant } = await supabase
               .from('tenants')
-              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, enabled_item_types')
+              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, feat_ride, enabled_item_types')
               .eq('id', data.tenant_id)
               .single();
 
-            if (tenant) {
-              setTenantName(tenant.name ?? '');
-              setTenantFeatures({
-                kanban:    tenant.feat_kanban    ?? true,
-                workitems: tenant.feat_workitems ?? true,
-                create:    tenant.feat_create    ?? true,
-                bot:       tenant.feat_bot       ?? true,
-                reports:   tenant.feat_reports   ?? true,
-                ride:      (tenant as any).feat_ride ?? false,
-              });
-              // null/empty means all types enabled
-              const et = tenant.enabled_item_types;
-              setEnabledTypes(et && et.length > 0 ? et : ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
-            }
+            if (tenant) applyTenantRow(tenant);
+
+            // Realtime subscription — updates features instantly when global admin changes them
+            supabase
+              .channel(`tenant_features_${data.tenant_id}`)
+              .on('postgres_changes', {
+                event: 'UPDATE', schema: 'public', table: 'tenants',
+                filter: `id=eq.${data.tenant_id}`,
+              }, (payload: any) => {
+                applyTenantRow(payload.new);
+              })
+              .subscribe();
           }
         });
     });
