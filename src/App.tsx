@@ -10,6 +10,7 @@ import type { Session, AuthChangeEvent } from "@supabase/supabase-js";
 import LoginScreen   from "./modules/Login/LoginScreen";
 import BotPanel      from "./modules/AiAssist/BotPanel";
 import WorkItemsView, { ListView } from "./modules/WorkItems/WorkItemsView";
+import RiDeIntel, { RecordForm as RiDeForm, RiDeRecord } from "./modules/RiDeIntel/RiDeIntel";
 import KanbanBoard   from "./modules/Kanban/KanbanBoard";
 import ItemForm, { LinkDlg } from "./modules/Create/ItemForm";
 import ReportBuilder from "./modules/Reports/ReportBuilder";
@@ -22,7 +23,7 @@ import CommandPalette from "./components/CommandPalette";
 import LOGO_SRC from './logoData';
 
 const ALL_FEATURES: TenantFeatures = {
-  kanban: true, workitems: true, create: true, bot: true, reports: true,
+  kanban: true, workitems: true, create: true, bot: true, reports: true, ride: false,
 };
 
 // ─── SUPABASE DATA HELPERS ────────────────────────────────────────────────────
@@ -216,6 +217,7 @@ function Workspace({
   const [sel,     setSel]   = useState<string|null>(null);
   const [dtab,    setDtab]  = useState('overview');
   const [form,    setForm]  = useState<any>(null);
+  const [rideForm, setRideForm] = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'}|null>(null);
   const [linkDlg, setLinkDlg] = useState<string|null>(null);
   const [linkQ,   setLinkQ]   = useState('');
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -392,6 +394,7 @@ function Workspace({
   const nav    = (id: string) => { const it = items.find(i => i.id === id); if (it) { setView(it.type); setSel(id); setDtab('overview'); } };
   const goView = (v: string)  => { setView(v); setSel(null); };
   const createAndOpen = (type: string) => {
+    if (type === 'risk' || type === 'decision') { setRideForm({record:null,type:type as 'risk'|'decision'}); return; }
     if (isViewer) return;
     const blank = mkBlank(type, items);
     setItems(p => [...p, blank]);
@@ -403,7 +406,8 @@ function Workspace({
     (view === 'reports' && !features.reports)  ||
     (view === 'bot'     && !features.bot)      ||
     (isWorkItems        && !features.workitems)||
-    (TYPES.includes(view) && !activeTypes.includes(view));
+    (TYPES.includes(view) && !activeTypes.includes(view)) ||
+    (view === 'ride' && !features.ride);
 
   if (loading) {
     return (
@@ -442,6 +446,7 @@ function Workspace({
                 {view === 'bot'     && features.bot       && <BotPanel items={items}/>}
                 {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
                 {isListView                               && <ListView type={view} items={items.filter(i => i.type === view)} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
+                {view === 'ride' && features.ride && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
               </>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
@@ -454,7 +459,8 @@ function Workspace({
             )}
           </div>
         </div>
-        {selected && view !== 'bot' && (
+        {rideForm && tenantId && <RiDeForm record={rideForm.record} type={rideForm.type} tenantId={tenantId} loggedUser={loggedUser} workItems={items} onSave={()=>setRideForm(null)} onClose={()=>setRideForm(null)}/>}
+      {selected && view !== 'bot' && (
           <div style={{ position: window.innerWidth < 640 ? 'absolute' : 'relative', inset: window.innerWidth < 640 ? 0 : 'auto', zIndex: window.innerWidth < 640 ? 30 : 1, display:'flex', width: window.innerWidth < 640 ? '100%' : '420px', flexShrink:0 }}>
             <DetailPanel item={selected} allItems={items} tab={dtab} onTab={setDtab}
               onEdit={() => setForm({ ...selected })} onDelete={() => remove(selected.id)} onClose={() => setSel(null)}
@@ -531,6 +537,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
                 create:    tenant.feat_create    ?? true,
                 bot:       tenant.feat_bot       ?? true,
                 reports:   tenant.feat_reports   ?? true,
+                ride:      (tenant as any).feat_ride ?? false,
               });
               // null/empty means all types enabled
               const et = tenant.enabled_item_types;
