@@ -206,8 +206,8 @@ export default function ReportBuilder({ items, enabledTypes }: ReportBuilderProp
     <div style={{ display:'flex', height:'100%', overflow:'hidden', background:'#f1f5f9' }}>
       {/* LEFT CONFIG PANEL */}
       <div style={{ width:264, flexShrink:0, borderRight:'1px solid #e2e8f0', background:'white', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-        <div style={{ padding:'9px 11px', borderBottom:'1px solid #e2e8f0', background:'#f1f9f1', flexShrink:0 }}>
-          <div style={{ fontWeight:700, fontSize:12, color:'#111' }}>📈 Report Builder</div>
+        <div style={{ padding:'9px 11px', borderBottom:'1px solid #e2e8f0', background:'#a3bbff', flexShrink:0 }}>
+          <div style={{ fontWeight:700, fontSize:12, color:'#0c2040' }}>📈 Report Builder</div>
           <div style={{ fontSize:10, color:'#1a3a6e', marginTop:1 }}>Configure and generate</div>
         </div>
         <div style={{ flex:1, overflowY:'auto', padding:'9px 11px', display:'flex', flexDirection:'column', gap:9 }}>
