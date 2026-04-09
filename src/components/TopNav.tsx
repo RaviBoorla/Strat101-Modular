@@ -153,15 +153,15 @@ export default function TopNav({
   const initials = loggedUser.slice(0,2).toUpperCase();
 
   // Colour palette — dark navy
-  const NAV_BG        = '#f1f9f1';
-  const BREADCRUMB_BG = '#eaf5ea';
+  const NAV_BG        = '#1e3a5f';
+  const BREADCRUMB_BG = '#162d4a';
   const TEXT_MAIN     = '#e2eaf4';
   const TEXT_MUTED    = '#8baecf';
   const TEXT_ACTIVE   = '#ffffff';
   const ACTIVE_BG     = 'rgba(255,255,255,0.18)';
 
   return (
-    <header ref={navRef} style={{background:NAV_BG,borderBottom:'1px solid #d5ebd5',boxShadow:'0 2px 8px rgba(0,0,0,0.25)',flexShrink:0,zIndex:40,position:'relative'}}>
+    <header ref={navRef} style={{background:NAV_BG,borderBottom:'1px solid #152d4a',boxShadow:'0 2px 8px rgba(0,0,0,0.25)',flexShrink:0,zIndex:40,position:'relative'}}>
       <div style={{display:'flex',alignItems:'center',padding:'0 12px',height:44,gap:2}}>
 
         {/* Brand */}
