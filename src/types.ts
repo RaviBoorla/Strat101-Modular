@@ -1,6 +1,6 @@
 // ─── SHARED TYPES ─────────────────────────────────────────────────────────────
 
-export type FeatureKey = 'kanban' | 'workitems' | 'create' | 'bot' | 'reports';
+export type FeatureKey = 'kanban' | 'workitems' | 'create' | 'bot' | 'reports' | 'ride';
 
 export interface TenantFeatures {
   kanban:    boolean;
@@ -8,6 +8,7 @@ export interface TenantFeatures {
   create:    boolean;
   bot:       boolean;
   reports:   boolean;
+  ride:      boolean;
 }
 
 export type UserRole = 'global_admin' | 'local_admin' | 'editor' | 'viewer';
