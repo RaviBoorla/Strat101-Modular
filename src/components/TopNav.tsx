@@ -126,13 +126,14 @@ export default function TopNav({
     ...(features.create    ? [{id:'create',    label:'Create',     icon:'➕'}] : []),
     ...(features.bot       ? [{id:'bot',       label:'AI Assist',  icon:'🤖'}] : []),
     ...(features.reports   ? [{id:'reports',   label:'Reports',    icon:'📈'}] : []),
+    ...(features.ride      ? [{id:'ride',      label:'RiDe Intel', icon:'⚡'}] : []),
   ];
 
   // FIX: Work Items click → go to workitems view directly (no dropdown)
   // Work Items ARROW click → toggle dropdown
   // Create click → toggle dropdown (unchanged)
   const handleNavClick=(id:string)=>{
-    if(id==='kanban'||id==='bot'||id==='reports'){ setWiOpen(false); setCreate(false); setView(id); }
+    if(id==='kanban'||id==='bot'||id==='reports'||id==='ride'){ setWiOpen(false); setCreate(false); setView(id); }
     else if(id==='workitems'){ setCreate(false); setWiOpen(false); setView('workitems'); setWorkItemFilter('all'); }
     else if(id==='create'){ setWiOpen(false); if(!isViewer) setCreate((o:boolean)=>!o); }
   };
