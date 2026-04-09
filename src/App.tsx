@@ -926,18 +926,28 @@ export default function App() {
     const hasResetToken = urlTokenType === 'invite' || urlTokenType === 'recovery' || urlTokenType === 'magiclink';
 
     if (hasResetToken) {
-      // Set flag so SIGNED_IN handler knows this came from a token link
+      // Set flag so SIGNED_IN/PASSWORD_RECOVERY handler knows this is a token flow
       sessionStorage.setItem('strat101_set_password', '1');
+      setPasswordModeRef.current = true;
 
-      // Sign out any existing session (e.g. global admin testing in same browser)
-      // BEFORE calling getSession so Supabase exchanges the new token cleanly.
-      // Without this, getSession restores the existing session and ignores the token.
-      supabase.auth.signOut({ scope: 'local' }).then(() => {
-        // Now call getSession — with no existing session, Supabase will exchange
-        // the hash token and fire PASSWORD_RECOVERY or SIGNED_IN
-        supabase.auth.getSession();
+      // Only sign out an EXISTING session (e.g. admin in same browser).
+      // If we blindly sign out, we may clear the recovery session Supabase
+      // just established from the URL token — causing "Auth session missing".
+      // Check for an existing session first, sign out only if one exists,
+      // then let Supabase re-exchange the hash token via getSession().
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          // An existing session is present (e.g. admin logged in).
+          // Sign it out so the recovery token can be exchanged cleanly.
+          supabase.auth.signOut({ scope: 'local' }).then(() => {
+            supabase.auth.getSession();
+          });
+        }
+        // If no existing session, Supabase already holds the recovery session
+        // from the URL hash — onAuthStateChange fires PASSWORD_RECOVERY automatically.
+        // Do NOT call getSession again or signOut — just wait for the event.
       });
-      return; // onAuthStateChange handles everything from here
+      return;
     }
 
     // ── Normal page load — no reset token ────────────────────────────────────
