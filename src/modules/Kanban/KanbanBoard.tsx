@@ -153,8 +153,6 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
     risk:       RSKS,
     health:     HLTHS,
     impactType: IMPACT_TYPES.filter(Boolean),
-    ride_level:  ['Critical','High','Medium','Low'],
-    ride_status: ['Open','In Treatment','Escalated','Mitigated','Accepted','Closed'],
   };
   const cols = SWIM_COLS[swimlane] || STATS;
 
@@ -220,8 +218,6 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
     ['risk','⚠️ Risk'],
     ['health','🏥 Health'],
     ['impactType','💹 Impact'],
-    ['ride_level','⚡ Risk Level'],
-    ['ride_status','⚡ Risk Status'],
   ];
 
   const WORK_ITEM_TYPES_KANBAN = ['vision','mission','goal','okr','initiative','program','project','task','subtask'].filter(t => activeTypes.includes(t));
