@@ -3,6 +3,7 @@ import { TC, TYPES, WORK_ITEM_TYPES } from "../constants";
 import { fuzzyScore } from "../utils";
 import { TenantFeatures } from "../types";
 import LOGO_SRC from '../logoData';
+import { useResponsive } from '../hooks/useResponsive';
 
 // ─── INLINE SEARCH ────────────────────────────────────────────────────────────
 interface InlineSearchProps { items: any[]; onNav: (id: string) => void; }
@@ -104,13 +105,8 @@ export default function TopNav({
   const isWI = view==='workitems';
   const isLV = TYPES.includes(view);
 
-  const [isMobile, setIsMobile] = useState(()=>window.innerWidth<640);
-  const [isTablet, setIsTablet] = useState(()=>window.innerWidth<900);
-  useEffect(()=>{
-    const onResize=()=>{ setIsMobile(window.innerWidth<640); setIsTablet(window.innerWidth<900); };
-    window.addEventListener('resize',onResize);
-    return ()=>window.removeEventListener('resize',onResize);
-  },[]);
+  const { isMobile, w: _rw } = useResponsive();
+  const isTablet = _rw < 900;
 
   const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   const navRef = useRef<HTMLElement>(null);
