@@ -1,0 +1,16 @@
+{
+  "name": "Strat101.com",
+  "short_name": "Strat101",
+  "description": "Strategy Execution Platform — Enabling Transformation Journeys",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F2744",
+  "theme_color": "#0F2744",
+  "orientation": "any",
+  "icons": [
+    { "src": "/logo.jpg", "sizes": "192x192", "type": "image/jpeg", "purpose": "any maskable" },
+    { "src": "/logo.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "screenshots": []
+}
