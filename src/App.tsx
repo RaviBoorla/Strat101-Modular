@@ -545,7 +545,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
             // Load tenant features on mount
             const { data: tenant } = await supabase
               .from('tenants')
-              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, feat_ride, enabled_item_types')
+              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, feat_ride, feat_chat, enabled_item_types')
               .eq('id', data.tenant_id)
               .single();
 
