@@ -265,11 +265,12 @@ export default function TopNav({
         {isMobile&&(
           <nav style={{display:'flex',alignItems:'center',flex:1,minWidth:0,overflowX:'auto',gap:0}}>
             {NAV_ITEMS.map(n=>(
-              <button key={n.id} onClick={()=>{handleNavClick(n.id);setMobileMenu(false);}}
+              <button key={n.id}
+                onClick={()=>{ if(n.id==='create'){setMobileMenu(o=>!o);}else{handleNavClick(n.id);setMobileMenu(false);} }}
                 style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
                   padding:'4px 10px',borderRadius:6,border:'none',cursor:'pointer',gap:1,flexShrink:0,
                   background:isActive(n.id)?ACTIVE_BG:'transparent',transition:'all 0.15s',
-                  minWidth:44, minHeight:40}}>
+                  minWidth:44,minHeight:40}}>
                 <span style={{fontSize:18}}>{n.icon}</span>
                 <span style={{fontSize:8,fontWeight:isActive(n.id)?700:500,color:isActive(n.id)?TEXT_ACTIVE:TEXT_MAIN,lineHeight:1,whiteSpace:'nowrap'}}>{n.label.split(' ')[0]}</span>
               </button>
@@ -316,7 +317,7 @@ export default function TopNav({
               {initials}
             </button>
             {mobileMenuOpen&&(
-              <div style={{position:'fixed',top:50,right:8,background:'white',borderRadius:14,border:'1px solid #e2e8f0',boxShadow:'0 8px 32px rgba(0,0,0,0.18)',padding:8,minWidth:220,zIndex:100}}>
+              <div style={{position:'fixed',top:50,right:8,background:'white',borderRadius:14,border:'1px solid #e2e8f0',boxShadow:'0 8px 32px rgba(0,0,0,0.18)',padding:8,minWidth:240,maxHeight:'calc(100vh - 70px)',overflowY:'auto',zIndex:100}}>
                 {/* Search */}
                 <div style={{padding:'4px 8px 8px'}}>
                   <InlineSearch items={items} onNav={id=>{onNavItem(id);setMobileMenu(false);}}/>
@@ -331,6 +332,33 @@ export default function TopNav({
                   </div>
                 </div>
                 <div style={{height:1,background:'#f1f5f9',margin:'2px 0 6px'}}/>
+                {/* Create items */}
+                {!isViewer&&features.create&&(<>
+                  <div style={{padding:'4px 12px 3px',fontSize:10,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.05em'}}>Create new</div>
+                  <div style={{maxHeight:240,overflowY:'auto'}}>
+                    {WORK_ITEM_TYPES.filter((t:string)=>activeTypes.includes(t)).map((t:string)=>(
+                      <button key={t} onClick={()=>{onCreateNew(t);setMobileMenu(false);}}
+                        style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
+                        onMouseEnter={e=>(e.currentTarget.style.background='#f0fdf4')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                        <span style={{fontSize:16}}>{TC[t].i}</span>
+                        <span style={{fontSize:13,fontWeight:500,color:'#374151'}}>{TC[t].l}</span>
+                        <span style={{marginLeft:'auto',fontSize:13,color:'#16a34a',fontWeight:700}}>＋</span>
+                      </button>
+                    ))}
+                    {features.ride&&([['risk','⚡','Risk','#dc2626'],['decision','🎯','Decision','#6366f1']] as const).map(([t,ic,lb,col])=>(
+                      <button key={t} onClick={()=>{onCreateNew(t);setMobileMenu(false);}}
+                        style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
+                        onMouseEnter={e=>(e.currentTarget.style.background='#f8f7ff')}
+                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                        <span style={{fontSize:16}}>{ic}</span>
+                        <span style={{fontSize:13,fontWeight:500,color:'#374151'}}>{lb}</span>
+                        <span style={{marginLeft:'auto',fontSize:13,color:col,fontWeight:700}}>＋</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{height:1,background:'#f1f5f9',margin:'4px 0 6px'}}/>
+                </>)}
                 {/* Admin buttons */}
                 {onOpenGlobalAdmin&&(
                   <button onClick={()=>{onOpenGlobalAdmin!();setMobileMenu(false);}}
