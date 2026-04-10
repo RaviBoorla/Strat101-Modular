@@ -259,7 +259,7 @@ export default function ChatPanel({ tenantId, loggedUser, userRole='editor', isV
       {open && (
         <div style={{ position:'fixed', bottom:116, right:20, zIndex:200,
           width:'min(380px, calc(100vw - 32px))',
-          height:'min(540px, calc(100vh - 160px))',
+          height:'min(378px, calc(100vh - 160px))',
           background:'white', borderRadius:16, border:'1px solid #e2e8f0',
           boxShadow:'0 8px 40px rgba(0,0,0,0.18)',
           display:'flex', flexDirection:'column', overflow:'hidden',
