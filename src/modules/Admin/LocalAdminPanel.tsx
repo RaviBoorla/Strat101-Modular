@@ -394,7 +394,7 @@ function FeaturesTab({ tenant, tenantId, loggedUser, onRefresh }:
     loadRequests();
   };
 
-  const FEATURES = ['kanban','workitems','create','bot','reports','ride'];
+  const FEATURES = ['kanban','workitems','create','bot','reports','ride','chat'];
 
   return (
     <div style={{padding:20,maxWidth:640}}>
