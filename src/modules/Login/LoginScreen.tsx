@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useResponsive } from "../../hooks/useResponsive";
 import { supabase } from "../../lib/supabase";
 import LOGO_SRC from '../../logoData';
 
@@ -13,8 +14,8 @@ const inputStyle: React.CSSProperties = {
   width:'100%', boxSizing:'border-box',
   background:'rgba(255,255,255,0.06)',
   border:'1px solid rgba(255,255,255,0.15)',
-  borderRadius:10, padding:'11px 14px',
-  color:'white', fontSize:13, outline:'none',
+  borderRadius:10, padding:'12px 14px',
+  color:'white', fontSize:16, outline:'none',
   transition:'border-color 0.15s',
 };
 const labelStyle: React.CSSProperties = {
@@ -29,6 +30,7 @@ const FEATURES: [string,string][] = [
 ];
 
 export default function LoginScreen({ onLogin }: LoginScreenProps) {
+  const { isMobile } = useResponsive();
   const [mode,    setMode]    = useState<Mode>('login');
   const [regStep, setRegStep] = useState<RegStep>('credentials');
 
@@ -302,13 +304,13 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
   };
 
   // ── RENDER ────────────────────────────────────────────────────────────────
-  const cardWidth = mode === 'register' && regStep !== 'pending' ? 440 : 380;
+  const cardWidth = 'min(440px,calc(100vw - 32px))';
 
   return (
-    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 45%,#0f2744 100%)',fontFamily:'system-ui,sans-serif'}}>
+    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 45%,#0f2744 100%)',fontFamily:'system-ui,sans-serif',overflowY:'auto'}}>
 
       {/* Top bar */}
-      <div style={{padding:'18px 32px',display:'flex',alignItems:'center',gap:10,background:'#a3bbff',borderBottom:'1px solid #7a9ee8'}}>
+      <div style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:10,background:'#a3bbff',borderBottom:'1px solid #7a9ee8',flexShrink:0}}>
         <img src={LOGO_SRC} alt='Strat101' style={{width:36,height:36,borderRadius:10,objectFit:'cover',boxShadow:'0 4px 12px rgba(0,0,0,0.3)'}}/>
         <div>
           <div style={{color:'#0c2040',fontWeight:900,fontSize:18,letterSpacing:'-0.3px',lineHeight:1}}>Strat101.com</div>
@@ -316,11 +318,11 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         </div>
       </div>
 
-      <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}}>
-        <div style={{display:'flex',gap:'clamp(16px,4vw,64px)',alignItems:'center',maxWidth:960,width:'100%',flexWrap:'wrap',justifyContent:'center'}}>
+      <div style={{flex:1,padding:'clamp(12px,4vw,32px) 16px',display:'flex',flexDirection:'column',alignItems:'center'}}>
+        <div style={{display:'flex',gap:'clamp(12px,4vw,64px)',alignItems:'flex-start',maxWidth:960,width:'100%',flexWrap:'wrap',justifyContent:'center'}}>
 
           {/* Left hero */}
-          <div style={{flex:1,color:'white',minWidth:260}}>
+          {!isMobile&&<div style={{flex:1,color:'white',minWidth:280}}>
             <div style={{display:'inline-flex',alignItems:'center',gap:8,background:'rgba(37,99,235,0.18)',border:'1px solid rgba(37,99,235,0.35)',borderRadius:999,padding:'5px 14px',marginBottom:24}}>
               <span style={{width:7,height:7,borderRadius:'50%',background:'#60a5fa',display:'inline-block'}}/>
               <span style={{color:'#93c5fd',fontSize:11,fontWeight:600,letterSpacing:'0.05em'}}>AI-POWERED STRATEGY MANAGEMENT</span>
@@ -339,10 +341,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
 
           {/* Right card */}
-          <div style={{background:'rgba(255,255,255,0.04)',backdropFilter:'blur(20px)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:20,padding:'36px 32px',width:cardWidth,flexShrink:0,boxShadow:'0 25px 60px rgba(0,0,0,0.4)',transition:'width 0.2s'}}>
+          <div style={{background:'rgba(255,255,255,0.04)',backdropFilter:'blur(20px)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:20,padding:'clamp(20px,5vw,36px) clamp(16px,5vw,32px)',width:cardWidth,flexShrink:0,boxShadow:'0 25px 60px rgba(0,0,0,0.4)'}}>
 
             {/* ── LOGIN ── */}
             {mode === 'login' && (
@@ -587,7 +589,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
       {/* ── FORGOT PASSWORD MODAL ── */}
       {forgotMode && (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,backdropFilter:'blur(4px)'}}>
-          <div style={{background:'#0f1f35',border:'1px solid rgba(255,255,255,0.12)',borderRadius:20,padding:'36px 32px',maxWidth:380,width:'90%',margin:'0 16px',boxShadow:'0 25px 60px rgba(0,0,0,0.5)'}}>
+          <div style={{background:'#0f1f35',border:'1px solid rgba(255,255,255,0.12)',borderRadius:20,padding:'clamp(20px,5vw,36px) clamp(16px,5vw,32px)',maxWidth:380,width:'calc(100vw - 32px)',margin:'0',boxShadow:'0 25px 60px rgba(0,0,0,0.5)'}}>
             {!forgotSent ? (
               <>
                 <div style={{textAlign:'center',marginBottom:24}}>
@@ -638,10 +640,10 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
         </div>
       )}
 
-      <div style={{padding:'14px 32px',background:'#a3bbff',borderTop:'1px solid #7a9ee8',display:'flex',justifyContent:'center',alignItems:'center',gap:16}}>
+      <div style={{padding:'10px 16px',background:'#a3bbff',borderTop:'1px solid #7a9ee8',display:'flex',justifyContent:'center',alignItems:'center',gap:8,flexWrap:'wrap',flexShrink:0}}>
         <span style={{color:'#0c2040',fontSize:11,fontWeight:600}}>®Strat101.com</span>
-        <span style={{color:'#4a6a9e'}}>|</span>
-        <span style={{color:'#0c2040',fontSize:11}}>©Copyright 2026. All rights Reserved.</span>
+        <span style={{color:'#4a6a9e',display:'none'}}>|</span>
+        <span style={{color:'#0c2040',fontSize:11}}>©2026 All rights Reserved.</span>
         <span style={{color:'#4a6a9e'}}>|</span>
         <a href="mailto:Support@Strat101.com" style={{color:'#0c2040',fontSize:11,textDecoration:'none',fontWeight:600}}>Support@Strat101.com</a>
       </div>
