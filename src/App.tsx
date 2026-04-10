@@ -11,6 +11,8 @@ import LoginScreen   from "./modules/Login/LoginScreen";
 import BotPanel      from "./modules/AiAssist/BotPanel";
 import WorkItemsView, { ListView } from "./modules/WorkItems/WorkItemsView";
 import RiDeIntel, { RecordForm as RiDeForm, RiDeRecord } from "./modules/RiDeIntel/RiDeIntel";
+import ChatPanel from "./modules/Chat/ChatPanel";
+import { useResponsive } from "./hooks/useResponsive";
 import KanbanBoard   from "./modules/Kanban/KanbanBoard";
 import ItemForm, { LinkDlg } from "./modules/Create/ItemForm";
 import ReportBuilder from "./modules/Reports/ReportBuilder";
@@ -23,7 +25,7 @@ import CommandPalette from "./components/CommandPalette";
 import LOGO_SRC from './logoData';
 
 const ALL_FEATURES: TenantFeatures = {
-  kanban: true, workitems: true, create: true, bot: true, reports: true, ride: false,
+  kanban: true, workitems: true, create: true, bot: true, reports: true, ride: false, chat: false,
 };
 
 // ─── SUPABASE DATA HELPERS ────────────────────────────────────────────────────
@@ -209,6 +211,7 @@ function Workspace({
 }) {
   const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
   const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
+  const { isMobile, isTablet } = useResponsive();
 
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -461,7 +464,7 @@ function Workspace({
         </div>
         {rideForm && tenantId && <RiDeForm record={rideForm.record} type={rideForm.type} tenantId={tenantId} loggedUser={loggedUser} workItems={items} onSave={()=>setRideForm(null)} onClose={()=>setRideForm(null)}/>}
       {selected && view !== 'bot' && (
-          <div style={{ position: window.innerWidth < 640 ? 'absolute' : 'relative', inset: window.innerWidth < 640 ? 0 : 'auto', zIndex: window.innerWidth < 640 ? 30 : 1, display:'flex', width: window.innerWidth < 640 ? '100%' : '420px', flexShrink:0 }}>
+          <div style={{ position: isMobile ? 'absolute' : 'relative', inset: isMobile ? '0' : 'auto', zIndex: isMobile ? 30 : 1, display:'flex', width: isMobile ? '100%' : isTablet ? '360px' : '420px', flexShrink:0 }}>
             <DetailPanel item={selected} allItems={items} tab={dtab} onTab={setDtab}
               onEdit={() => setForm({ ...selected })} onDelete={() => remove(selected.id)} onClose={() => setSel(null)}
               onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }} onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
@@ -470,7 +473,8 @@ function Workspace({
           </div>
         )}
       </div>
-      <footer style={{ background:'#a3bbff', borderTop:'1px solid #7a9ee8', padding:'3px 16px', display:'flex', alignItems:'center', justifyContent:'center', gap:12, flexShrink:0 }}>
+      {features.chat && tenantId && <ChatPanel tenantId={tenantId} loggedUser={loggedUser} userRole={userRole} isViewer={isViewer}/>}
+      <footer style={{ background:'#a3bbff', borderTop:'1px solid #7a9ee8', padding:`3px 16px calc(3px + var(--sab, 0px))`, display:'flex', alignItems:'center', justifyContent:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:11, color:'#0c2d4a', letterSpacing:'0.02em' }}>
           ®Strat101.com  |  ©Copyright 2026. All rights Reserved.  |  Contact:{' '}
           <a href="mailto:Support@Strat101.com" style={{ color:'#0c2d4a', textDecoration:'none', fontWeight:600 }}>Support@Strat101.com</a>
@@ -532,6 +536,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
                 bot:       t.feat_bot       ?? true,
                 reports:   t.feat_reports   ?? true,
                 ride:      t.feat_ride      ?? false,
+              chat:      t.feat_chat      ?? false,
               });
               const et = t.enabled_item_types;
               setEnabledTypes(et && et.length > 0 ? et : ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
