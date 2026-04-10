@@ -2,12 +2,59 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0F2744" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Strat101" />
+    <link rel="apple-touch-icon" href="/logo.jpg" />
+
+    <!-- SEO -->
+    <meta name="description" content="Strat101.com — Strategy Execution Platform. Enabling Transformation Journeys." />
+    <meta name="application-name" content="Strat101.com" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+
     <title>Strat101.com — Enabling Transformation</title>
+
+    <style>
+      /* Safe area for notched phones (iPhone X+) */
+      :root {
+        --sat: env(safe-area-inset-top, 0px);
+        --sar: env(safe-area-inset-right, 0px);
+        --sab: env(safe-area-inset-bottom, 0px);
+        --sal: env(safe-area-inset-left, 0px);
+      }
+      * { box-sizing: border-box; }
+      html, body, #root {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+      }
+      /* Prevent iOS rubber-band scroll on the root */
+      body { overscroll-behavior: none; }
+      /* Smooth scrolling in scrollable containers */
+      * { -webkit-overflow-scrolling: touch; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
