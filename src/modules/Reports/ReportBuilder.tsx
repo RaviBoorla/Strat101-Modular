@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useResponsive } from "../../hooks/useResponsive";
 import { TC, SC, PC, HIC, RC, TYPES, ALL_FIELDS } from "../../constants";
 import { td } from "../../utils";
 
@@ -174,6 +175,7 @@ interface ReportBuilderProps {
 export default function ReportBuilder({ items, enabledTypes }: ReportBuilderProps) {
   const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
   const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
+  const { isMobile } = useResponsive();
   const [rtype, setRtype] = useState('histogram');
   const [types, setTypes] = useState(new Set(activeTypes));
   const [flds, setFlds] = useState(new Set(['key','title','type','status','priority','health','risk','riskStatement','owner','progress','currentStatus']));
@@ -203,14 +205,14 @@ export default function ReportBuilder({ items, enabledTypes }: ReportBuilderProp
   );
 
   return (
-    <div style={{ display:'flex', height:'100%', overflow:'hidden', background:'#f1f5f9' }}>
+    <div style={{ display:'flex', flexDirection:isMobile?'column':'row', height:'100%', overflow:isMobile?'auto':'hidden', background:'#f1f5f9' }}>
       {/* LEFT CONFIG PANEL */}
-      <div style={{ width:264, flexShrink:0, borderRight:'1px solid #e2e8f0', background:'white', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      <div style={{ width:isMobile?'100%':264, flexShrink:0, borderRight:isMobile?'none':'1px solid #e2e8f0', borderBottom:isMobile?'1px solid #e2e8f0':'none', background:'white', display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ padding:'9px 11px', borderBottom:'1px solid #e2e8f0', background:'#a3bbff', flexShrink:0 }}>
           <div style={{ fontWeight:700, fontSize:12, color:'#0c2040' }}>📈 Report Builder</div>
           <div style={{ fontSize:10, color:'#1a3a6e', marginTop:1 }}>Configure and generate</div>
         </div>
-        <div style={{ flex:1, overflowY:'auto', padding:'9px 11px', display:'flex', flexDirection:'column', gap:9 }}>
+        <div style={{ flex:isMobile?'none':1, maxHeight:isMobile?220:undefined, overflowY:'auto', padding:'9px 11px', display:'flex', flexDirection:'column', gap:9 }}>
           {/* Report Type */}
           <div>
             <SLbl>Report Type</SLbl>
@@ -281,7 +283,7 @@ export default function ReportBuilder({ items, enabledTypes }: ReportBuilderProp
       </div>
 
       {/* RIGHT RESULTS PANEL */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:isMobile?'visible':'hidden', minWidth:0 }}>
         <div style={{ padding:'8px 14px', borderBottom:'1px solid #e2e8f0', background:'white', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ fontSize:13, fontWeight:600, color:'#374151' }}>
             {result
