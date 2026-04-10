@@ -717,12 +717,12 @@ function SetPasswordScreen({ onDone }: { onDone: () => void }) {
   const inp: React.CSSProperties = {
     width:'100%', boxSizing:'border-box', paddingRight:40,
     background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)',
-    borderRadius:10, padding:'11px 14px', color:'white', fontSize:13, outline:'none',
+    borderRadius:10, padding:'12px 14px', color:'white', fontSize:16, outline:'none',
   };
 
   return (
-    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
-      <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'40px 36px', maxWidth:400, width:'100%', margin:'0 16px', backdropFilter:'blur(20px)' }}>
+    <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'flex-start', justifyContent:'center', fontFamily:'system-ui,sans-serif', overflowY:'auto', padding:'24px 0' }}>
+      <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'clamp(20px,5vw,40px) clamp(16px,5vw,36px)', maxWidth:400, width:'calc(100vw - 32px)', margin:'0 16px', backdropFilter:'blur(20px)' }}>
         <div style={{ textAlign:'center', marginBottom:28 }}>
           <img src={LOGO_SRC} alt='Strat101' style={{ width:52, height:52, borderRadius:14, objectFit:'cover', margin:'0 auto 14px', boxShadow:'0 8px 24px rgba(0,0,0,0.3)' }}/>
           <div style={{ color:'white', fontWeight:700, fontSize:20, marginBottom:6 }}>
@@ -991,7 +991,7 @@ export default function App() {
 
   if (checking) {
     return (
-      <div style={{ minHeight:'100vh', background:'#0e1f35', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ minHeight:'100vh', background:'#0e1f35', display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'40px 16px' }}>
         <div style={{ textAlign:'center' }}>
           <img src={LOGO_SRC} alt='Strat101' style={{ width:44, height:44, borderRadius:12, objectFit:'cover', margin:'0 auto 14px', boxShadow:'0 4px 16px rgba(0,0,0,0.3)' }}/>
           <div style={{ fontSize:12, color:'#475569' }}>Loading…</div>
@@ -1006,7 +1006,7 @@ export default function App() {
 
   if (tokenError) {
     return (
-      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
+      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'flex-start', justifyContent:'center', fontFamily:'system-ui,sans-serif', overflowY:'auto', padding:'24px 0' }}>
         <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'40px 36px', maxWidth:400, width:'100%', margin:'0 16px', textAlign:'center' }}>
           <div style={{ fontSize:48, marginBottom:16 }}>⏰</div>
           <div style={{ color:'white', fontWeight:700, fontSize:20, marginBottom:10 }}>Link Expired</div>
@@ -1027,7 +1027,7 @@ export default function App() {
 
   if (pendingApproval) {
     return (
-      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'system-ui,sans-serif' }}>
+      <div style={{ minHeight:'100vh', background:'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)', display:'flex', alignItems:'flex-start', justifyContent:'center', fontFamily:'system-ui,sans-serif', overflowY:'auto', padding:'24px 0' }}>
         <div style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:20, padding:'48px 40px', maxWidth:420, width:'100%', margin:'0 16px', textAlign:'center', backdropFilter:'blur(20px)' }}>
           <div style={{ fontSize:56, marginBottom:16 }}>⏳</div>
           <div style={{ color:'white', fontWeight:700, fontSize:22, marginBottom:12 }}>Awaiting Approval</div>
