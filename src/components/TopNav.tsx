@@ -102,6 +102,7 @@ export default function TopNav({
   const [wiOpen,     setWiOpen]   = useState(false);
   const [createOpen, setCreate]   = useState(false);
   const [mobileMenuOpen, setMobileMenu] = useState(false);
+  const [mobileCreateOpen, setMobileCreate] = useState(false);
   const isWI = view==='workitems';
   const isLV = TYPES.includes(view);
 
@@ -111,7 +112,7 @@ export default function TopNav({
   const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   const navRef = useRef<HTMLElement>(null);
   useEffect(()=>{
-    const h=(e:MouseEvent)=>{ if(navRef.current&&!navRef.current.contains(e.target as Node)){ setWiOpen(false); setCreate(false); setMobileMenu(false); } };
+    const h=(e:MouseEvent)=>{ if(navRef.current&&!navRef.current.contains(e.target as Node)){ setWiOpen(false); setCreate(false); setMobileMenu(false); setMobileCreate(false); } };
     document.addEventListener('mousedown',h);
     return ()=>document.removeEventListener('mousedown',h);
   },[]);
@@ -129,8 +130,8 @@ export default function TopNav({
   // Work Items ARROW click → toggle dropdown
   // Create click → toggle dropdown (unchanged)
   const handleNavClick=(id:string)=>{
-    if(id==='kanban'||id==='bot'||id==='reports'||id==='ride'){ setWiOpen(false); setCreate(false); setView(id); }
-    else if(id==='workitems'){ setCreate(false); setWiOpen(false); setView('workitems'); setWorkItemFilter('all'); }
+    if(id==='kanban'||id==='bot'||id==='reports'||id==='ride'){ setWiOpen(false); setCreate(false); setMobileCreate(false); setView(id); }
+    else if(id==='workitems'){ setCreate(false); setMobileCreate(false); setWiOpen(false); setView('workitems'); setWorkItemFilter('all'); }
     else if(id==='create'){ setWiOpen(false); if(!isViewer) setCreate((o:boolean)=>!o); }
   };
 
@@ -266,7 +267,7 @@ export default function TopNav({
           <nav style={{display:'flex',alignItems:'center',flex:1,minWidth:0,overflowX:'auto',gap:0}}>
             {NAV_ITEMS.map(n=>(
               <button key={n.id}
-                onClick={()=>{ if(n.id==='create'){setMobileMenu(o=>!o);}else{handleNavClick(n.id);setMobileMenu(false);} }}
+                onClick={()=>{ if(n.id==='create'){if(!isViewer){setMobileCreate(o=>!o);setMobileMenu(false);}}else{handleNavClick(n.id);setMobileMenu(false);setMobileCreate(false);} }}
                 style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
                   padding:'4px 10px',borderRadius:6,border:'none',cursor:'pointer',gap:1,flexShrink:0,
                   background:isActive(n.id)?ACTIVE_BG:'transparent',transition:'all 0.15s',
@@ -312,84 +313,106 @@ export default function TopNav({
         {/* ── RIGHT CONTROLS — mobile: avatar → dropdown ── */}
         {isMobile&&(
           <div style={{position:'relative',flexShrink:0}}>
-            <button onClick={()=>setMobileMenu(o=>!o)}
+            <button onClick={()=>{setMobileMenu(o=>!o);setMobileCreate(false);}}
               style={{width:34,height:34,borderRadius:17,background:avatarBg,border:'2px solid rgba(255,255,255,0.25)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'white',flexShrink:0}}>
               {initials}
             </button>
             {mobileMenuOpen&&(
-              <div style={{position:'fixed',top:50,right:8,background:'white',borderRadius:14,border:'1px solid #e2e8f0',boxShadow:'0 8px 32px rgba(0,0,0,0.18)',padding:8,minWidth:240,maxHeight:'calc(100vh - 70px)',overflowY:'auto',zIndex:100}}>
-                {/* Search */}
-                <div style={{padding:'4px 8px 8px'}}>
-                  <InlineSearch items={items} onNav={id=>{onNavItem(id);setMobileMenu(false);}}/>
-                </div>
-                <div style={{height:1,background:'#f1f5f9',margin:'2px 0 6px'}}/>
+              <div style={{position:'fixed',top:50,right:8,background:'white',borderRadius:14,border:'1px solid #e2e8f0',boxShadow:'0 8px 32px rgba(0,0,0,0.18)',padding:8,minWidth:220,zIndex:100}}>
                 {/* User info */}
-                <div style={{padding:'4px 12px 8px',display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{width:32,height:32,borderRadius:16,background:avatarBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>{initials}</div>
+                <div style={{padding:'6px 12px 10px',display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{width:36,height:36,borderRadius:18,background:avatarBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'white',flexShrink:0}}>{initials}</div>
                   <div>
-                    <div style={{fontSize:12,fontWeight:700,color:'#1e293b'}}>{loggedUser}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:'#1e293b'}}>{loggedUser}</div>
                     <div style={{fontSize:10,color:'#94a3b8'}}>{tenantName||'Strat101.com'}</div>
                   </div>
                 </div>
-                <div style={{height:1,background:'#f1f5f9',margin:'2px 0 6px'}}/>
-                {/* Create items */}
-                {!isViewer&&features.create&&(<>
-                  <div style={{padding:'4px 12px 3px',fontSize:10,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.05em'}}>Create new</div>
-                  <div style={{maxHeight:240,overflowY:'auto'}}>
-                    {WORK_ITEM_TYPES.filter((t:string)=>activeTypes.includes(t)).map((t:string)=>(
-                      <button key={t} onClick={()=>{onCreateNew(t);setMobileMenu(false);}}
-                        style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
-                        onMouseEnter={e=>(e.currentTarget.style.background='#f0fdf4')}
-                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                        <span style={{fontSize:16}}>{TC[t].i}</span>
-                        <span style={{fontSize:13,fontWeight:500,color:'#374151'}}>{TC[t].l}</span>
-                        <span style={{marginLeft:'auto',fontSize:13,color:'#16a34a',fontWeight:700}}>＋</span>
-                      </button>
-                    ))}
-                    {features.ride&&([['risk','⚡','Risk','#dc2626'],['decision','🎯','Decision','#6366f1']] as const).map(([t,ic,lb,col])=>(
-                      <button key={t} onClick={()=>{onCreateNew(t);setMobileMenu(false);}}
-                        style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
-                        onMouseEnter={e=>(e.currentTarget.style.background='#f8f7ff')}
-                        onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                        <span style={{fontSize:16}}>{ic}</span>
-                        <span style={{fontSize:13,fontWeight:500,color:'#374151'}}>{lb}</span>
-                        <span style={{marginLeft:'auto',fontSize:13,color:col,fontWeight:700}}>＋</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{height:1,background:'#f1f5f9',margin:'4px 0 6px'}}/>
-                </>)}
-                {/* Admin buttons */}
+                <div style={{height:1,background:'#f1f5f9',margin:'0 0 6px'}}/>
+                {/* Admin options — shown only to admins */}
                 {onOpenGlobalAdmin&&(
                   <button onClick={()=>{onOpenGlobalAdmin!();setMobileMenu(false);}}
-                    style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
+                    style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
                     onMouseEnter={e=>(e.currentTarget.style.background='#eff6ff')}
                     onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                    <span style={{fontSize:16}}>⚡</span>
+                    <span style={{fontSize:18}}>⚡</span>
                     <span style={{fontSize:13,fontWeight:600,color:'#2563eb'}}>Global Admin</span>
                   </button>
                 )}
                 {onOpenLocalAdmin&&(
                   <button onClick={()=>{onOpenLocalAdmin!();setMobileMenu(false);}}
-                    style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
+                    style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
                     onMouseEnter={e=>(e.currentTarget.style.background='#f0f9ff')}
                     onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                    <span style={{fontSize:16}}>🏢</span>
+                    <span style={{fontSize:18}}>🏢</span>
                     <span style={{fontSize:13,fontWeight:600,color:'#0284c7'}}>Local Admin</span>
                   </button>
                 )}
-                <div style={{height:1,background:'#f1f5f9',margin:'6px 0'}}/>
-                {/* Sign out */}
+                {(onOpenGlobalAdmin||onOpenLocalAdmin)&&<div style={{height:1,background:'#f1f5f9',margin:'6px 0'}}/>}
+                {/* Sign out — all roles */}
                 <button onClick={()=>{setMobileMenu(false);onSignOut();}}
-                  style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'10px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
+                  style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
                   onMouseEnter={e=>(e.currentTarget.style.background='#fef2f2')}
                   onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                  <span style={{fontSize:16}}>🚪</span>
+                  <span style={{fontSize:18}}>🚪</span>
                   <span style={{fontSize:13,fontWeight:600,color:'#dc2626'}}>Sign Out</span>
                 </button>
               </div>
             )}
           </div>
+        )}
+
+        {/* ── MOBILE CREATE SHEET — bottom sheet, separate from avatar menu ── */}
+        {isMobile&&mobileCreateOpen&&!isViewer&&(
+          <>
+            {/* Backdrop */}
+            <div onClick={()=>setMobileCreate(false)}
+              style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',zIndex:90}}/>
+            {/* Sheet */}
+            <div style={{position:'fixed',bottom:0,left:0,right:0,background:'white',
+              borderRadius:'16px 16px 0 0',zIndex:91,
+              maxHeight:'70vh',display:'flex',flexDirection:'column',overflow:'hidden',
+              boxShadow:'0 -4px 32px rgba(0,0,0,0.2)'}}>
+              {/* Handle */}
+              <div style={{display:'flex',justifyContent:'center',padding:'10px 0 4px'}}>
+                <div style={{width:36,height:4,borderRadius:2,background:'#e2e8f0'}}/>
+              </div>
+              <div style={{padding:'4px 16px 10px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div style={{fontSize:14,fontWeight:700,color:'#0F2744'}}>➕ Create new</div>
+                <button onClick={()=>setMobileCreate(false)}
+                  style={{background:'none',border:'none',fontSize:18,color:'#94a3b8',cursor:'pointer',padding:'4px 8px'}}>×</button>
+              </div>
+              <div style={{flex:1,overflowY:'auto',padding:'0 8px 24px'}}>
+                {WORK_ITEM_TYPES.filter((t:string)=>activeTypes.includes(t)).map((t:string)=>(
+                  <button key={t} onClick={()=>{onCreateNew(t);setMobileCreate(false);}}
+                    style={{width:'100%',display:'flex',alignItems:'center',gap:12,
+                      padding:'13px 12px',border:'none',background:'transparent',
+                      cursor:'pointer',borderRadius:10,textAlign:'left'}}
+                    onMouseEnter={e=>(e.currentTarget.style.background='#f0fdf4')}
+                    onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                    <span style={{fontSize:22,width:32,textAlign:'center',flexShrink:0}}>{TC[t].i}</span>
+                    <span style={{fontSize:14,fontWeight:500,color:'#1e293b',flex:1}}>{TC[t].l}</span>
+                    <span style={{fontSize:18,color:'#16a34a',fontWeight:700}}>＋</span>
+                  </button>
+                ))}
+                {features.ride&&(<>
+                  <div style={{height:1,background:'#f1f5f9',margin:'6px 8px'}}/>
+                  <div style={{padding:'4px 12px 6px',fontSize:11,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.05em'}}>RiDe Intel</div>
+                  {([['risk','⚡','Risk','#dc2626'],['decision','🎯','Decision','#6366f1']] as const).map(([t,ic,lb,col])=>(
+                    <button key={t} onClick={()=>{onCreateNew(t);setMobileCreate(false);}}
+                      style={{width:'100%',display:'flex',alignItems:'center',gap:12,
+                        padding:'13px 12px',border:'none',background:'transparent',
+                        cursor:'pointer',borderRadius:10,textAlign:'left'}}
+                      onMouseEnter={e=>(e.currentTarget.style.background='#f8f7ff')}
+                      onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                      <span style={{fontSize:22,width:32,textAlign:'center',flexShrink:0}}>{ic}</span>
+                      <span style={{fontSize:14,fontWeight:500,color:'#1e293b',flex:1}}>{lb}</span>
+                      <span style={{fontSize:18,color:col,fontWeight:700}}>＋</span>
+                    </button>
+                  ))}
+                </>)}
+              </div>
+            </div>
+          </>
         )}
       </div>
 
