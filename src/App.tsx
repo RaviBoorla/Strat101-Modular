@@ -943,23 +943,22 @@ export default function App() {
       sessionStorage.setItem('strat101_set_password', '1');
       setPasswordModeRef.current = true;
 
-      // Only sign out an EXISTING session (e.g. admin in same browser).
-      // If we blindly sign out, we may clear the recovery session Supabase
-      // just established from the URL token — causing "Auth session missing".
-      // Check for an existing session first, sign out only if one exists,
-      // then let Supabase re-exchange the hash token via getSession().
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
-          // An existing session is present (e.g. admin logged in).
-          // Sign it out so the recovery token can be exchanged cleanly.
-          supabase.auth.signOut({ scope: 'local' }).then(() => {
-            supabase.auth.getSession();
-          });
-        }
-        // If no existing session, Supabase already holds the recovery session
-        // from the URL hash — onAuthStateChange fires PASSWORD_RECOVERY automatically.
-        // Do NOT call getSession again or signOut — just wait for the event.
-      });
+      // CRITICAL: By the time our JS runs, Supabase has already exchanged the
+      // URL hash token and stored the new session in localStorage.
+      // Calling signOut() here destroys that session — causing "Auth session missing"
+      // when SetPasswordScreen calls updateUser().
+      //
+      // The correct behaviour:
+      // - For recovery links: onAuthStateChange fires PASSWORD_RECOVERY automatically.
+      // - For invite/magiclink: onAuthStateChange fires SIGNED_IN automatically.
+      // Both are caught by the handlers above. We just need to wait.
+      //
+      // The only edge case is an admin testing in the same browser with their own
+      // session open. In that case Supabase still replaces their session with the
+      // token session in localStorage — so we don't need to sign them out either.
+      //
+      // Conclusion: do NOT call signOut or getSession here.
+      // Just set the flag and let onAuthStateChange do its job.
       return;
     }
 
