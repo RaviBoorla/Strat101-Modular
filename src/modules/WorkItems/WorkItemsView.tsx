@@ -86,7 +86,7 @@ export default function WorkItemsView({ items, sel, onSel, filter, enabledTypes 
             return (
               <tr key={it.id} onClick={() => onSel(it.id)} className={`border-b last:border-0 cursor-pointer ${sel===it.id?'bg-blue-50':idx%2===0?'hover:bg-gray-50':'bg-gray-50 hover:bg-gray-100'}`}>
                 <td className="px-2 py-1.5 whitespace-nowrap">
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs font-semibold border ${c.bg} ${c.tc} ${c.b}`} style={{ fontSize:10 }}>{c.i} {c.l}</span>
+                  <span className={c.tc} style={{ fontSize:10, fontWeight:600 }}>{c.i} {c.l}</span>
                 </td>
                 <td className="px-2 py-1.5 font-mono text-blue-600 whitespace-nowrap" style={{ fontSize:11 }}>{it.key}</td>
                 <td className="px-2 py-1.5 font-medium text-gray-800" style={{ maxWidth:180 }}>
@@ -108,7 +108,7 @@ export default function WorkItemsView({ items, sel, onSel, filter, enabledTypes 
                 </td>
                 <td className="px-2 py-1.5 text-gray-600 whitespace-nowrap" style={{ maxWidth:100, overflow:'hidden', textOverflow:'ellipsis' }}>{it.owner||'—'}</td>
                 <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap" style={{ maxWidth:100, overflow:'hidden', textOverflow:'ellipsis' }}>{it.assigned||'—'}</td>
-                <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap" style={{ maxWidth:100, overflow:'hidden', textOverflow:'ellipsis' }}>{it.sponsor||it.businessUnit||'—'}</td>
+                <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap" style={{ maxWidth:100, overflow:'hidden', textOverflow:'ellipsis' }}>{it.sponsor||'—'}</td>
                 <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap" style={{ maxWidth:100, overflow:'hidden', textOverflow:'ellipsis' }}>{it.businessUnit||'—'}</td>
                 <td className="px-2 py-1.5" style={{ minWidth:80 }}>
                   <div className="flex items-center gap-1.5"><div className="flex-1 bg-gray-200 rounded-full" style={{ height:4 }}><div className="bg-blue-500 rounded-full h-full" style={{ width:`${it.progress}%` }}/></div><span className="text-gray-500" style={{ fontSize:11, width:28 }}>{it.progress}%</span></div>
