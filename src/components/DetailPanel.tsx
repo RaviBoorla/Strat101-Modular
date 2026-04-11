@@ -178,7 +178,7 @@ function HNode({ item, allItems, selectedId, ancestorIds, onNav, depth, visited 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
               <span className={`font-bold shrink-0 ${c.tc}`} style={{ fontSize:11 }}>{c.i}</span>
-              <span className={`font-semibold border rounded-full px-1.5 py-0 shrink-0 ${c.bg} ${c.tc} ${c.b}`} style={{ fontSize:9 }}>{c.l}</span>
+              <span className={`font-semibold shrink-0 ${c.tc}`} style={{ fontSize:9 }}>{c.l}</span>
               <span className={`font-mono shrink-0 ${isSel?'text-blue-600 font-bold':'text-gray-400'}`} style={{ fontSize:10 }}>{item.key}</span>
               <span className={`px-1.5 rounded-full shrink-0 ${SC[item.status]||''}`} style={{ fontSize:9 }}>{item.status}</span>
               <span style={{ fontSize:11 }}>{HIC[item.health]}</span>
@@ -389,7 +389,7 @@ export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDele
     <aside className="flex flex-col bg-white border-l shadow-xl overflow-hidden" style={{ width:'100%', height:'100%' }}>
       <div className={`p-4 border-b ${c.bg}`}>
         <div className="flex items-center justify-between mb-2">
-          <span className={`rounded-full border px-2 py-0.5 font-bold ${c.bg} ${c.tc} ${c.b}`} style={{ fontSize:11 }}>{c.i} {c.l}</span>
+          <span className={`font-bold ${c.tc}`} style={{ fontSize:11 }}>{c.i} {c.l}</span>
           <div className="flex items-center gap-1">
             {!isViewer&&<button onClick={onEdit} className="p-1 rounded hover:bg-white text-gray-400 hover:text-blue-600" style={{ fontSize:13 }}>✏️</button>}
             {!isViewer&&<button onClick={onDelete} className="p-1 rounded hover:bg-white text-gray-400 hover:text-red-500" style={{ fontSize:13 }}>🗑️</button>}
