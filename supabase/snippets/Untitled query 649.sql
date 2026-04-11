@@ -1,0 +1,1 @@
+npx supabase link --project-ref <PROJECT_ID>
