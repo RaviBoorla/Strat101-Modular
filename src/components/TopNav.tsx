@@ -26,11 +26,7 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
     return ()=>document.removeEventListener('mousedown',h);
   },[]);
 
-  useEffect(()=>{
-    const h=(e:KeyboardEvent)=>{ if((e.metaKey||e.ctrlKey)&&e.key==='k'){ e.preventDefault(); inputRef.current?.focus(); setOpen(true); } };
-    window.addEventListener('keydown',h);
-    return ()=>window.removeEventListener('keydown',h);
-  },[]);
+  // ⌘/Ctrl+K is handled in Workspace to open CommandPalette (avoids duplicate handlers).
 
   const pick=(id:string)=>{ onNav(id); setQ(''); setOpen(false); };
   const onKey=(e:React.KeyboardEvent)=>{
@@ -65,6 +61,150 @@ function InlineSearch({ items, onNav }: InlineSearchProps) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── MOBILE FULL-SCREEN SEARCH ───────────────────────────────────────────────
+interface MobileSearchSheetProps {
+  items: any[];
+  onNav: (id: string) => void;
+  onClose: () => void;
+}
+
+function MobileSearchSheet({ items, onNav, onClose }: MobileSearchSheetProps) {
+  const [q, setQ] = useState('');
+  const [cursor, setCursor] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const results = useMemo(() => {
+    if (!q.trim()) return items.slice(0, 20);
+    return items
+      .map(i => ({ ...i, _s: fuzzyScore(i, q) }))
+      .filter(i => i._s > 0)
+      .sort((a, b) => b._s - a._s)
+      .slice(0, 24);
+  }, [q, items]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const pick = (id: string) => {
+    onNav(id);
+    onClose();
+  };
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setCursor(c => Math.min(c + 1, results.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setCursor(c => Math.max(c - 1, 0));
+    } else if (e.key === 'Enter' && results[cursor]) pick(results[cursor].id);
+    else if (e.key === 'Escape') onClose();
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 200,
+        background: 'rgba(15,23,42,0.55)',
+        display: 'flex',
+        flexDirection: 'column',
+        paddingTop: 'max(12px, env(safe-area-inset-top, 0px))',
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={ev => ev.stopPropagation()}
+        style={{
+          margin: '0 12px 12px',
+          background: 'white',
+          borderRadius: 14,
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: 'min(85vh, 640px)',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderBottom: '1px solid #f1f5f9' }}>
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={e => {
+              setQ(e.target.value);
+              setCursor(0);
+            }}
+            onKeyDown={onKey}
+            placeholder="Search items…"
+            style={{
+              flex: 1,
+              border: 'none',
+              outline: 'none',
+              fontSize: 16,
+              color: '#0f172a',
+            }}
+          />
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              border: 'none',
+              background: '#f1f5f9',
+              borderRadius: 8,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#64748b',
+              cursor: 'pointer',
+            }}
+          >
+            Close
+          </button>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1 }}>
+          {results.length === 0 ? (
+            <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+              {q.trim() ? 'No matches' : 'Type to search'}
+            </div>
+          ) : (
+            results.map((it, idx) => (
+              <button
+                key={it.id}
+                type="button"
+                onClick={() => pick(it.id)}
+                onMouseEnter={() => setCursor(idx)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  background: idx === cursor ? '#eff6ff' : 'transparent',
+                  borderBottom: '1px solid #f8fafc',
+                }}
+              >
+                <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#2563eb', flexShrink: 0, minWidth: 56 }}>
+                  {it.key}
+                </span>
+                <span style={{ fontSize: 12, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {it.title || '(Untitled)'}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -105,16 +245,16 @@ export default function TopNav({
   const [createOpen, setCreate]   = useState(false);
   const [mobileMenuOpen, setMobileMenu] = useState(false);
   const [mobileCreateOpen, setMobileCreate] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const isWI = view==='workitems';
   const isLV = TYPES.includes(view);
 
-  const { isMobile, w: _rw } = useResponsive();
-  const isTablet = _rw < 900;
+  const { isMobile, isTablet, isNarrowNav } = useResponsive();
 
   const dateStr = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   const navRef = useRef<HTMLElement>(null);
   useEffect(()=>{
-    const h=(e:MouseEvent)=>{ if(navRef.current&&!navRef.current.contains(e.target as Node)){ setWiOpen(false); setCreate(false); setMobileMenu(false); setMobileCreate(false); } };
+    const h=(e:MouseEvent)=>{ if(navRef.current&&!navRef.current.contains(e.target as Node)){ setWiOpen(false); setCreate(false); setMobileMenu(false); setMobileCreate(false); setMobileSearchOpen(false); } };
     document.addEventListener('mousedown',h);
     return ()=>document.removeEventListener('mousedown',h);
   },[]);
@@ -185,7 +325,7 @@ export default function TopNav({
                 onClick={()=>handleNavClick(n.id)}
                 style={{
                   display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:6,border:'none',cursor:'pointer',
-                  fontSize:isTablet?11:12,fontWeight:isActive(n.id)?700:500,
+                  fontSize:isNarrowNav?11:12,fontWeight:isActive(n.id)?700:500,
                   background:isActive(n.id)?ACTIVE_BG:'transparent',
                   color:isActive(n.id)?TEXT_ACTIVE:TEXT_MAIN,
                   transition:'all 0.15s',whiteSpace:'nowrap',
@@ -193,8 +333,8 @@ export default function TopNav({
                   borderBottomLeftRadius:0,borderBottomRightRadius:0,
                 }}>
                 <span style={{fontSize:13}}>{n.icon}</span>
-                {!isTablet&&<span>{n.label}</span>}
-                {isTablet&&<span style={{fontSize:10,fontWeight:600}}>{n.label.split(' ')[0]}</span>}
+                {!isNarrowNav&&<span>{n.label}</span>}
+                {isNarrowNav&&<span style={{fontSize:10,fontWeight:600}}>{n.label.split(' ')[0]}</span>}
                 {n.id==='workitems'&&(
                   <span onClick={handleWiArrow} title="Filter by type"
                     style={{fontSize:10,opacity:0.7,marginLeft:1,lineHeight:1,padding:'1px 2px',borderRadius:3,cursor:'pointer'}}
@@ -339,6 +479,30 @@ export default function TopNav({
                   </div>
                 </div>
                 <div style={{height:1,background:'#f1f5f9',margin:'0 0 6px'}}/>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileSearchOpen(true);
+                    setMobileMenu(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '11px 12px',
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    borderRadius: 8,
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f0fdf4')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ fontSize: 18 }}>🔍</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#0F2744' }}>Search items</span>
+                </button>
                 {/* Chat toggle — shown when feat_chat enabled */}
                 {features.chat&&onToggleChat&&(
                   <button onClick={()=>{onToggleChat();setMobileMenu(false);}}
@@ -437,6 +601,10 @@ export default function TopNav({
           </>
         )}
       </div>
+
+      {isMobile && mobileSearchOpen && (
+        <MobileSearchSheet items={items} onNav={onNavItem} onClose={() => setMobileSearchOpen(false)} />
+      )}
 
       {/* Breadcrumb strip */}
       <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(255,255,255,0.06)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6,minWidth:0,overflow:'hidden'}}>
