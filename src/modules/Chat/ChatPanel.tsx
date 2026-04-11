@@ -7,7 +7,7 @@ interface ChatMessage {
   channel: string; message: string; is_broadcast: boolean;
   read_by: string[]; created_at: string;
 }
-interface ChatUser { username: string; full_name: string; role: string; }
+interface ChatUser { username: string; full_name: string; role: string; tenant_id?: string; }
 interface ChatPanelProps {
   tenantId:   string;
   loggedUser: string;
@@ -82,10 +82,32 @@ export default function ChatPanel({
 
   // ── Load users ─────────────────────────────────────────────────────────────
   const loadUsers = useCallback(async () => {
-    const { data } = await supabase.from('tenant_users')
-      .select('username, full_name, role').eq('active', true).order('full_name');
-    if (data) setUsers((data as ChatUser[]).filter(u => u.username !== loggedUser));
-  }, [loggedUser]);
+    if (!tenantId) return;
+    // For global admin: also load local_admins from other tenants for cross-tenant messaging
+    const isGlobalAdmin = userRole === 'global_admin';
+
+    if (isGlobalAdmin) {
+      // Own tenant members (all active users)
+      const { data: ownUsers } = await supabase.from('tenant_users')
+        .select('username, full_name, role, tenant_id')
+        .eq('active', true).eq('tenant_id', tenantId).order('full_name');
+
+      // Local admins from other tenants
+      const { data: otherAdmins } = await supabase.from('tenant_users')
+        .select('username, full_name, role, tenant_id')
+        .eq('active', true).eq('role', 'local_admin')
+        .neq('tenant_id', tenantId).order('full_name');
+
+      const combined = [...(ownUsers||[]), ...(otherAdmins||[])];
+      setUsers(combined.filter(u => u.username !== loggedUser) as ChatUser[]);
+    } else {
+      // Regular users — only see members of own tenant
+      const { data } = await supabase.from('tenant_users')
+        .select('username, full_name, role')
+        .eq('active', true).eq('tenant_id', tenantId).order('full_name');
+      if (data) setUsers((data as ChatUser[]).filter(u => u.username !== loggedUser));
+    }
+  }, [tenantId, loggedUser, userRole]);
 
   // ── Load messages ───────────────────────────────────────────────────────────
   const loadMessages = useCallback(async (ch: string) => {
@@ -169,14 +191,22 @@ export default function ChatPanel({
     const text = input.trim();
     if (!text || sending || isViewer || (channel==='broadcast' && !isAdmin)) return;
     setSending(true); setInput('');
+
+    // For cross-tenant DMs (global admin → local admin of another tenant),
+    // store the message under the RECIPIENT's tenantId so their Realtime
+    // subscription (filtered on their tenant_id) picks it up.
+    const dmTargetUser = dmTarget ? users.find(u => u.username === dmTarget) : null;
+    const effectiveTenantId = (dmTargetUser?.tenant_id && dmTargetUser.tenant_id !== tenantId)
+      ? dmTargetUser.tenant_id : tenantId;
+
     const now = new Date().toISOString();
     const opt: ChatMessage = {
-      id:`opt_${now}`, tenant_id:tenantId, sender:loggedUser, channel,
+      id:`opt_${now}`, tenant_id:effectiveTenantId, sender:loggedUser, channel,
       message:text, is_broadcast:channel==='broadcast', read_by:[loggedUser], created_at:now,
     };
     setMessages(p => [...p, opt]);
     const { data, error } = await supabase.from('chat_messages').insert({
-      tenant_id:tenantId, sender:loggedUser, channel,
+      tenant_id:effectiveTenantId, sender:loggedUser, channel,
       message:text, is_broadcast:channel==='broadcast', read_by:[loggedUser],
     }).select().single();
     if (error) { setMessages(p => p.filter(m => m.id !== opt.id)); }
@@ -353,7 +383,10 @@ export default function ChatPanel({
           const showSender  = !isMe && (
             i===0 || prevMsg.sender!==m.sender || prevMsg.is_broadcast!==m.is_broadcast
           );
-          const displayName = m.is_broadcast ? `📢 ${m.sender}` : m.sender;
+          const senderInTenant = m.sender === loggedUser || users.some(u => u.username === m.sender);
+          const displayName = m.is_broadcast
+            ? `📢 ${m.sender}`
+            : senderInTenant ? m.sender : `${m.sender} (removed)`;
 
           return (
             <div key={m.id}
@@ -367,7 +400,11 @@ export default function ChatPanel({
                 <div style={{ display:'flex', alignItems:'center', gap:4,
                   marginBottom:2, marginLeft:2 }}>
                   <Avatar name={m.sender} size={16}/>
-                  <span style={{ fontSize:10, fontWeight:600, color:'#374151' }}>{displayName}</span>
+                  <span style={{ fontSize:10, fontWeight:600,
+                    color: senderInTenant ? '#374151' : '#94a3b8',
+                    fontStyle: senderInTenant ? 'normal' : 'italic' }}>
+                    {displayName}
+                  </span>
                 </div>
               )}
 
