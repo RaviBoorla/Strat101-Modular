@@ -64,7 +64,7 @@ export function KCard({ item, selected, isDragging, onClick, onDragStart, onDrag
       style={{ cursor:isDragging?'grabbing':'grab' }}>
       {(vf.has('badge')||vf.has('key')) && (
         <div className="flex items-center justify-between mb-1.5">
-          {vf.has('badge') && <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${c.bg} ${c.tc} ${c.b}`} style={{ fontSize:10 }}>{c.i} {c.l}</span>}
+          {vf.has('badge') && <span className={c.tc} style={{ fontSize:10, fontWeight:600 }}>{c.i} {c.l}</span>}
           {vf.has('key') && <span className="text-gray-400 font-mono ml-auto" style={{ fontSize:10 }}>{item.key}</span>}
         </div>
       )}
