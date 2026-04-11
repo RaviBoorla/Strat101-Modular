@@ -212,7 +212,7 @@ export default function ReportBuilder({ items, enabledTypes }: ReportBuilderProp
           <div style={{ fontWeight:700, fontSize:12, color:'#0c2040' }}>📈 Report Builder</div>
           <div style={{ fontSize:10, color:'#1a3a6e', marginTop:1 }}>Configure and generate</div>
         </div>
-        <div style={{ flex:isMobile?'none':1, maxHeight:isMobile?220:undefined, overflowY:'auto', padding:'9px 11px', display:'flex', flexDirection:'column', gap:9 }}>
+        <div style={{ flex:'none', maxHeight:isMobile?200:'calc(100vh - 220px)', overflowY:'auto', padding:'9px 11px', display:'flex', flexDirection:'column', gap:9 }}>
           {/* Report Type */}
           <div>
             <SLbl>Report Type</SLbl>
@@ -276,7 +276,7 @@ export default function ReportBuilder({ items, enabledTypes }: ReportBuilderProp
         </div>
         <div style={{ padding:'9px 11px', borderTop:'1px solid #e2e8f0', background:'white', flexShrink:0 }}>
           <button onClick={run}
-            style={{ width:'100%', padding:'8px', borderRadius:7, border:'none', cursor:'pointer', background:'linear-gradient(135deg,#4338ca,#2563eb)', color:'white', fontSize:12, fontWeight:700, boxShadow:'0 2px 5px rgba(67,56,202,0.3)' }}>
+            style={{ width:'100%', padding:'8px', borderRadius:7, border:'none', cursor:'pointer', background:'#0F2744', color:'white', fontSize:12, fontWeight:700 }}>
             ▶ Generate Report
           </button>
         </div>
