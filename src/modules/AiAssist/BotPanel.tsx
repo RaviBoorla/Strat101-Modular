@@ -175,7 +175,7 @@ export default function BotPanel({ items }: BotPanelProps) {
           </div>
         ) : (
           /* Conversation thread */
-          <div className="space-y-4" style={{ maxWidth:760, margin:"0 auto" }}>
+          <div className="space-y-4" style={{ maxWidth:680, margin:"0 auto", width:"100%" }}>
             {messages.map((m, i) => (
               <div key={i} className={`flex gap-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 {m.role === "assistant" && (
