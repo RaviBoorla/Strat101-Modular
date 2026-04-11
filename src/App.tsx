@@ -223,7 +223,8 @@ function Workspace({
   const [rideForm, setRideForm] = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'}|null>(null);
   const [linkDlg, setLinkDlg] = useState<string|null>(null);
   const [linkQ,   setLinkQ]   = useState('');
-  const [cmdOpen, setCmdOpen] = useState(false);
+  const [cmdOpen,    setCmdOpen]    = useState(false);
+  const [chatOpen,   setChatOpen]   = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const selected   = items.find(i => i.id === sel);
@@ -438,42 +439,62 @@ function Workspace({
         onNew={() => !isViewer && isListView && setForm(mkBlank(view, items))}
         loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut}
         isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}
-        enabledTypes={activeTypes}/>
+        enabledTypes={activeTypes}
+        chatOpen={chatOpen} onToggleChat={features.chat ? () => setChatOpen(o=>!o) : undefined}/>
       <div className="flex flex-1 overflow-hidden relative">
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 overflow-auto">
-            {!disabledView ? (
-              <>
-                {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes}/>}
-                {view === 'reports' && features.reports   && <ReportBuilder items={items} enabledTypes={activeTypes}/>}
-                {view === 'bot'     && features.bot       && <BotPanel items={items}/>}
-                {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
-                {isListView                               && <ListView type={view} items={items.filter(i => i.type === view)} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
-                {view === 'ride' && features.ride && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
-              </>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
-                <div style={{ fontSize:48 }}>&#128274;</div>
-                <div style={{ fontSize:15, fontWeight:700, color:'#374151' }}>Module Not Enabled</div>
-                <div style={{ fontSize:12, color:'#94a3b8', textAlign:'center', maxWidth:300, lineHeight:1.6 }}>
-                  This module is disabled for this tenant. Enable it in Global Admin Console → Features.
+        {/* ── MAIN CONTENT + DETAIL PANEL ── */}
+        <div style={{flex:1,display:'flex',overflow:'hidden',minWidth:0,transition:'all 0.2s'}}>
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 overflow-auto">
+              {!disabledView ? (
+                <>
+                  {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes}/>}
+                  {view === 'reports' && features.reports   && <ReportBuilder items={items} enabledTypes={activeTypes}/>}
+                  {view === 'bot'     && features.bot       && <BotPanel items={items}/>}
+                  {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
+                  {isListView                               && <ListView type={view} items={items.filter(i => i.type === view)} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
+                  {view === 'ride' && features.ride && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
+                </>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
+                  <div style={{ fontSize:48 }}>&#128274;</div>
+                  <div style={{ fontSize:15, fontWeight:700, color:'#374151' }}>Module Not Enabled</div>
+                  <div style={{ fontSize:12, color:'#94a3b8', textAlign:'center', maxWidth:300, lineHeight:1.6 }}>
+                    This module is disabled for this tenant. Enable it in Global Admin Console → Features.
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+          {rideForm && tenantId && <RiDeForm record={rideForm.record} type={rideForm.type} tenantId={tenantId} loggedUser={loggedUser} workItems={items} onSave={()=>setRideForm(null)} onClose={()=>setRideForm(null)}/>}
+          {selected && view !== 'bot' && (
+            <div style={{ position: isMobile ? 'absolute' : 'relative', inset: isMobile ? '0' : 'auto', zIndex: isMobile ? 30 : 1, display:'flex', width: isMobile ? '100%' : isTablet ? '360px' : '420px', flexShrink:0 }}>
+              <DetailPanel item={selected} allItems={items} tab={dtab} onTab={setDtab}
+                onEdit={() => setForm({ ...selected })} onDelete={() => remove(selected.id)} onClose={() => setSel(null)}
+                onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }} onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
+                onRmLink={rmLink} onRmDep={rmDep} onAddFile={() => fileRef.current?.click()} onRmFile={rmFile}
+                onAddComment={addComment} onRmComment={rmComment} onNav={nav}/>
+            </div>
+          )}
         </div>
-        {rideForm && tenantId && <RiDeForm record={rideForm.record} type={rideForm.type} tenantId={tenantId} loggedUser={loggedUser} workItems={items} onSave={()=>setRideForm(null)} onClose={()=>setRideForm(null)}/>}
-      {selected && view !== 'bot' && (
-          <div style={{ position: isMobile ? 'absolute' : 'relative', inset: isMobile ? '0' : 'auto', zIndex: isMobile ? 30 : 1, display:'flex', width: isMobile ? '100%' : isTablet ? '360px' : '420px', flexShrink:0 }}>
-            <DetailPanel item={selected} allItems={items} tab={dtab} onTab={setDtab}
-              onEdit={() => setForm({ ...selected })} onDelete={() => remove(selected.id)} onClose={() => setSel(null)}
-              onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }} onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
-              onRmLink={rmLink} onRmDep={rmDep} onAddFile={() => fileRef.current?.click()} onRmFile={rmFile}
-              onAddComment={addComment} onRmComment={rmComment} onNav={nav}/>
-          </div>
+        {/* ── CHAT SIDE PANEL — 40% on desktop, full-screen on mobile ── */}
+        {features.chat && tenantId && chatOpen && (
+          isMobile ? (
+            <div style={{position:'fixed',top:0,left:0,right:0,zIndex:120,
+              bottom:'calc(env(safe-area-inset-bottom, 0px) + 48px)',
+              display:'flex',flexDirection:'column'}}>
+              <ChatPanel tenantId={tenantId} loggedUser={loggedUser} userRole={userRole}
+                isViewer={isViewer} onClose={()=>setChatOpen(false)} embedded/>
+            </div>
+          ) : (
+            <div style={{width:'40%',maxWidth:520,minWidth:300,flexShrink:0,
+              borderLeft:'1px solid #e2e8f0',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+              <ChatPanel tenantId={tenantId} loggedUser={loggedUser} userRole={userRole}
+                isViewer={isViewer} onClose={()=>setChatOpen(false)} embedded/>
+            </div>
+          )
         )}
       </div>
-      {features.chat && tenantId && <ChatPanel tenantId={tenantId} loggedUser={loggedUser} userRole={userRole} isViewer={isViewer}/>}
       <footer style={{ background:'#a3bbff', borderTop:'1px solid #7a9ee8', padding:`3px 16px calc(3px + var(--sab, 0px))`, display:'flex', alignItems:'center', justifyContent:'center', gap:12, flexShrink:0 }}>
         <span style={{ fontSize:11, color:'#0c2d4a', letterSpacing:'0.02em' }}>
           ®Strat101.com  |  ©Copyright 2026. All rights Reserved.  |  Contact:{' '}
