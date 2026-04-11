@@ -7,6 +7,12 @@ export interface Responsive {
   isMobile:  boolean;
   isTablet:  boolean;
   isDesktop: boolean;
+  /** Sub-1024px — compact side panels, toolbars */
+  isCompactLayout: boolean;
+  /** Match legacy nav density (labels, admin chips) */
+  isNarrowNav: boolean;
+  /** Dense Kanban toolbar — swimlane row → select */
+  isNarrowToolbar: boolean;
   w:         number;
 }
 
@@ -34,6 +40,9 @@ export function useResponsive(): Responsive {
     isMobile:  bp === 'mobile',
     isTablet:  bp === 'tablet',
     isDesktop: bp === 'desktop',
+    isCompactLayout: w < 1024,
+    isNarrowNav:     w < 900,
+    isNarrowToolbar: w < 768,
     w,
   };
 }
