@@ -89,13 +89,15 @@ interface TopNavProps {
   onOpenGlobalAdmin?:  () => void;
   onOpenLocalAdmin?: () => void;
   enabledTypes?:     string[];
+  chatOpen?:         boolean;
+  onToggleChat?:     () => void;
 }
 
 export default function TopNav({
   view, setView, items, onNavItem, onCreateNew,
   workItemFilter, setWorkItemFilter, onNew,
   loggedUser, tenantName, isAdmin, features, onSignOut, isViewer = false, onSwitchToAdmin,
-  onOpenGlobalAdmin, onOpenLocalAdmin, enabledTypes,
+  onOpenGlobalAdmin, onOpenLocalAdmin, enabledTypes, chatOpen = false, onToggleChat,
 }: TopNavProps) {
   const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
   const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
@@ -176,7 +178,7 @@ export default function TopNav({
         </div>
 
         {/* Desktop nav */}
-        {!isMobile&&<nav style={{display:'flex',alignItems:'center',gap:1,flex:1,minWidth:0,overflow:'hidden'}}>
+        {!isMobile&&<nav style={{display:'flex',alignItems:'center',gap:1,flex:1,minWidth:0,overflow:'visible'}}>
           {NAV_ITEMS.map(n=>(
             <div key={n.id} style={{position:'relative',flexShrink:0}}>
               <button
@@ -282,6 +284,15 @@ export default function TopNav({
         {/* ── RIGHT CONTROLS — desktop/tablet ── */}
         {!isMobile&&(
           <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0,paddingLeft:8,borderLeft:'1px solid rgba(255,255,255,0.12)'}}>
+            {features.chat&&onToggleChat&&(
+              <button onClick={onToggleChat} title={chatOpen?'Close Chat':'Open Chat'}
+                style={{display:'flex',alignItems:'center',gap:4,padding:'3px 9px',borderRadius:6,border:'none',
+                  background:chatOpen?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.1)',
+                  color:chatOpen?'white':'rgba(255,255,255,0.75)',fontSize:11,fontWeight:600,cursor:'pointer',
+                  outline:chatOpen?'1px solid rgba(255,255,255,0.3)':'none',transition:'all 0.15s',whiteSpace:'nowrap'}}>
+                💬 {chatOpen?'Close':'Chat'}
+              </button>
+            )}
             <InlineSearch items={items} onNav={onNavItem}/>
             {!isTablet&&<div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',background:'rgba(255,255,255,0.1)',border:'1px solid rgba(255,255,255,0.15)',borderRadius:6,fontSize:11,color:TEXT_MAIN,fontWeight:500,whiteSpace:'nowrap'}}>
               <span style={{fontSize:11}}>📅</span>{dateStr}
@@ -328,6 +339,17 @@ export default function TopNav({
                   </div>
                 </div>
                 <div style={{height:1,background:'#f1f5f9',margin:'0 0 6px'}}/>
+                {/* Chat toggle — shown when feat_chat enabled */}
+                {features.chat&&onToggleChat&&(
+                  <button onClick={()=>{onToggleChat();setMobileMenu(false);}}
+                    style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 12px',border:'none',
+                      background:chatOpen?'#eff6ff':'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
+                    onMouseEnter={e=>(e.currentTarget.style.background='#eff6ff')}
+                    onMouseLeave={e=>(e.currentTarget.style.background=chatOpen?'#eff6ff':'transparent')}>
+                    <span style={{fontSize:18}}>💬</span>
+                    <span style={{fontSize:13,fontWeight:600,color:'#0F2744'}}>{chatOpen?'Close Chat':'Team Chat'}</span>
+                  </button>
+                )}
                 {/* Admin options — shown only to admins */}
                 {onOpenGlobalAdmin&&(
                   <button onClick={()=>{onOpenGlobalAdmin!();setMobileMenu(false);}}
@@ -421,7 +443,7 @@ export default function TopNav({
         {!isMobile&&<><span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>{tenantName||'Strat101.com'}</span>
         <span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>›</span></>}
         <span style={{fontSize:11,fontWeight:600,color:TEXT_ACTIVE,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-          {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':view==='ride'?'⚡ RiDe Intel':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i} ${TC[workItemFilter]?.l}s`):`${TC[view]?.i} ${TC[view]?.l}s`}
+          {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':view==='ride'?'⚡ RiDe Intel':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i||''} ${TC[workItemFilter]?.l||''}s`.trim()):(TC[view]?.i&&TC[view]?.l)?`${TC[view].i} ${TC[view].l}s`:view}
         </span>
         {(isLV||isWI)&&!isMobile&&(
           <>
