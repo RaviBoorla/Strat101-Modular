@@ -28,6 +28,25 @@ const ALL_FEATURES: TenantFeatures = {
   kanban: true, workitems: true, create: true, bot: true, reports: true, ride: false, chat: false,
 };
 
+//STAGING BANNER CHECK------------------------
+
+import StagingBanner from "./components/StagingBanner";
+
+function App() {
+  return (
+    <>
+      <StagingBanner />
+
+      {/* your existing app routes/components */}
+      <div>
+        Your App Here
+      </div>
+    </>
+  );
+}
+export default App;
+
+
 // ─── SUPABASE DATA HELPERS ────────────────────────────────────────────────────
 
 function dbRowToItem(
