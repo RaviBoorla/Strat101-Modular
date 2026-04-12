@@ -1,11 +1,28 @@
-import { ENV } from "@/lib/env";
+// src/components/StagingBanner.tsx
+
+import { ENV } from "../lib/env";
 
 export default function StagingBanner() {
+  // Nothing should show in production
   if (ENV.isProd) return null;
 
   return (
-    <div className="fixed top-0 left-0 w-full bg-yellow-500 text-black text-center py-2 z-50">
-      🚧 This is a {ENV.isStaging ? "STAGING" : "LOCAL"} environment
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        backgroundColor: "#facc15", // yellow-400
+        color: "#000",
+        textAlign: "center",
+        padding: "8px",
+        fontWeight: 600,
+        zIndex: 9999,
+        fontSize: "14px",
+      }}
+    >
+      {ENV.isStaging ? "🚧 STAGING ENVIRONMENT" : "⚠️ DEVELOPMENT ENVIRONMENT"}
     </div>
   );
 }
