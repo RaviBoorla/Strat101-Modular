@@ -505,12 +505,14 @@ function Workspace({
         onChange={e => { if (e.target.files?.[0]) addFile(e.target.files[0]); e.target.value = ''; }}/>
       {/* ItemForm — right-side drawer within workspace */}
       {form && (
-        <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
-          <div onClick={() => setForm(null)} style={{ flex:1, background:'rgba(0,0,0,0.3)', cursor:'pointer', pointerEvents:'all' }}/>
+        <div style={{ position:'absolute', top:0, bottom:0, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+          {!isMobile && <div onClick={() => setForm(null)} style={{ flex:1, background:'rgba(0,0,0,0.3)', cursor:'pointer', pointerEvents:'all' }}/>}
           <div onClick={e=>e.stopPropagation()}
-            style={{ width:'40%', minWidth:340, maxWidth:620, height:'100%', background:'white',
+            style={{ width: isMobile ? '100%' : '40%', minWidth: isMobile ? 'unset' : 340,
+              maxWidth: isMobile ? 'unset' : 620, height:'100%', background:'white',
               boxShadow:'-6px 0 32px rgba(0,0,0,0.2)', display:'flex', flexDirection:'column',
               overflow:'hidden', pointerEvents:'all' }}>
+            {isMobile && <div onClick={() => setForm(null)} style={{ background:'rgba(0,0,0,0.3)', height:40, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}><div style={{ width:36, height:4, borderRadius:2, background:'rgba(255,255,255,0.5)' }}/></div>}
             <ItemForm item={form} onSave={upsert} onClose={() => setForm(null)} onAutoSave={form._autoSave ? liveUpsert : null} drawerMode={true}/>
           </div>
         </div>
@@ -596,7 +598,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 
   // Everyone defaults to workspace — admin panels are drawers
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ position:'relative', overflow:'hidden' }}>
+    <div className="flex flex-col overflow-hidden" style={{ height:'100dvh', position:'relative', overflow:'hidden' }}>
       <Workspace
         loggedUser={loggedUser}
         isAdmin={isAdmin}
@@ -636,10 +638,10 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
 // ── Thin wrapper components for the drawers ───────────────────────────────────
 function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClose: () => void }) {
   return (
-    <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+    <div style={{ position:'absolute', top:0, bottom:0, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
       <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.35)', cursor:'pointer', pointerEvents:'all' }}/>
       <div onClick={e=>e.stopPropagation()}
-        style={{ width:'40%', minWidth:360, maxWidth:680, height:'100%', background:'#f8fafc',
+        style={{ width:'min(100%, 680px)', minWidth:'min(100%, 360px)', maxWidth:680, height:'100%', background:'#f8fafc',
           boxShadow:'-6px 0 32px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column',
           overflow:'hidden', pointerEvents:'all' }}>
         <div style={{ background:'#0f172a', padding:'0 14px', height:38, display:'flex',
@@ -662,10 +664,10 @@ function GlobalAdminDrawer({ loggedUser, onClose }: { loggedUser: string; onClos
 function LocalAdminDrawer({ loggedUser, tenantId, onClose }:
   { loggedUser: string; tenantId: string; onClose: () => void }) {
   return (
-    <div style={{ position:'absolute', top:68, bottom:24, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
+    <div style={{ position:'absolute', top:0, bottom:0, left:0, right:0, zIndex:50, display:'flex', alignItems:'stretch', pointerEvents:'none' }}>
       <div onClick={onClose} style={{ flex:1, background:'rgba(0,0,0,0.35)', cursor:'pointer', pointerEvents:'all' }}/>
       <div onClick={e=>e.stopPropagation()}
-        style={{ width:'40%', minWidth:320, maxWidth:580, height:'100%', background:'#f8fafc',
+        style={{ width:'min(100%, 580px)', minWidth:'min(100%, 320px)', maxWidth:580, height:'100%', background:'#f8fafc',
           boxShadow:'-6px 0 32px rgba(0,0,0,0.25)', display:'flex', flexDirection:'column',
           overflow:'hidden', pointerEvents:'all' }}>
         <div style={{ background:'#0f172a', padding:'0 16px', height:44, display:'flex',
