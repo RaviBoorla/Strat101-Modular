@@ -420,7 +420,7 @@ function Workspace({
         <TopNav view={view} setView={goView} items={[]} onNavItem={()=>{}} onCreateNew={()=>{}}
           workItemFilter={workItemFilter} setWorkItemFilter={setWIF} onNew={()=>{}}
           loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut} isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}
-          enabledTypes={activeTypes}/>
+          enabledTypes={activeTypes} isGlobalAdmin={isAdmin}/>
         <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <div style={{ textAlign:'center' }}>
             <div style={{ fontSize:32, marginBottom:12 }}>&#9203;</div>
@@ -439,7 +439,7 @@ function Workspace({
         onNew={() => !isViewer && isListView && setForm(mkBlank(view, items))}
         loggedUser={loggedUser} tenantName={tenantName} isAdmin={isAdmin} features={features} onSignOut={onSignOut}
         isViewer={isViewer} onOpenGlobalAdmin={onOpenGlobalAdmin} onOpenLocalAdmin={onOpenLocalAdmin}
-        enabledTypes={activeTypes}
+        enabledTypes={activeTypes} isGlobalAdmin={isAdmin}
         chatOpen={chatOpen} onToggleChat={features.chat ? () => setChatOpen(o=>!o) : undefined}/>
       <div className="flex flex-1 overflow-hidden relative">
         {/* ── MAIN CONTENT + DETAIL PANEL ── */}
