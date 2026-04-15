@@ -329,7 +329,7 @@ export default function TopNav({
               {initials}
             </button>
             {mobileMenuOpen&&(
-              <div style={{position:'fixed',top:50,right:8,background:'white',borderRadius:14,border:'1px solid #e2e8f0',boxShadow:'0 8px 32px rgba(0,0,0,0.18)',padding:8,minWidth:220,zIndex:100}}>
+              <div style={{position:'fixed',top:'calc(44px + env(safe-area-inset-top, 0px))',right:8,background:'white',borderRadius:14,border:'1px solid #e2e8f0',boxShadow:'0 8px 32px rgba(0,0,0,0.18)',padding:8,minWidth:220,zIndex:100,maxHeight:'80vh',overflowY:'auto'}}>
                 {/* User info */}
                 <div style={{padding:'6px 12px 10px',display:'flex',alignItems:'center',gap:10}}>
                   <div style={{width:36,height:36,borderRadius:18,background:avatarBg,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:700,color:'white',flexShrink:0}}>{initials}</div>
@@ -403,7 +403,7 @@ export default function TopNav({
                 <button onClick={()=>setMobileCreate(false)}
                   style={{background:'none',border:'none',fontSize:18,color:'#94a3b8',cursor:'pointer',padding:'4px 8px'}}>×</button>
               </div>
-              <div style={{flex:1,overflowY:'auto',padding:'0 8px 24px'}}>
+              <div style={{flex:1,overflowY:'auto',padding:'0 8px',paddingBottom:'calc(env(safe-area-inset-bottom, 0px) + 24px)'}}>
                 {WORK_ITEM_TYPES.filter((t:string)=>activeTypes.includes(t)).map((t:string)=>(
                   <button key={t} onClick={()=>{onCreateNew(t);setMobileCreate(false);}}
                     style={{width:'100%',display:'flex',alignItems:'center',gap:12,
