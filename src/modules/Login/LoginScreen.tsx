@@ -344,7 +344,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
           </div>}
 
           {/* Right card */}
-          <div style={{background:'rgba(255,255,255,0.04)',backdropFilter:'blur(20px)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:20,padding:'clamp(20px,5vw,36px) clamp(16px,5vw,32px)',width:cardWidth,flexShrink:0,boxShadow:'0 25px 60px rgba(0,0,0,0.4)'}}>
+          <div style={{background:'rgba(255,255,255,0.04)',WebkitBackdropFilter:'blur(20px)',backdropFilter:'blur(20px)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:20,padding:'clamp(20px,5vw,36px) clamp(16px,5vw,32px)',width:cardWidth,flexShrink:0,boxShadow:'0 25px 60px rgba(0,0,0,0.4)'}}>
 
             {/* ── LOGIN ── */}
             {mode === 'login' && (
@@ -406,7 +406,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                     <div key={s} style={{flex:1,height:3,borderRadius:99,background:i===0?'#3b82f6':'rgba(255,255,255,0.15)'}}/>
                   ))}
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10,marginBottom:10}}>
                   <div>
                     <label style={labelStyle}>Username</label>
                     <input value={regUsername} onChange={e=>setRegUsername(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g,''))}
@@ -430,7 +430,7 @@ export default function LoginScreen({ onLogin }: LoginScreenProps) {
                     onFocus={e=>e.target.style.borderColor='#3b82f6'}
                     onBlur={e=>e.target.style.borderColor='rgba(255,255,255,0.15)'}/>
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10,marginBottom:12}}>
                   <div>
                     <label style={labelStyle}>Password</label>
                     <div style={{position:'relative',display:'flex',alignItems:'center'}}>
