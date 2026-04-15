@@ -96,7 +96,7 @@ function FL({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 const inp = { width:'100%',boxSizing:'border-box' as const,border:'1px solid #e2e8f0',
-  borderRadius:7,padding:'7px 10px',fontSize:12,color:'#374151',outline:'none' };
+  borderRadius:7,padding:'7px 10px',fontSize:16,color:'#374151',outline:'none' };
 const sel = { ...inp };
 const ta  = { ...inp,resize:'none' as const,lineHeight:1.6 };
 
@@ -169,7 +169,7 @@ export function RecordForm({
   const rl = f.risk_level ? RISK_LEVEL_STYLE[f.risk_level] : null;
 
   return (
-    <div style={{position:'fixed',inset:0,zIndex:60,display:'flex',background:'rgba(15,23,42,0.4)'}} onClick={onClose}>
+    <div style={{position:'fixed',inset:0,zIndex:60,display:'flex',background:'rgba(15,23,42,0.4)',overflowY:'auto',WebkitOverflowScrolling:'touch'}} onClick={onClose}>
       <div style={{flex:1}}/>
       <div style={{width:'100%',maxWidth:560,background:'white',height:'100%',display:'flex',
         flexDirection:'column',boxShadow:'-4px 0 24px rgba(0,0,0,0.15)'}} onClick={e=>e.stopPropagation()}>
@@ -440,9 +440,9 @@ function RiDeBoard({ records, tab, workItems, onEdit }:
               {statusList.map(st=>{
                 const col=tab==='risk'?RISK_STATUS_COLOR[st]:DEC_STATUS_COLOR[st];
                 return (
-                  <th key={st} style={{padding:'10px 12px',background:'#f8fafc',
+                  <th key={st} style={{padding:'10px 12px',
                     borderBottom:`2px solid ${col}`,fontSize:11,fontWeight:700,
-                    color:col,textAlign:'left',minWidth:180}}>
+                    color:col,textAlign:'left',minWidth:180,position:'sticky',top:0,background:'white',zIndex:2}}>
                     {st}
                   </th>
                 );
