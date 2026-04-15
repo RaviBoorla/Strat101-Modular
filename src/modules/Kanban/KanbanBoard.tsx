@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { useResponsive } from "../../hooks/useResponsive";
 import { TC, SC, PC, HIC, RC, TYPES, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES } from "../../constants";
 import { gId } from "../../utils";
 
@@ -61,7 +62,7 @@ export function KCard({ item, selected, isDragging, onClick, onDragStart, onDrag
   return (
     <div draggable onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={onClick}
       className={`rounded-xl border p-3 transition-all shadow-sm select-none ${isDragging?'opacity-40 scale-95 rotate-1':''}${selected?'border-blue-400 bg-blue-50 shadow-md':'bg-white hover:shadow-md border-gray-200 hover:border-blue-200'}`}
-      style={{ cursor:isDragging?'grabbing':'grab' }}>
+      style={{ cursor:isDragging?'grabbing':'grab', touchAction:'none' }}>
       {(vf.has('badge')||vf.has('key')) && (
         <div className="flex items-center justify-between mb-1.5">
           {vf.has('badge') && <span className={c.tc} style={{ fontSize:10, fontWeight:600 }}>{c.i} {c.l}</span>}
@@ -222,11 +223,26 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
 
   const WORK_ITEM_TYPES_KANBAN = ['vision','mission','goal','okr','initiative','program','project','task','subtask'].filter(t => activeTypes.includes(t));
 
+  const { isMobile } = useResponsive();
+  if (isMobile) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+        justifyContent:'center', height:'100%', gap:12, padding:24, textAlign:'center' }}>
+        <div style={{ fontSize:36 }}>🗂️</div>
+        <div style={{ fontSize:14, fontWeight:700, color:'#374151' }}>Kanban Board</div>
+        <div style={{ fontSize:12, color:'#64748b', maxWidth:280, lineHeight:1.7 }}>
+          The Kanban board is optimised for desktop use. Switch to
+          <strong> Work Items</strong> view for a mobile-friendly list.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-2 flex flex-col h-full overflow-hidden">
       {/* Board tabs + controls row */}
       <div className="flex items-center gap-2 mb-2 shrink-0 flex-wrap">
-        <div className="flex items-center gap-1 overflow-x-auto">
+        <div className="flex items-center gap-1 overflow-x-auto" style={{ flexShrink:0 }}>
           {boards.map(b => (
             <button key={b.id} onClick={() => setActiveBoardId(b.id)}
               className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-all ${activeBoardId===b.id?'bg-blue-600 text-white':'bg-white border text-gray-600 hover:border-blue-300'}`}
