@@ -847,11 +847,23 @@ export default function App() {
   const setPasswordModeRef = React.useRef(false); // ref so closures see current value
 
   useEffect(() => {
-    const resolveUsername = (session: Session | null): string => {
+    // resolveUsername — prefer user_metadata.username (set on login),
+    // then look up tenant_users by auth_user_id to get the real username,
+    // only fall back to email prefix as last resort.
+    const resolveUsername = async (session: Session | null): Promise<string> => {
       if (!session?.user) return '';
-      return session.user.user_metadata?.username
-        || session.user.user_metadata?.full_name
-        || (session.user.email ?? '').split('@')[0];
+      // First: trust metadata if username was explicitly stored there
+      if (session.user.user_metadata?.username) return session.user.user_metadata.username;
+      // Second: look up from tenant_users by auth_user_id
+      const { data } = await supabase
+        .from('tenant_users')
+        .select('username')
+        .eq('auth_user_id', session.user.id)
+        .eq('active', true)
+        .maybeSingle();
+      if (data?.username) return data.username;
+      // Last resort: email prefix (global admin with no tenant_users row)
+      return (session.user.email ?? '').split('@')[0];
     };
 
     // ── onAuthStateChange must be registered FIRST ────────────────────────────
@@ -902,10 +914,12 @@ export default function App() {
             return;
           }
           // Normal login — trust the session
-          setLoggedUser(resolveUsername(session));
-          setLoggedIn(true);
-          setSetPasswordMode(false);
-          setChecking(false);
+          resolveUsername(session).then(u => {
+            setLoggedUser(u);
+            setLoggedIn(true);
+            setSetPasswordMode(false);
+            setChecking(false);
+          });
           return;
         }
 
@@ -948,8 +962,10 @@ export default function App() {
             return;
           }
           if (session?.user) {
-            setLoggedUser(resolveUsername(session));
-            setLoggedIn(true);
+            resolveUsername(session).then(u => {
+              setLoggedUser(u);
+              setLoggedIn(true);
+            });
           }
           setChecking(false);
           return;
