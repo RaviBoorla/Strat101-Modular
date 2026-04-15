@@ -441,7 +441,6 @@ export default function TopNav({
       {/* Breadcrumb strip */}
       <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(255,255,255,0.06)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6,minWidth:0,overflow:'hidden'}}>
         {!isMobile&&<><span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>{tenantName||'Strat101.com'}</span>
-        // Line ~420, inside the breadcrumb div, after the tenant name span:
         {import.meta.env.VITE_APP_ENV === 'staging' && (
           <span style={{ marginLeft:'auto', background:'#f59e0b', color:'#000',
             fontSize:10, fontWeight:700, padding:'1px 8px', borderRadius:4,
