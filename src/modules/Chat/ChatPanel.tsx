@@ -607,7 +607,9 @@ export default function ChatPanel({
                             borderRadius:3,opacity:deleting===m.id?0.4:1}}>🗑</button>
                       )}
                       <div style={{maxWidth:'78%',fontSize:12,lineHeight:1.5,
-                        color:isMe?NAVY:'#1e293b',wordBreak:'break-word',fontWeight:isMe?500:400}}>
+                        color:isMe?NAVY:'#1e293b',wordBreak:'break-word',
+                        overflowWrap:'anywhere',whiteSpace:'pre-wrap',
+                        fontWeight:isMe?500:400}}>
                         <MsgText text={m.message} loggedUser={loggedUser}/>
                       </div>
                     </div>

@@ -88,6 +88,7 @@ interface TopNavProps {
   onSwitchToAdmin?:   () => void;
   onOpenGlobalAdmin?:  () => void;
   onOpenLocalAdmin?: () => void;
+  isGlobalAdmin?: boolean;
   enabledTypes?:     string[];
   chatOpen?:         boolean;
   onToggleChat?:     () => void;
@@ -97,7 +98,7 @@ export default function TopNav({
   view, setView, items, onNavItem, onCreateNew,
   workItemFilter, setWorkItemFilter, onNew,
   loggedUser, tenantName, isAdmin, features, onSignOut, isViewer = false, onSwitchToAdmin,
-  onOpenGlobalAdmin, onOpenLocalAdmin, enabledTypes, chatOpen = false, onToggleChat,
+  onOpenGlobalAdmin, onOpenLocalAdmin, enabledTypes, chatOpen = false, onToggleChat, isGlobalAdmin = false,
 }: TopNavProps) {
   const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
   const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
@@ -178,7 +179,7 @@ export default function TopNav({
         </div>
 
         {/* Desktop nav */}
-        {!isMobile&&<nav style={{display:'flex',alignItems:'center',gap:1,flex:1,minWidth:0,overflow:'visible'}}>
+        {!isMobile&&<nav style={{display:'flex',alignItems:'center',gap:2,flex:1,minWidth:0,overflow:'visible'}}>
           {NAV_ITEMS.map(n=>(
             <div key={n.id} style={{position:'relative',flexShrink:0}}>
               <button
@@ -283,7 +284,7 @@ export default function TopNav({
 
         {/* ── RIGHT CONTROLS — desktop/tablet ── */}
         {!isMobile&&(
-          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0,paddingLeft:8,borderLeft:'1px solid rgba(255,255,255,0.12)'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0,paddingLeft:8,borderLeft:'1px solid rgba(255,255,255,0.12)'}}>
             {features.chat&&onToggleChat&&(
               <button onClick={onToggleChat} title={chatOpen?'Close Chat':'Open Chat'}
                 style={{display:'flex',alignItems:'center',gap:4,padding:'3px 9px',borderRadius:6,border:'none',
@@ -300,13 +301,13 @@ export default function TopNav({
             {onOpenGlobalAdmin&&(
               <button onClick={onOpenGlobalAdmin} title="Global Admin"
                 style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,border:'none',background:'linear-gradient(135deg,#2563eb,#4f46e5)',color:'white',fontSize:11,fontWeight:700,cursor:'pointer',boxShadow:'0 2px 6px rgba(37,99,235,0.5)',whiteSpace:'nowrap'}}>
-                ⚡ {!isTablet&&'Global '}Admin
+                ⚡ {isTablet?'G-Admin':'G-Admin'}
               </button>
             )}
-            {onOpenLocalAdmin&&(
-              <button onClick={onOpenLocalAdmin} title="Local Admin"
+            {onOpenLocalAdmin&&!isGlobalAdmin&&(
+              <button onClick={onOpenLocalAdmin} title="Admin"
                 style={{display:'flex',alignItems:'center',gap:5,padding:'4px 10px',borderRadius:7,border:'none',background:'linear-gradient(135deg,#0284c7,#0369a1)',color:'white',fontSize:11,fontWeight:700,cursor:'pointer',boxShadow:'0 2px 6px rgba(2,132,199,0.5)',whiteSpace:'nowrap'}}>
-                🏢 {!isTablet&&'Local '}Admin
+                🏢 Admin
               </button>
             )}
             <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
@@ -357,16 +358,16 @@ export default function TopNav({
                     onMouseEnter={e=>(e.currentTarget.style.background='#eff6ff')}
                     onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
                     <span style={{fontSize:18}}>⚡</span>
-                    <span style={{fontSize:13,fontWeight:600,color:'#2563eb'}}>Global Admin</span>
+                    <span style={{fontSize:13,fontWeight:600,color:'#2563eb'}}>G-Admin</span>
                   </button>
                 )}
-                {onOpenLocalAdmin&&(
+                {onOpenLocalAdmin&&!isGlobalAdmin&&(
                   <button onClick={()=>{onOpenLocalAdmin!();setMobileMenu(false);}}
                     style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'11px 12px',border:'none',background:'transparent',cursor:'pointer',borderRadius:8,textAlign:'left'}}
                     onMouseEnter={e=>(e.currentTarget.style.background='#f0f9ff')}
                     onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
                     <span style={{fontSize:18}}>🏢</span>
-                    <span style={{fontSize:13,fontWeight:600,color:'#0284c7'}}>Local Admin</span>
+                    <span style={{fontSize:13,fontWeight:600,color:'#0284c7'}}>Admin</span>
                   </button>
                 )}
                 {(onOpenGlobalAdmin||onOpenLocalAdmin)&&<div style={{height:1,background:'#f1f5f9',margin:'6px 0'}}/>}
@@ -441,7 +442,12 @@ export default function TopNav({
       {/* Breadcrumb strip */}
       <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(255,255,255,0.06)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6,minWidth:0,overflow:'hidden'}}>
         {!isMobile&&<><span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>{tenantName||'Strat101.com'}</span>
-        <span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>›</span></>}
+          <span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>›</span>
+          {import.meta.env.VITE_APP_ENV === 'staging' && (
+            <span style={{background:'#f59e0b',color:'#000',fontSize:10,fontWeight:700,padding:'1px 8px',borderRadius:4,letterSpacing:'0.04em',flexShrink:0}}>
+              STAGING SITE
+            </span>
+          )}</>}
         <span style={{fontSize:11,fontWeight:600,color:TEXT_ACTIVE,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
           {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':view==='ride'?'⚡ RiDe Intel':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i||''} ${TC[workItemFilter]?.l||''}s`.trim()):(TC[view]?.i&&TC[view]?.l)?`${TC[view].i} ${TC[view].l}s`:view}
         </span>
