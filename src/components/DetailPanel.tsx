@@ -406,7 +406,7 @@ export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDele
         </div>
       </div>
 
-      <div className="flex border-b bg-gray-50 shrink-0 overflow-x-auto">
+      <div className="flex border-b bg-gray-50 shrink-0 overflow-x-auto" style={{ WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
         {TABS.map(([t,ic,lb]) => (
           <button key={t} onClick={() => onTab(t)} className={`shrink-0 py-2 px-2 font-medium flex items-center gap-0.5 transition-colors ${tab===t?'border-b-2 border-blue-500 text-blue-600 bg-white':'text-gray-500 hover:bg-gray-100'}`} style={{ fontSize:10 }}>{ic} {lb}</button>
         ))}
