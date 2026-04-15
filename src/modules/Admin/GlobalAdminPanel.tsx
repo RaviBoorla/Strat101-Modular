@@ -91,7 +91,7 @@ function UsageBar({label,used,limit,warn=0.8}:{label:string;used:number;limit:nu
     </div>
   );
 }
-const inp: React.CSSProperties = {width:'100%',boxSizing:'border-box',border:'1px solid #e2e8f0',borderRadius:7,padding:'7px 10px',fontSize:12,outline:'none',fontFamily:'system-ui,sans-serif'};
+const inp: React.CSSProperties = {width:'100%',boxSizing:'border-box',border:'1px solid #e2e8f0',borderRadius:7,padding:'7px 10px',fontSize:16,outline:'none',fontFamily:'system-ui,sans-serif'};
 const sel: React.CSSProperties = {...inp,cursor:'pointer'};
 function FL({label,children}:{label:string;children:React.ReactNode}){
   return(
@@ -105,7 +105,7 @@ function FL({label,children}:{label:string;children:React.ReactNode}){
 // ── MODAL ────────────────────────────────────────────────────────────────────
 function Modal({title,onClose,children,width=460}:{title:string;onClose:()=>void;children:React.ReactNode;width?:number}){
   return(
-    <div style={{position:'fixed',inset:0,zIndex:80,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={onClose}>
+    <div style={{position:'fixed',inset:0,zIndex:80,background:'rgba(15,23,42,0.55)',display:'flex',alignItems:'center',justifyContent:'center',padding:16,WebkitBackdropFilter:'blur(2px)',backdropFilter:'blur(2px)'}} onClick={onClose}>
       <div style={{background:'white',borderRadius:12,width:'100%',maxWidth:width,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:'12px 16px',borderBottom:'1px solid #f1f5f9',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
           <span style={{fontSize:13,fontWeight:700,color:'#111827'}}>{title}</span>
@@ -160,7 +160,7 @@ function PasswordResetModal({user,onClose}:{user:TenantUser;onClose:()=>void}){
             </div>
           </div>
           <div style={{marginBottom:8,padding:10,background:'#f8fafc',borderRadius:7,border:'1px solid #e2e8f0'}}>
-            <table style={{width:'100%',fontSize:12,borderCollapse:'collapse'}}>
+            <table style={{width:'100%',fontSize:12,borderCollapse:'collapse',tableLayout:'auto'}}>
               <tbody>
                 <tr><td style={{color:'#64748b',paddingBottom:4,width:80}}>User</td><td style={{color:'#111827',fontWeight:600}}>{user.fullName}</td></tr>
                 <tr><td style={{color:'#64748b',paddingBottom:4}}>Username</td><td style={{color:'#111827',fontWeight:600}}>@{user.username}</td></tr>
