@@ -1,3 +1,53 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Scrollable containers ── */
+* {
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+
+/* ── Prevent pull-to-refresh inside scroll containers ── */
+.overflow-auto,
+.overflow-y-auto,
+.overflow-x-auto {
+  overscroll-behavior: contain;
+}
+
+/* ── Touch drag targets ── */
+[draggable="true"] {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ── Prevent tap highlight on interactive elements ── */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Respect reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Samsung Internet backdrop-filter fallback ── */
+@supports not (backdrop-filter: blur(1px)) {
+  .backdrop-blur-fallback {
+    background: rgba(15, 23, 42, 0.95) !important;
+  }
+}
+
+/* ── Safe area padding utilities ── */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
