@@ -441,7 +441,15 @@ export default function TopNav({
       {/* Breadcrumb strip */}
       <div style={{background:BREADCRUMB_BG,borderTop:'1px solid rgba(255,255,255,0.06)',padding:'3px 14px',display:'flex',alignItems:'center',gap:6,minWidth:0,overflow:'hidden'}}>
         {!isMobile&&<><span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>{tenantName||'Strat101.com'}</span>
-        <span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>›</span></>}
+        // Line ~420, inside the breadcrumb div, after the tenant name span:
+        {import.meta.env.VITE_APP_ENV === 'staging' && (
+          <span style={{ marginLeft:'auto', background:'#f59e0b', color:'#000',
+            fontSize:10, fontWeight:700, padding:'1px 8px', borderRadius:4,
+          letterSpacing:'0.04em' }}>
+          STAGING SITE
+            </span>
+          )}
+          <span style={{fontSize:11,color:TEXT_MUTED,flexShrink:0}}>›</span></>}
         <span style={{fontSize:11,fontWeight:600,color:TEXT_ACTIVE,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
           {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':view==='ride'?'⚡ RiDe Intel':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i||''} ${TC[workItemFilter]?.l||''}s`.trim()):(TC[view]?.i&&TC[view]?.l)?`${TC[view].i} ${TC[view].l}s`:view}
         </span>
