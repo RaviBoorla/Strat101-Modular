@@ -257,7 +257,7 @@ export default function BotPanel({ items }: BotPanelProps) {
             rows={1}
             disabled={loading}
             placeholder="Ask about risks, progress, owners, OKRs… (Enter to send)"
-            style={{ flex:1, background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:12, padding:"10px 14px", color:"#1e293b", fontSize:13, lineHeight:1.5, minHeight:42, maxHeight:120, outline:"none", resize:"none", transition:"border-color 0.15s", opacity:loading ? 0.5 : 1 }}
+            style={{ flex:1, background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:12, padding:"10px 14px", color:"#1e293b", fontSize:16, lineHeight:1.5, minHeight:42, maxHeight:120, outline:"none", resize:"none", transition:"border-color 0.15s", opacity:loading ? 0.5 : 1 }}
             onFocus={e => e.target.style.borderColor="#93c5fd"}
             onBlur={e  => e.target.style.borderColor="#e2e8f0"}
           />
