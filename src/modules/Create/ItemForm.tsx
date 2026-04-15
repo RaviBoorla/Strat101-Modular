@@ -51,7 +51,7 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
             <span className="text-gray-500 font-semibold" style={{ fontSize:11 }}>Status:</span>
             <select value={f.status} onChange={e => s('status', e.target.value)}
               className="border rounded-lg px-2 py-1 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300"
-              style={{ fontSize:12, cursor:'pointer' }}>
+              style={{ fontSize:16, cursor:'pointer' }}>
               {STATS.map(st => <option key={st}>{st}</option>)}
             </select>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-700 font-bold ml-1" style={{ fontSize:20, lineHeight:1 }}>×</button>
@@ -60,9 +60,9 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {/* Title */}
-          <FG label="Title *"><input value={f.title} onChange={e => s('title', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder={`${c.l} title…`}/></FG>
+          <FG label="Title *"><input value={f.title} onChange={e => s('title', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }} placeholder={`${c.l} title…`}/></FG>
           {/* Description */}
-          <FG label="Description"><textarea value={f.description} onChange={e => s('description', e.target.value)} rows={2} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }}/></FG>
+          <FG label="Description"><textarea value={f.description} onChange={e => s('description', e.target.value)} rows={2} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}/></FG>
           {/* Current Status */}
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
             <div className="flex items-center justify-between mb-1.5">
@@ -70,35 +70,35 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
               {f.currentStatusAt && <div className="text-blue-400 font-mono" style={{ fontSize:10 }}>🕐 Auto-stamped: {f.currentStatusAt}</div>}
             </div>
             <textarea value={f.currentStatus||''} onChange={e => s('currentStatus', e.target.value)} rows={2}
-              className="w-full border border-blue-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white" style={{ fontSize:12 }}
+              className="w-full border border-blue-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white" style={{ fontSize:16 }}
               placeholder="Describe current progress, blockers, or key updates…"/>
             <div className="text-blue-400 mt-1" style={{ fontSize:10 }}>Timestamp is captured automatically when you change this field.</div>
           </div>
           {/* Priority / Health / Risk */}
-          <div className="grid grid-cols-3 gap-3">
-            <FG label="Priority"><select value={f.priority} onChange={e => s('priority', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}>{PRIS.map(p => <option key={p}>{p}</option>)}</select></FG>
-            <FG label="Health"><select value={f.health||'Green'} onChange={e => s('health', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}>{HLTHS.map(h => <option key={h}>{h}</option>)}</select></FG>
-            <FG label="Risk Level"><select value={f.risk||'Low'} onChange={e => s('risk', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}>{RSKS.map(r => <option key={r}>{r}</option>)}</select></FG>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <FG label="Priority"><select value={f.priority} onChange={e => s('priority', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{PRIS.map(p => <option key={p}>{p}</option>)}</select></FG>
+            <FG label="Health"><select value={f.health||'Green'} onChange={e => s('health', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{HLTHS.map(h => <option key={h}>{h}</option>)}</select></FG>
+            <FG label="Risk Level"><select value={f.risk||'Low'} onChange={e => s('risk', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{RSKS.map(r => <option key={r}>{r}</option>)}</select></FG>
           </div>
           {/* Risk Statement */}
           <div className="rounded-xl border border-red-200 bg-red-50 p-3">
             <div className="text-red-700 font-bold uppercase mb-1.5" style={{ fontSize:10, letterSpacing:'0.06em' }}>⚠️ Risk Statement</div>
             <textarea value={f.riskStatement||''} onChange={e => s('riskStatement', e.target.value)} rows={2}
-              className="w-full border border-red-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-red-300 bg-white" style={{ fontSize:12 }}
+              className="w-full border border-red-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-red-300 bg-white" style={{ fontSize:16 }}
               placeholder="Describe key risks, threats, or concerns for this item…"/>
           </div>
-          {f.type==='okr' && <FG label="Key Results (Summary)"><textarea value={f.keyResult||''} onChange={e => s('keyResult', e.target.value)} rows={3} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder={"KR1: …\nKR2: …\nKR3: …"}/></FG>}
+          {f.type==='okr' && <FG label="Key Results (Summary)"><textarea value={f.keyResult||''} onChange={e => s('keyResult', e.target.value)} rows={3} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }} placeholder={"KR1: …\nKR2: …\nKR3: …"}/></FG>}
           {f.type==='kr' && (
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
               <div className="text-sky-700 font-bold uppercase mb-1.5" style={{ fontSize:10, letterSpacing:'0.06em' }}>🔑 Key Result Definition</div>
               <textarea value={f.keyResult||''} onChange={e => s('keyResult', e.target.value)} rows={3}
-                className="w-full border border-sky-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white" style={{ fontSize:12 }}
+                className="w-full border border-sky-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white" style={{ fontSize:16 }}
                 placeholder="Define the measurable outcome. e.g. Increase deployment frequency from 2x/week to daily by Q4…"/>
               <div className="text-sky-400 mt-1" style={{ fontSize:10 }}>Describe the specific, measurable result this Key Result tracks.</div>
             </div>
           )}
           {/* People */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Owner"><input value={f.owner} onChange={e => s('owner', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Owner…"/></FG>
             <FG label="Assigned To"><input value={f.assigned||''} onChange={e => s('assigned', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Assigned person…"/></FG>
             {SPONSOR_TYPES.has(f.type)
@@ -108,14 +108,14 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
           </div>
           {SPONSOR_TYPES.has(f.type) && <FG label="Business Unit"><input value={f.businessUnit||''} onChange={e => s('businessUnit', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Owning business unit…"/></FG>}
           {/* Impact & Finance */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Impact Type"><select value={f.impactType||''} onChange={e => s('impactType', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}>{IMPACT_TYPES.map(it => <option key={it} value={it}>{it||'— Select —'}</option>)}</select></FG>
             <FG label="Approved Budget (£)"><input type="number" min="0" value={f.approvedBudget||''} onChange={e => s('approvedBudget', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="0"/></FG>
             <FG label="Actual Cost (£)"><input type="number" min="0" value={f.actualCost||''} onChange={e => s('actualCost', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="0"/></FG>
           </div>
           <FG label="Impact Description"><input value={f.impact||''} onChange={e => s('impact', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Expected impact…"/></FG>
           {/* Dates + Progress */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Start Date"><input type="date" value={f.startDate} onChange={e => s('startDate', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}/></FG>
             <FG label="End Date"><input type="date" value={f.endDate} onChange={e => s('endDate', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}/></FG>
             <FG label={`Progress: ${f.progress}%`}><input type="range" min="0" max="100" value={f.progress} onChange={e => s('progress', +e.target.value)} className="w-full accent-blue-500 mt-2"/></FG>
@@ -160,7 +160,7 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
             <span className="text-gray-500 font-semibold" style={{ fontSize:11 }}>Status:</span>
             <select value={f.status} onChange={e => s('status', e.target.value)}
               className="border rounded-lg px-2 py-1 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-300"
-              style={{ fontSize:12, cursor:'pointer' }}>
+              style={{ fontSize:16, cursor:'pointer' }}>
               {STATS.map(st => <option key={st}>{st}</option>)}
             </select>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-700 font-bold ml-1" style={{ fontSize:20, lineHeight:1 }}>×</button>
@@ -169,9 +169,9 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
 
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {/* Title */}
-          <FG label="Title *"><input value={f.title} onChange={e => s('title', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder={`${c.l} title…`}/></FG>
+          <FG label="Title *"><input value={f.title} onChange={e => s('title', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }} placeholder={`${c.l} title…`}/></FG>
           {/* Description */}
-          <FG label="Description"><textarea value={f.description} onChange={e => s('description', e.target.value)} rows={2} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }}/></FG>
+          <FG label="Description"><textarea value={f.description} onChange={e => s('description', e.target.value)} rows={2} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}/></FG>
           {/* Current Status */}
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
             <div className="flex items-center justify-between mb-1.5">
@@ -179,35 +179,35 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
               {f.currentStatusAt && <div className="text-blue-400 font-mono" style={{ fontSize:10 }}>🕐 Auto-stamped: {f.currentStatusAt}</div>}
             </div>
             <textarea value={f.currentStatus||''} onChange={e => s('currentStatus', e.target.value)} rows={2}
-              className="w-full border border-blue-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white" style={{ fontSize:12 }}
+              className="w-full border border-blue-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white" style={{ fontSize:16 }}
               placeholder="Describe current progress, blockers, or key updates…"/>
             <div className="text-blue-400 mt-1" style={{ fontSize:10 }}>Timestamp is captured automatically when you change this field.</div>
           </div>
           {/* Priority / Health / Risk */}
-          <div className="grid grid-cols-3 gap-3">
-            <FG label="Priority"><select value={f.priority} onChange={e => s('priority', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}>{PRIS.map(p => <option key={p}>{p}</option>)}</select></FG>
-            <FG label="Health"><select value={f.health||'Green'} onChange={e => s('health', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}>{HLTHS.map(h => <option key={h}>{h}</option>)}</select></FG>
-            <FG label="Risk Level"><select value={f.risk||'Low'} onChange={e => s('risk', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}>{RSKS.map(r => <option key={r}>{r}</option>)}</select></FG>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <FG label="Priority"><select value={f.priority} onChange={e => s('priority', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{PRIS.map(p => <option key={p}>{p}</option>)}</select></FG>
+            <FG label="Health"><select value={f.health||'Green'} onChange={e => s('health', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{HLTHS.map(h => <option key={h}>{h}</option>)}</select></FG>
+            <FG label="Risk Level"><select value={f.risk||'Low'} onChange={e => s('risk', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{RSKS.map(r => <option key={r}>{r}</option>)}</select></FG>
           </div>
           {/* Risk Statement */}
           <div className="rounded-xl border border-red-200 bg-red-50 p-3">
             <div className="text-red-700 font-bold uppercase mb-1.5" style={{ fontSize:10, letterSpacing:'0.06em' }}>⚠️ Risk Statement</div>
             <textarea value={f.riskStatement||''} onChange={e => s('riskStatement', e.target.value)} rows={2}
-              className="w-full border border-red-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-red-300 bg-white" style={{ fontSize:12 }}
+              className="w-full border border-red-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-red-300 bg-white" style={{ fontSize:16 }}
               placeholder="Describe key risks, threats, or concerns for this item…"/>
           </div>
-          {f.type==='okr' && <FG label="Key Results (Summary)"><textarea value={f.keyResult||''} onChange={e => s('keyResult', e.target.value)} rows={3} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder={"KR1: …\nKR2: …\nKR3: …"}/></FG>}
+          {f.type==='okr' && <FG label="Key Results (Summary)"><textarea value={f.keyResult||''} onChange={e => s('keyResult', e.target.value)} rows={3} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }} placeholder={"KR1: …\nKR2: …\nKR3: …"}/></FG>}
           {f.type==='kr' && (
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
               <div className="text-sky-700 font-bold uppercase mb-1.5" style={{ fontSize:10, letterSpacing:'0.06em' }}>🔑 Key Result Definition</div>
               <textarea value={f.keyResult||''} onChange={e => s('keyResult', e.target.value)} rows={3}
-                className="w-full border border-sky-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white" style={{ fontSize:12 }}
+                className="w-full border border-sky-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-sky-300 bg-white" style={{ fontSize:16 }}
                 placeholder="Define the measurable outcome. e.g. Increase deployment frequency from 2x/week to daily by Q4…"/>
               <div className="text-sky-400 mt-1" style={{ fontSize:10 }}>Describe the specific, measurable result this Key Result tracks.</div>
             </div>
           )}
           {/* People */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Owner"><input value={f.owner} onChange={e => s('owner', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Owner…"/></FG>
             <FG label="Assigned To"><input value={f.assigned||''} onChange={e => s('assigned', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Assigned person…"/></FG>
             {SPONSOR_TYPES.has(f.type)
@@ -217,14 +217,14 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
           </div>
           {SPONSOR_TYPES.has(f.type) && <FG label="Business Unit"><input value={f.businessUnit||''} onChange={e => s('businessUnit', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Owning business unit…"/></FG>}
           {/* Impact & Finance */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Impact Type"><select value={f.impactType||''} onChange={e => s('impactType', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}>{IMPACT_TYPES.map(it => <option key={it} value={it}>{it||'— Select —'}</option>)}</select></FG>
             <FG label="Approved Budget (£)"><input type="number" min="0" value={f.approvedBudget||''} onChange={e => s('approvedBudget', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="0"/></FG>
             <FG label="Actual Cost (£)"><input type="number" min="0" value={f.actualCost||''} onChange={e => s('actualCost', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="0"/></FG>
           </div>
           <FG label="Impact Description"><input value={f.impact||''} onChange={e => s('impact', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Expected impact…"/></FG>
           {/* Dates + Progress */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Start Date"><input type="date" value={f.startDate} onChange={e => s('startDate', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}/></FG>
             <FG label="End Date"><input type="date" value={f.endDate} onChange={e => s('endDate', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:12 }}/></FG>
             <FG label={`Progress: ${f.progress}%`}><input type="range" min="0" max="100" value={f.progress} onChange={e => s('progress', +e.target.value)} className="w-full accent-blue-500 mt-2"/></FG>

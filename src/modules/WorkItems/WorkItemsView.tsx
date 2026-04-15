@@ -56,8 +56,8 @@ export default function WorkItemsView({ items, sel, onSel, filter, enabledTypes 
   );
 
   return (
-    <div className="p-2 h-full overflow-auto">
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ minWidth:'max-content' }}>
+    <div className="p-2 h-full overflow-auto" style={{ WebkitOverflowScrolling:'touch' }}>
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ minWidth:'max-content', width:'max-content', maxWidth:'none' }}>
         <table className="w-full" style={{ fontSize:12 }}>
           <thead><tr className="bg-gray-50 border-b">
             <SortTh label="Work Item"      col="type"         sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
@@ -152,8 +152,8 @@ export function ListView({ type, items, sel, onSel }: ListViewProps) {
   );
 
   return (
-    <div className="p-2 h-full overflow-auto">
-      <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ minWidth:'max-content' }}>
+    <div className="p-2 h-full overflow-auto" style={{ WebkitOverflowScrolling:'touch' }}>
+      <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ minWidth:'max-content', width:'max-content', maxWidth:'none' }}>
         <table className="w-full" style={{ fontSize:12 }}>
           <thead><tr className="bg-gray-50 border-b">
             <SortTh label="Key"         col="key"        sortCol={sortCol} sortDir={sortDir} onSort={onSort}/>
