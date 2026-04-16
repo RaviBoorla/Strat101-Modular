@@ -920,6 +920,459 @@ function SprintPlanning({
   );
 }
 
+// ─── VELOCITY CHART ──────────────────────────────────────────────────────────
+
+function VelocityChart({ sprints }: { sprints: Sprint[] }) {
+  const done = sprints
+    .filter(s => s.status === 'completed')
+    .slice()
+    .sort((a, b) => (a.created_at > b.created_at ? 1 : -1))
+    .slice(-10); // last 10 completed sprints
+
+  if (done.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8', fontSize: 12 }}>
+      No completed sprints yet. Velocity chart will appear here after your first sprint is done.
+    </div>
+  );
+
+  const W = 560; const H = 200; const PAD = { top: 20, right: 20, bottom: 50, left: 48 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top  - PAD.bottom;
+
+  const maxPts = Math.max(...done.map(s => Math.max(s.capacity_points, s.velocity_points)), 1);
+  const barW   = Math.min(40, (chartW / done.length) - 8);
+  const slotW  = chartW / done.length;
+
+  const yScale = (v: number) => chartH - (v / maxPts) * chartH;
+
+  // Y axis ticks
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(f * maxPts));
+
+  // Velocity trend line points
+  const linePoints = done.map((s, i) => {
+    const x = PAD.left + i * slotW + slotW / 2;
+    const y = PAD.top  + yScale(s.velocity_points);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const avgVelocity = Math.round(done.reduce((s, sp) => s + sp.velocity_points, 0) / done.length);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>📊 Velocity Chart</div>
+        <div style={{ fontSize: 11, color: '#64748b' }}>
+          Avg velocity: <strong style={{ color: '#2563eb' }}>{avgVelocity} pts/sprint</strong>
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginLeft: 'auto', fontSize: 10, color: '#64748b' }}>
+          <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#cbd5e1', borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }}/>Capacity</span>
+          <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#2563eb', borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }}/>Velocity</span>
+          <span><span style={{ display: 'inline-block', width: 20, height: 2, background: '#f59e0b', marginRight: 4, verticalAlign: 'middle' }}/>Trend</span>
+        </div>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <svg width={W} height={H} style={{ display: 'block', maxWidth: '100%' }}>
+          {/* Grid lines */}
+          {ticks.map(t => {
+            const y = PAD.top + yScale(t);
+            return (
+              <g key={t}>
+                <line x1={PAD.left} y1={y} x2={PAD.left + chartW} y2={y} stroke="#f1f5f9" strokeWidth={1}/>
+                <text x={PAD.left - 6} y={y + 4} textAnchor="end" style={{ fontSize: 9, fill: '#94a3b8' }}>{t}</text>
+              </g>
+            );
+          })}
+
+          {/* Bars */}
+          {done.map((s, i) => {
+            const cx      = PAD.left + i * slotW + slotW / 2;
+            const capH    = (s.capacity_points / maxPts) * chartH;
+            const velH    = (s.velocity_points / maxPts) * chartH;
+            const overrun = s.velocity_points > s.capacity_points;
+            return (
+              <g key={s.id}>
+                {/* Capacity bar (grey bg) */}
+                <rect x={cx - barW / 2} y={PAD.top + chartH - capH} width={barW} height={capH}
+                  fill="#e2e8f0" rx={3}/>
+                {/* Velocity bar (blue/green) */}
+                <rect x={cx - barW / 2 + 2} y={PAD.top + chartH - velH} width={barW - 4} height={velH}
+                  fill={overrun ? '#16a34a' : '#2563eb'} rx={3} opacity={0.85}/>
+                {/* Value label */}
+                {s.velocity_points > 0 && (
+                  <text x={cx} y={PAD.top + chartH - velH - 4} textAnchor="middle"
+                    style={{ fontSize: 9, fill: '#374151', fontWeight: 700 }}>{s.velocity_points}</text>
+                )}
+                {/* Sprint name */}
+                <text x={cx} y={H - PAD.bottom + 14} textAnchor="middle"
+                  style={{ fontSize: 9, fill: '#64748b' }}
+                  transform={`rotate(-25, ${cx}, ${H - PAD.bottom + 14})`}>
+                  {s.name.length > 12 ? s.name.slice(0, 12) + '…' : s.name}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Trend line */}
+          {done.length > 1 && (
+            <polyline points={linePoints} fill="none" stroke="#f59e0b" strokeWidth={2}
+              strokeDasharray="4 2" strokeLinejoin="round"/>
+          )}
+          {done.map((s, i) => {
+            const x = PAD.left + i * slotW + slotW / 2;
+            const y = PAD.top  + yScale(s.velocity_points);
+            return <circle key={s.id} cx={x} cy={y} r={3} fill="#f59e0b" stroke="white" strokeWidth={1.5}/>;
+          })}
+
+          {/* Axes */}
+          <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#e2e8f0" strokeWidth={1}/>
+          <line x1={PAD.left} y1={PAD.top + chartH} x2={PAD.left + chartW} y2={PAD.top + chartH} stroke="#e2e8f0" strokeWidth={1}/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ─── BURNDOWN CHART ───────────────────────────────────────────────────────────
+
+function BurndownChart({ sprint, items }: { sprint: Sprint; items: any[] }) {
+  const sprintItems = items.filter(i => i.sprintId === sprint.id);
+  const totalPts    = sprintItems.reduce((s: number, i: any) => s + (i.storyPoints ?? 0), 0);
+  const donePts     = sprintItems.filter((i: any) => i.status === 'Completed').reduce((s: number, i: any) => s + (i.storyPoints ?? 0), 0);
+  const remainPts   = totalPts - donePts;
+
+  if (!sprint.start_date || !sprint.end_date || totalPts === 0) return (
+    <div style={{ textAlign: 'center', padding: '30px 20px', color: '#94a3b8', fontSize: 12 }}>
+      Set sprint dates and story points to see the burndown chart.
+    </div>
+  );
+
+  const start   = new Date(sprint.start_date);
+  const end     = new Date(sprint.end_date);
+  const today   = new Date();
+  const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
+  const daysPassed = Math.min(totalDays, Math.max(0, Math.ceil((today.getTime() - start.getTime()) / 86400000)));
+
+  const W = 560; const H = 200; const PAD = { top: 20, right: 20, bottom: 40, left: 48 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top  - PAD.bottom;
+
+  const xScale = (day: number) => (day / totalDays) * chartW;
+  const yScale = (pts: number) => chartH - (pts / totalPts) * chartH;
+
+  // Ideal line: totalPts on day 0 → 0 on day totalDays
+  const idealLine = `${PAD.left},${PAD.top} ${PAD.left + chartW},${PAD.top + chartH}`;
+
+  // Actual point: today
+  const actualX = PAD.left + xScale(daysPassed);
+  const actualY = PAD.top  + yScale(remainPts);
+
+  // Projected end: based on current burn rate
+  const burnRate   = daysPassed > 0 ? donePts / daysPassed : 0;
+  const projDays   = burnRate > 0 ? Math.ceil(remainPts / burnRate) + daysPassed : null;
+  const onTrack    = projDays !== null ? projDays <= totalDays : remainPts === 0;
+
+  // X axis day labels
+  const xLabels = [0, Math.round(totalDays * 0.25), Math.round(totalDays * 0.5), Math.round(totalDays * 0.75), totalDays];
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>📉 Burndown — {sprint.name}</div>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748b', flexWrap: 'wrap' }}>
+          <span>Total: <strong>{totalPts} pts</strong></span>
+          <span>Done: <strong style={{ color: '#16a34a' }}>{donePts} pts</strong></span>
+          <span>Remaining: <strong style={{ color: remainPts > 0 ? '#dc2626' : '#16a34a' }}>{remainPts} pts</strong></span>
+          {projDays !== null && sprint.status === 'active' && (
+            <span style={{ color: onTrack ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+              {onTrack ? '✓ On track' : `⚠ ${projDays - totalDays}d over`}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 12, marginLeft: 'auto', fontSize: 10, color: '#64748b' }}>
+          <span><span style={{ display: 'inline-block', width: 20, height: 2, background: '#94a3b8', marginRight: 4, verticalAlign: 'middle' }}/>Ideal</span>
+          <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#2563eb', borderRadius: '50%', marginRight: 4, verticalAlign: 'middle' }}/>Actual</span>
+        </div>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <svg width={W} height={H} style={{ display: 'block', maxWidth: '100%' }}>
+          {/* Grid */}
+          {[0, 0.25, 0.5, 0.75, 1].map(f => {
+            const y = PAD.top + yScale(f * totalPts);
+            return (
+              <g key={f}>
+                <line x1={PAD.left} y1={y} x2={PAD.left + chartW} y2={y} stroke="#f1f5f9" strokeWidth={1}/>
+                <text x={PAD.left - 6} y={y + 4} textAnchor="end" style={{ fontSize: 9, fill: '#94a3b8' }}>
+                  {Math.round(f * totalPts)}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Today shading */}
+          {sprint.status === 'active' && daysPassed < totalDays && (
+            <rect x={actualX} y={PAD.top} width={PAD.left + chartW - actualX} height={chartH}
+              fill="#f8fafc" opacity={0.6}/>
+          )}
+
+          {/* Ideal burndown line */}
+          <line x1={PAD.left} y1={PAD.top} x2={PAD.left + chartW} y2={PAD.top + chartH}
+            stroke="#cbd5e1" strokeWidth={2} strokeDasharray="6 3"/>
+
+          {/* Projected completion line */}
+          {projDays !== null && burnRate > 0 && sprint.status === 'active' && (
+            <line x1={actualX} y1={actualY}
+              x2={PAD.left + Math.min(xScale(projDays), chartW * 1.1)} y2={PAD.top + chartH}
+              stroke={onTrack ? '#16a34a' : '#f59e0b'} strokeWidth={1.5} strokeDasharray="4 2" opacity={0.7}/>
+          )}
+
+          {/* Actual point */}
+          <circle cx={actualX} cy={actualY} r={6} fill="#2563eb" stroke="white" strokeWidth={2}/>
+          <text x={actualX + 9} y={actualY + 4} style={{ fontSize: 10, fill: '#2563eb', fontWeight: 700 }}>
+            {remainPts}pts
+          </text>
+
+          {/* X labels */}
+          {xLabels.map(d => {
+            const x   = PAD.left + xScale(d);
+            const date = new Date(start.getTime() + d * 86400000);
+            const lbl  = `${date.getDate()}/${date.getMonth() + 1}`;
+            return (
+              <text key={d} x={x} y={H - PAD.bottom + 14} textAnchor="middle"
+                style={{ fontSize: 9, fill: '#94a3b8' }}>{lbl}</text>
+            );
+          })}
+
+          {/* Axes */}
+          <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#e2e8f0" strokeWidth={1}/>
+          <line x1={PAD.left} y1={PAD.top + chartH} x2={PAD.left + chartW} y2={PAD.top + chartH} stroke="#e2e8f0" strokeWidth={1}/>
+
+          {/* Today line */}
+          {sprint.status === 'active' && (
+            <>
+              <line x1={actualX} y1={PAD.top} x2={actualX} y2={PAD.top + chartH} stroke="#2563eb" strokeWidth={1} strokeDasharray="3 2" opacity={0.4}/>
+              <text x={actualX} y={PAD.top - 6} textAnchor="middle" style={{ fontSize: 9, fill: '#2563eb', fontWeight: 600 }}>Today</text>
+            </>
+          )}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ─── ANALYTICS VIEW ───────────────────────────────────────────────────────────
+
+function AnalyticsView({ sprints, items }: { sprints: Sprint[]; items: any[] }) {
+  const activeSprint    = sprints.find(s => s.status === 'active');
+  const completedSprints = sprints.filter(s => s.status === 'completed');
+
+  // Per-sprint summary table
+  const summary = completedSprints
+    .slice()
+    .sort((a, b) => (a.created_at > b.created_at ? 1 : -1))
+    .map(s => {
+      const si        = items.filter(i => i.sprintId === s.id);
+      const total     = si.reduce((acc: number, i: any) => acc + (i.storyPoints ?? 0), 0);
+      const completed = si.filter((i: any) => i.status === 'Completed').length;
+      return { sprint: s, itemCount: si.length, totalPts: total, completed };
+    });
+
+  return (
+    <div style={{ padding: '24px 28px', maxWidth: 960, margin: '0 auto' }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', marginBottom: 24 }}>📈 Analytics</div>
+
+      {/* Active burndown */}
+      {activeSprint && (
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '20px 24px', marginBottom: 24, background: 'white' }}>
+          <BurndownChart sprint={activeSprint} items={items}/>
+        </div>
+      )}
+
+      {/* Velocity */}
+      <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '20px 24px', marginBottom: 24, background: 'white' }}>
+        <VelocityChart sprints={sprints}/>
+      </div>
+
+      {/* Sprint summary table */}
+      {summary.length > 0 && (
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden', background: 'white' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', fontSize: 13, fontWeight: 700, color: '#1e293b' }}>
+            🏆 Sprint History
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                {['Sprint', 'Items', 'Pts Committed', 'Pts Done', 'Items Done', 'Completion'].map(h => (
+                  <th key={h} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {summary.map(({ sprint: s, itemCount, totalPts, completed }, idx) => {
+                const pct = itemCount > 0 ? Math.round((completed / itemCount) * 100) : 0;
+                return (
+                  <tr key={s.id} style={{ borderBottom: idx < summary.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>{s.name}</td>
+                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{itemCount}</td>
+                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{s.capacity_points || totalPts} pts</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span style={{ fontWeight: 700, color: s.velocity_points >= (s.capacity_points || totalPts) ? '#16a34a' : '#2563eb' }}>
+                        {s.velocity_points} pts
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{completed} / {itemCount}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 64, height: 6, borderRadius: 3, background: '#e2e8f0', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: pct === 100 ? '#16a34a' : '#2563eb', borderRadius: 3 }}/>
+                        </div>
+                        <span style={{ fontSize: 11, color: '#64748b' }}>{pct}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {completedSprints.length === 0 && !activeSprint && (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#475569', marginBottom: 6 }}>No data yet</div>
+          <div style={{ fontSize: 12 }}>Start and complete sprints to see velocity and burndown analytics.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SPRINT REVIEW MODAL ──────────────────────────────────────────────────────
+
+function SprintReview({
+  sprint, items, sprints, tenantId, onConfirm, onClose,
+}: {
+  sprint: Sprint;
+  items: any[];
+  sprints: Sprint[];
+  tenantId: string;
+  onConfirm: (velocity: number) => void;
+  onClose: () => void;
+}) {
+  const sprintItems   = items.filter(i => i.sprintId === sprint.id);
+  const doneItems     = sprintItems.filter(i => i.status === 'Completed');
+  const incompleteItems = sprintItems.filter(i => i.status !== 'Completed' && i.status !== 'Cancelled');
+  const donePts       = doneItems.reduce((s: number, i: any) => s + (i.storyPoints ?? 0), 0);
+  const nextSprints   = sprints.filter(s => s.status === 'planning');
+
+  // For each incomplete item: 'backlog' | sprint.id
+  const [destinations, setDestinations] = useState<Record<string, string>>(() =>
+    Object.fromEntries(incompleteItems.map(i => [i.id, 'backlog']))
+  );
+  const [saving, setSaving] = useState(false);
+
+  const setDest = (id: string, dest: string) =>
+    setDestinations(p => ({ ...p, [id]: dest }));
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    await Promise.all(
+      incompleteItems.map(async (item: any) => {
+        const dest = destinations[item.id];
+        if (dest === 'backlog') {
+          await supabase.from('work_items').update({ sprint_id: null }).eq('id', item.id).eq('tenant_id', tenantId);
+        } else {
+          await supabase.from('work_items').update({ sprint_id: dest }).eq('id', item.id).eq('tenant_id', tenantId);
+        }
+      })
+    );
+    setSaving(false);
+    onConfirm(donePts);
+  };
+
+  const STATUS_COLOR: Record<string, string> = {
+    'Draft': '#94a3b8', 'In Progress': '#d97706', 'On Hold': '#ea580c', 'Completed': '#16a34a',
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 14, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', width: '100%', maxWidth: 560, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ padding: '18px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>✓ Complete Sprint — {sprint.name}</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              {doneItems.length} items done · <strong style={{ color: '#16a34a' }}>{donePts} pts</strong> velocity
+            </div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', fontSize: 20, color: '#94a3b8', cursor: 'pointer', padding: '2px 6px' }}>×</button>
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display: 'flex', gap: 16, padding: '14px 24px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
+          {[
+            { label: 'Total items', val: sprintItems.length, color: '#374151' },
+            { label: 'Completed',   val: doneItems.length,      color: '#16a34a' },
+            { label: 'Incomplete',  val: incompleteItems.length, color: incompleteItems.length > 0 ? '#d97706' : '#16a34a' },
+            { label: 'Velocity',    val: `${donePts} pts`,       color: '#2563eb' },
+          ].map(({ label, val, color }) => (
+            <div key={label} style={{ textAlign: 'center', minWidth: 80 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color }}>{val}</div>
+              <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Incomplete items */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+          {incompleteItems.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '30px 0', color: '#16a34a' }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🎉</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>All items completed!</div>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 10 }}>
+                What should happen to the {incompleteItems.length} incomplete item{incompleteItems.length !== 1 ? 's' : ''}?
+              </div>
+              {incompleteItems.map((item: any) => (
+                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid #f1f5f9', borderRadius: 8, marginBottom: 6, background: 'white' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title || '(Untitled)'}</div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                      <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#94a3b8' }}>{item.key}</span>
+                      <span style={{ fontSize: 10, color: STATUS_COLOR[item.status] ?? '#94a3b8', fontWeight: 600 }}>● {item.status}</span>
+                      {item.storyPoints != null && <PointsBadge points={item.storyPoints}/>}
+                    </div>
+                  </div>
+                  <select value={destinations[item.id]} onChange={e => setDest(item.id, e.target.value)}
+                    style={{ padding: '5px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, outline: 'none', cursor: 'pointer', flexShrink: 0, maxWidth: 160 }}>
+                    <option value="backlog">→ Backlog</option>
+                    {nextSprints.map(s => (
+                      <option key={s.id} value={s.id}>→ {s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button onClick={onClose} style={{ padding: '8px 18px', borderRadius: 7, border: '1px solid #e2e8f0', background: 'white', fontSize: 13, cursor: 'pointer', color: '#374151' }}>
+            Cancel
+          </button>
+          <button onClick={handleConfirm} disabled={saving}
+            style={{ padding: '8px 22px', borderRadius: 7, border: 'none', background: saving ? '#86efac' : '#16a34a', color: 'white', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            {saving ? 'Completing…' : 'Complete Sprint'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── SPRINT MODULE (MAIN EXPORT) ──────────────────────────────────────────────
 
 interface SprintModuleProps {
@@ -930,7 +1383,7 @@ interface SprintModuleProps {
   onItemChange: (id: string, field: string, value: any) => void;
 }
 
-type SubView = 'list' | 'backlog' | 'board' | 'planning';
+type SubView = 'list' | 'backlog' | 'board' | 'planning' | 'analytics';
 
 export default function SprintModule({ tenantId, loggedUser, isViewer, items, onItemChange }: SprintModuleProps) {
   const [sprints,         setSprints]         = useState<Sprint[]>([]);
@@ -938,6 +1391,7 @@ export default function SprintModule({ tenantId, loggedUser, isViewer, items, on
   const [subView,         setSubView]         = useState<SubView>('list');
   const [selectedSprint,  setSelectedSprint]  = useState<Sprint | null>(null);
   const [formSprint,      setFormSprint]      = useState<Partial<Sprint> | null | false>(false); // false = closed
+  const [reviewSprintId,  setReviewSprintId]  = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -999,18 +1453,20 @@ export default function SprintModule({ tenantId, loggedUser, isViewer, items, on
     }
   };
 
-  const handleCompleteSprint = async (id: string) => {
-    if (!window.confirm('Mark this sprint as completed? Incomplete items will remain assigned to it.')) return;
-    const sprint = sprints.find(s => s.id === id);
+  const handleCompleteSprint = (id: string) => {
+    setReviewSprintId(id);
+  };
+
+  const handleReviewConfirm = async (velocity: number) => {
+    const sprint = sprints.find(s => s.id === reviewSprintId);
     if (!sprint) return;
-    const sprintItems = items.filter(i => i.sprintId === id);
-    const donePts = sprintItems.filter((i: any) => i.status === 'Completed').reduce((s: number, i: any) => s + (i.storyPoints ?? 0), 0);
-    const updated = { ...sprint, status: 'completed' as SprintStatus, velocity_points: donePts };
+    const updated = { ...sprint, status: 'completed' as SprintStatus, velocity_points: velocity };
     const saved = await saveSprint({ ...updated, tenant_id: tenantId });
     if (saved) {
-      setSprints(p => p.map(s => s.id === id ? saved : s));
+      setSprints(p => p.map(s => s.id === reviewSprintId ? saved : s));
       setSelectedSprint(saved);
     }
+    setReviewSprintId(null);
   };
 
   // Sub-view tabs
@@ -1038,6 +1494,9 @@ export default function SprintModule({ tenantId, loggedUser, isViewer, items, on
         </button>
         <button style={TAB_STYLE(subView === 'backlog')} onClick={() => { setSubView('backlog'); setSelectedSprint(null); }}>
           📋 Backlog
+        </button>
+        <button style={TAB_STYLE(subView === 'analytics')} onClick={() => { setSubView('analytics'); setSelectedSprint(null); }}>
+          📈 Analytics
         </button>
         {selectedSprint && (subView === 'board' || subView === 'planning') && (
           <>
@@ -1106,6 +1565,10 @@ export default function SprintModule({ tenantId, loggedUser, isViewer, items, on
             onStartSprint={handleStartSprint}
           />
         )}
+
+        {subView === 'analytics' && (
+          <AnalyticsView sprints={sprints} items={items}/>
+        )}
       </div>
 
       {/* Sprint form modal */}
@@ -1118,6 +1581,21 @@ export default function SprintModule({ tenantId, loggedUser, isViewer, items, on
           onClose={() => setFormSprint(false)}
         />
       )}
+
+      {/* Sprint review modal */}
+      {reviewSprintId && (() => {
+        const sprint = sprints.find(s => s.id === reviewSprintId);
+        return sprint ? (
+          <SprintReview
+            sprint={sprint}
+            items={items}
+            sprints={sprints}
+            tenantId={tenantId}
+            onConfirm={handleReviewConfirm}
+            onClose={() => setReviewSprintId(null)}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }
