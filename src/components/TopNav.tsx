@@ -127,13 +127,14 @@ export default function TopNav({
     ...(features.bot       ? [{id:'bot',       label:'AI Assist',  icon:'🤖'}] : []),
     ...(features.reports   ? [{id:'reports',   label:'Reports',    icon:'📈'}] : []),
     ...(features.ride      ? [{id:'ride',      label:'RiDe Intel', icon:'⚡'}] : []),
+    ...(features.sprints   ? [{id:'sprints',   label:'Sprints',    icon:'🏃'}] : []),
   ];
 
   // FIX: Work Items click → go to workitems view directly (no dropdown)
   // Work Items ARROW click → toggle dropdown
   // Create click → toggle dropdown (unchanged)
   const handleNavClick=(id:string)=>{
-    if(id==='kanban'||id==='bot'||id==='reports'||id==='ride'){ setWiOpen(false); setCreate(false); setMobileCreate(false); setView(id); }
+    if(id==='kanban'||id==='bot'||id==='reports'||id==='ride'||id==='sprints'){ setWiOpen(false); setCreate(false); setMobileCreate(false); setView(id); }
     else if(id==='workitems'){ setCreate(false); setMobileCreate(false); setWiOpen(false); setView('workitems'); setWorkItemFilter('all'); }
     else if(id==='create'){ setWiOpen(false); if(!isViewer) setCreate((o:boolean)=>!o); }
   };
@@ -449,7 +450,7 @@ export default function TopNav({
             </span>
           )}</>}
         <span style={{fontSize:11,fontWeight:600,color:TEXT_ACTIVE,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-          {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':view==='ride'?'⚡ RiDe Intel':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i||''} ${TC[workItemFilter]?.l||''}s`.trim()):(TC[view]?.i&&TC[view]?.l)?`${TC[view].i} ${TC[view].l}s`:view}
+          {view==='kanban'?'🗂️ Kanban Board':view==='reports'?'📈 Report Builder':view==='bot'?'🤖 AI Assist':view==='ride'?'⚡ RiDe Intel':view==='sprints'?'🏃 Sprints & Backlog':isWI?(workItemFilter==='all'?'📦 All Work Items':`${TC[workItemFilter]?.i||''} ${TC[workItemFilter]?.l||''}s`.trim()):(TC[view]?.i&&TC[view]?.l)?`${TC[view].i} ${TC[view].l}s`:view}
         </span>
         {(isLV||isWI)&&!isMobile&&(
           <>

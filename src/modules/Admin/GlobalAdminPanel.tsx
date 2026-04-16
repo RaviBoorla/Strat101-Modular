@@ -16,20 +16,21 @@ import {
 
 const FEATURE_LABELS: Record<string,string> = {
   kanban:'Kanban Boards', workitems:'Work Items', create:'Create Items',
-  bot:'AI Assist', reports:'Reports',
+  bot:'AI Assist', reports:'Reports', ride:'RiDe Intel', chat:'Team Chat', sprints:'Sprints & Backlog',
 };
 const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
-  { key:'kanban',    label:'Kanban',     icon:'Kanban'    },
-  { key:'workitems', label:'Work Items', icon:'WorkItems' },
-  { key:'create',    label:'Create',     icon:'Create'    },
-  { key:'bot',       label:'AI Assist',  icon:'AIAssist'  },
-  { key:'reports',   label:'Reports',    icon:'Reports'   },
-  { key:'ride',      label:'RiDe Intel', icon:'RiDe'      },
-  { key:'chat',      label:'Team Chat',  icon:'Chat'      },
+  { key:'kanban',    label:'Kanban',           icon:'Kanban'    },
+  { key:'workitems', label:'Work Items',        icon:'WorkItems' },
+  { key:'create',    label:'Create',            icon:'Create'    },
+  { key:'bot',       label:'AI Assist',         icon:'AIAssist'  },
+  { key:'reports',   label:'Reports',           icon:'Reports'   },
+  { key:'ride',      label:'RiDe Intel',        icon:'RiDe'      },
+  { key:'chat',      label:'Team Chat',         icon:'Chat'      },
+  { key:'sprints',   label:'Sprints & Backlog', icon:'Sprints'   },
 ];
 
 const FEATURE_EMOJI: Record<FeatureKey, string> = {
-  kanban:'🗂️', workitems:'📦', create:'➕', bot:'🤖', reports:'📈', ride:'⚡', chat:'💬',
+  kanban:'🗂️', workitems:'📦', create:'➕', bot:'🤖', reports:'📈', ride:'⚡', chat:'💬', sprints:'🏃',
 };
 
 const PLAN_STYLE: Record<string, {color:string;bg:string}> = {
@@ -445,8 +446,8 @@ function FeaturesTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.04em'}}>Modules</div>
         <div style={{display:'flex',gap:6}}>
-          <button onClick={()=>onUpdate({...tenant,features:{kanban:true,workitems:true,create:true,bot:true,reports:true,ride:true,chat:true}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
-          <button onClick={()=>onUpdate({...tenant,features:{kanban:false,workitems:false,create:false,bot:false,reports:false,ride:false,chat:false}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
+          <button onClick={()=>onUpdate({...tenant,features:{kanban:true,workitems:true,create:true,bot:true,reports:true,ride:true,chat:true,sprints:true}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
+          <button onClick={()=>onUpdate({...tenant,features:{kanban:false,workitems:false,create:false,bot:false,reports:false,ride:false,chat:false,sprints:false}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
         </div>
       </div>
       {FEATURE_DEFS.map(fd=>{
@@ -949,7 +950,7 @@ function TenantForm({tenant,onSave,onClose}:{tenant:Tenant|null;onSave:(t:Tenant
   const save=()=>{
     if(!name.trim()||!slug.trim()) return;
     const lim=PLAN_LIMITS[plan];
-    const base={kanban:true,workitems:true,create:true,bot:true,reports:true,ride:false,chat:false};
+    const base={kanban:true,workitems:true,create:true,bot:true,reports:true,ride:false,chat:false,sprints:false};
     const baseSub:Subscription={
       status:'trialling',trialStart:td(),trialEnd:'',currentPeriodStart:td(),currentPeriodEnd:'',
       autoRenew:true,billingEmail:'',billingName:'',
