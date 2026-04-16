@@ -17,25 +17,28 @@ async function fetchSprints(tenantId: string): Promise<Sprint[]> {
 }
 
 async function saveSprint(sprint: Partial<Sprint> & { tenant_id: string }): Promise<Sprint | null> {
+  const payload = {
+    id:              sprint.id ?? gId(),
+    tenant_id:       sprint.tenant_id,
+    project_id:      sprint.project_id  ?? null,
+    name:            sprint.name        ?? '',
+    goal:            sprint.goal        ?? '',
+    start_date:      sprint.start_date  ?? null,
+    end_date:        sprint.end_date    ?? null,
+    status:          sprint.status      ?? 'planning',
+    capacity_points: sprint.capacity_points ?? 0,
+    velocity_points: sprint.velocity_points ?? 0,
+    created_by:      sprint.created_by  ?? '',
+  };
   const { data, error } = await supabase
     .from('sprints')
-    .upsert({
-      id:              sprint.id ?? gId(),
-      tenant_id:       sprint.tenant_id,
-      project_id:      sprint.project_id  ?? null,
-      name:            sprint.name        ?? '',
-      goal:            sprint.goal        ?? '',
-      start_date:      sprint.start_date  ?? null,
-      end_date:        sprint.end_date    ?? null,
-      status:          sprint.status      ?? 'planning',
-      capacity_points: sprint.capacity_points ?? 0,
-      velocity_points: sprint.velocity_points ?? 0,
-      created_by:      sprint.created_by  ?? '',
-    })
+    .upsert(payload, { onConflict: 'id' })
     .select()
     .single();
-  if (error) console.error('[SprintModule] saveSprint:', error.message);
-  return data as Sprint | null;
+  if (error) {
+    console.error('[SprintModule] saveSprint error:', error.code, error.message, error.details, error.hint);
+  }
+  return error ? null : data as Sprint;
 }
 
 async function deleteSprint(id: string): Promise<void> {
@@ -168,6 +171,7 @@ function SprintForm({
     e.preventDefault();
     if (!name.trim()) { setErr('Sprint name is required.'); return; }
     if (endDate && startDate && endDate < startDate) { setErr('End date must be after start date.'); return; }
+    setErr('');
     setSaving(true);
     const saved = await saveSprint({
       id:              initial?.id,
@@ -183,7 +187,11 @@ function SprintForm({
       created_by:      initial?.created_by ?? loggedUser,
     });
     setSaving(false);
-    if (saved) onSave(saved);
+    if (saved) {
+      onSave(saved);
+    } else {
+      setErr('Failed to save sprint. Check the browser console (F12) for the exact error — it is likely a missing RLS policy or the sprints table does not exist yet.');
+    }
   };
 
   const inputStyle: React.CSSProperties = {
