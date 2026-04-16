@@ -1,16 +1,17 @@
 // ─── SHARED TYPES ─────────────────────────────────────────────────────────────
 
-export type FeatureKey = 'kanban' | 'workitems' | 'create' | 'bot' | 'reports' | 'ride' | 'chat' | 'sprints';
+export type FeatureKey = 'kanban' | 'workitems' | 'create' | 'bot' | 'reports' | 'ride' | 'chat' | 'sprints' | 'agentSprints';
 
 export interface TenantFeatures {
-  kanban:    boolean;
-  workitems: boolean;
-  create:    boolean;
-  bot:       boolean;
-  reports:   boolean;
-  ride:      boolean;
-  chat:      boolean;
-  sprints:   boolean;
+  kanban:       boolean;
+  workitems:    boolean;
+  create:       boolean;
+  bot:          boolean;
+  reports:      boolean;
+  ride:         boolean;
+  chat:         boolean;
+  sprints:      boolean;
+  agentSprints: boolean;
 }
 
 // ─── SPRINT TYPES ─────────────────────────────────────────────────────────────

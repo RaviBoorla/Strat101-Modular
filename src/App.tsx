@@ -19,6 +19,7 @@ import ReportBuilder from "./modules/Reports/ReportBuilder";
 import GlobalAdminPanel from "./modules/Admin/GlobalAdminPanel";
 import LocalAdminPanel from "./modules/Admin/LocalAdminPanel";
 import SprintModule from "./modules/Sprint/SprintModule";
+import AgentSprintModule from "./modules/AgentSprint/AgentSprintModule";
 
 import TopNav         from "./components/TopNav";
 import DetailPanel    from "./components/DetailPanel";
@@ -26,7 +27,7 @@ import CommandPalette from "./components/CommandPalette";
 import LOGO_SRC from './logoData';
 
 const ALL_FEATURES: TenantFeatures = {
-  kanban: true, workitems: true, create: true, bot: true, reports: true, ride: false, chat: false, sprints: false,
+  kanban: true, workitems: true, create: true, bot: true, reports: true, ride: false, chat: false, sprints: false, agentSprints: false,
 };
 
 // ─── SUPABASE DATA HELPERS ────────────────────────────────────────────────────
@@ -227,6 +228,7 @@ function Workspace({
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [kanbanSprints, setKanbanSprints] = useState<{id:string;name:string;status:string}[]>([]);
+  const [agentItems,    setAgentItems]    = useState<any[]>([]);
   const [view,    setView]    = useState('kanban');
   const [workItemFilter, setWIF] = useState('all');
   const [sel,     setSel]   = useState<string|null>(null);
@@ -255,6 +257,12 @@ function Workspace({
     supabase.from('sprints').select('id,name,status').eq('tenant_id', tenantId)
       .order('created_at').then(({ data }) => setKanbanSprints((data ?? []) as any));
   }, [tenantId, features.sprints]);
+
+  useEffect(() => {
+    if (!tenantId || !features.agentSprints) { setAgentItems([]); return; }
+    supabase.from('agent_sprint_items').select('*').eq('tenant_id', tenantId)
+      .then(({ data }) => setAgentItems(data ?? []));
+  }, [tenantId, features.agentSprints]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -430,7 +438,8 @@ function Workspace({
     (isWorkItems         && !features.workitems)||
     (TYPES.includes(view) && !activeTypes.includes(view)) ||
     (view === 'ride'    && !features.ride)      ||
-    (view === 'sprints' && !features.sprints);
+    (view === 'sprints'      && !features.sprints)      ||
+    (view === 'agentSprints' && !features.agentSprints);
 
   if (loading) {
     return (
@@ -473,7 +482,8 @@ function Workspace({
                   {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
                   {isListView                               && <ListView type={view} items={items.filter(i => i.type === view)} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
                   {view === 'ride'    && features.ride    && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
-                  {view === 'sprints' && features.sprints && tenantId && <SprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} items={items} onItemChange={changeField}/>}
+                  {view === 'sprints'      && features.sprints      && tenantId && <SprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} items={items} onItemChange={changeField}/>}
+                  {view === 'agentSprints' && features.agentSprints && tenantId && <AgentSprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
                 </>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
@@ -493,7 +503,8 @@ function Workspace({
                 onEdit={() => setForm({ ...selected })} onDelete={() => remove(selected.id)} onClose={() => setSel(null)}
                 onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }} onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
                 onRmLink={rmLink} onRmDep={rmDep} onAddFile={() => fileRef.current?.click()} onRmFile={rmFile}
-                onAddComment={addComment} onRmComment={rmComment} onNav={nav}/>
+                onAddComment={addComment} onRmComment={rmComment} onNav={nav}
+                agentOutcomes={features.agentSprints && sel ? agentItems.filter((o: any) => o.linked_work_item_id === sel) : []}/>
             </div>
           )}
         </div>
@@ -580,7 +591,8 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
                 reports:   t.feat_reports   ?? true,
                 ride:      t.feat_ride      ?? false,
                 chat:      t.feat_chat      ?? false,
-                sprints:   t.feat_sprints   ?? false,
+                sprints:      t.feat_sprints        ?? false,
+                agentSprints: t.feat_agent_sprints  ?? false,
               });
               const et = t.enabled_item_types;
               setEnabledTypes(et && et.length > 0 ? et : ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
@@ -589,7 +601,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
             // Load tenant features on mount
             const { data: tenant } = await supabase
               .from('tenants')
-              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, feat_ride, feat_chat, feat_sprints, enabled_item_types')
+              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, feat_ride, feat_chat, feat_sprints, feat_agent_sprints, enabled_item_types')
               .eq('id', data.tenant_id)
               .single();
 
