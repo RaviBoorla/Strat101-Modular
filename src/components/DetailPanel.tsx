@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from "react";
-import { TC, SC, PC, HIC, RC, SPONSOR_TYPES, TL } from "../constants";
+import { TC, SC, PC, HIC, RC, SPONSOR_TYPES, TL, ITEM_SUBTYPE_META } from "../constants";
 import { Lbl } from "./shared";
 
 // ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
@@ -22,6 +22,40 @@ function OverviewTab({ item }: { item: any }) {
         <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
           <div className="text-sky-700 font-bold uppercase mb-1.5" style={{ fontSize:10, letterSpacing:'0.06em' }}>🔑 Key Result Definition</div>
           <p className="text-sky-800 leading-relaxed" style={{ fontSize:12 }}>{item.keyResult}</p>
+        </div>
+      )}
+      {/* Sprint fields — shown for task / subtask */}
+      {(item.type === 'task' || item.type === 'subtask') && (item.itemSubtype || item.storyPoints != null || item.acceptanceCriteria) && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+          <div className="text-violet-700 font-bold uppercase mb-2" style={{ fontSize:10, letterSpacing:'0.06em' }}>🏃 Sprint</div>
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            {item.itemSubtype && ITEM_SUBTYPE_META[item.itemSubtype] && (
+              <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:4,
+                background:`${ITEM_SUBTYPE_META[item.itemSubtype].color}18`,
+                color: ITEM_SUBTYPE_META[item.itemSubtype].color,
+                border:`1px solid ${ITEM_SUBTYPE_META[item.itemSubtype].color}40` }}>
+                {ITEM_SUBTYPE_META[item.itemSubtype].icon} {ITEM_SUBTYPE_META[item.itemSubtype].label}
+              </span>
+            )}
+            {item.storyPoints != null && (
+              <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:999,
+                background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd' }}>
+                {item.storyPoints} pt{item.storyPoints !== 1 ? 's' : ''}
+              </span>
+            )}
+            {item.sprintId && (
+              <span style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:999,
+                background:'#f0fdf4', color:'#15803d', border:'1px solid #86efac' }}>
+                In Sprint
+              </span>
+            )}
+          </div>
+          {item.acceptanceCriteria && (
+            <div>
+              <div className="text-violet-600 font-semibold uppercase mb-1" style={{ fontSize:9, letterSpacing:'0.05em' }}>Acceptance Criteria</div>
+              <p className="text-violet-900 whitespace-pre-line leading-relaxed" style={{ fontSize:12 }}>{item.acceptanceCriteria}</p>
+            </div>
+          )}
         </div>
       )}
       {item.riskStatement && (

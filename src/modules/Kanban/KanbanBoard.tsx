@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useResponsive } from "../../hooks/useResponsive";
-import { TC, SC, PC, HIC, RC, TYPES, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES } from "../../constants";
+import { TC, SC, PC, HIC, RC, TYPES, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES, ITEM_SUBTYPE_META } from "../../constants";
 import { gId } from "../../utils";
 
 // ─── KANBAN CONSTANTS ─────────────────────────────────────────────────────────
@@ -18,11 +18,13 @@ export const FIELD_DEFS = [
   {k:'approvedBudget',l:'Budget (£)'},{k:'actualCost',l:'Actual Cost (£)'},
   {k:'startDate',l:'Start Date'},{k:'endDate',l:'Due Date'},
   {k:'progress',l:'Progress'},{k:'tags',l:'Tags'},
+  {k:'itemSubtype',l:'Item Type'},{k:'storyPoints',l:'Story Points'},
 ];
 
 export const ALL_VIS_FIELDS = new Set(FIELD_DEFS.map(f => f.k));
 export const DEFAULT_VIS_FIELDS = new Set([
-  'badge','key','status','currentStatus','health','priority','risk','endDate','owner','tags'
+  'badge','key','status','currentStatus','health','priority','risk','endDate','owner','tags',
+  'itemSubtype','storyPoints',
 ]);
 
 // ─── FCHIP ────────────────────────────────────────────────────────────────────
@@ -70,6 +72,24 @@ export function KCard({ item, selected, isDragging, onClick, onDragStart, onDrag
         </div>
       )}
       <div className="font-semibold text-gray-800 mb-1.5 leading-snug" style={{ fontSize:12 }}>{item.title||'(Untitled)'}</div>
+      {(vf.has('itemSubtype') || vf.has('storyPoints')) && (item.itemSubtype || item.storyPoints != null) && (
+        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+          {vf.has('itemSubtype') && item.itemSubtype && ITEM_SUBTYPE_META[item.itemSubtype] && (
+            <span style={{ fontSize:10, fontWeight:600, padding:'1px 6px', borderRadius:4,
+              background:`${ITEM_SUBTYPE_META[item.itemSubtype].color}18`,
+              color: ITEM_SUBTYPE_META[item.itemSubtype].color,
+              border:`1px solid ${ITEM_SUBTYPE_META[item.itemSubtype].color}40` }}>
+              {ITEM_SUBTYPE_META[item.itemSubtype].icon} {ITEM_SUBTYPE_META[item.itemSubtype].label}
+            </span>
+          )}
+          {vf.has('storyPoints') && item.storyPoints != null && (
+            <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:999,
+              background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd', marginLeft:'auto' }}>
+              {item.storyPoints}pt
+            </span>
+          )}
+        </div>
+      )}
       {vf.has('status') && (
         <div className="mb-1.5">
           <span className={`inline-block px-2 py-0.5 rounded-full font-medium ${SC[item.status]||'bg-gray-100 text-gray-500'}`} style={{ fontSize:10 }}>{item.status}</span>

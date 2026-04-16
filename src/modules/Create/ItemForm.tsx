@@ -1,7 +1,42 @@
 import React, { useState, useRef, useEffect } from "react";
-import { TC, SC, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES, SPONSOR_TYPES } from "../../constants";
+import { TC, SC, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES, SPONSOR_TYPES, ITEM_SUBTYPE_META } from "../../constants";
 import { tsNow } from "../../utils";
 import { FG } from "../../components/shared";
+
+// Sprint fields section — shown only for task / subtask
+function SprintFields({ f, s }: { f: any; s: (k: string, v: any) => void }) {
+  if (f.type !== 'task' && f.type !== 'subtask') return null;
+  return (
+    <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+      <div className="text-violet-700 font-bold uppercase mb-2" style={{ fontSize:10, letterSpacing:'0.06em' }}>🏃 Sprint Fields</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <FG label="Item Type">
+          <select value={f.itemSubtype || ''} onChange={e => s('itemSubtype', e.target.value || null)}
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" style={{ fontSize:13 }}>
+            <option value="">— Select type —</option>
+            {Object.entries(ITEM_SUBTYPE_META).map(([k, m]) => (
+              <option key={k} value={k}>{m.icon} {m.label}</option>
+            ))}
+          </select>
+        </FG>
+        <FG label="Story Points">
+          <input type="number" min={0} max={999}
+            value={f.storyPoints ?? ''}
+            onChange={e => s('storyPoints', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-300"
+            style={{ fontSize:13 }} placeholder="e.g. 3"/>
+        </FG>
+      </div>
+      <div className="mt-2">
+        <FG label="Acceptance Criteria">
+          <textarea value={f.acceptanceCriteria || ''} onChange={e => s('acceptanceCriteria', e.target.value)}
+            rows={3} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white"
+            style={{ fontSize:12 }} placeholder={"Given…\nWhen…\nThen…"}/>
+        </FG>
+      </div>
+    </div>
+  );
+}
 
 // ─── ITEM FORM ────────────────────────────────────────────────────────────────
 interface ItemFormProps {
@@ -74,6 +109,8 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
               placeholder="Describe current progress, blockers, or key updates…"/>
             <div className="text-blue-400 mt-1" style={{ fontSize:10 }}>Timestamp is captured automatically when you change this field.</div>
           </div>
+          {/* Sprint fields — task & subtask */}
+          <SprintFields f={f} s={s}/>
           {/* Priority / Health / Risk */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Priority"><select value={f.priority} onChange={e => s('priority', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{PRIS.map(p => <option key={p}>{p}</option>)}</select></FG>
@@ -183,6 +220,8 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
               placeholder="Describe current progress, blockers, or key updates…"/>
             <div className="text-blue-400 mt-1" style={{ fontSize:10 }}>Timestamp is captured automatically when you change this field.</div>
           </div>
+          {/* Sprint fields — task & subtask */}
+          <SprintFields f={f} s={s}/>
           {/* Priority / Health / Risk */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Priority"><select value={f.priority} onChange={e => s('priority', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{PRIS.map(p => <option key={p}>{p}</option>)}</select></FG>
