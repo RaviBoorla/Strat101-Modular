@@ -226,6 +226,7 @@ function Workspace({
 
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kanbanSprints, setKanbanSprints] = useState<{id:string;name:string;status:string}[]>([]);
   const [view,    setView]    = useState('kanban');
   const [workItemFilter, setWIF] = useState('all');
   const [sel,     setSel]   = useState<string|null>(null);
@@ -248,6 +249,12 @@ function Workspace({
     setItems(await loadItems(tenantId));
     setLoading(false);
   }, [tenantId]);
+
+  useEffect(() => {
+    if (!tenantId || !features.sprints) { setKanbanSprints([]); return; }
+    supabase.from('sprints').select('id,name,status').eq('tenant_id', tenantId)
+      .order('created_at').then(({ data }) => setKanbanSprints((data ?? []) as any));
+  }, [tenantId, features.sprints]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -460,7 +467,7 @@ function Workspace({
             <div className="flex-1 overflow-auto">
               {!disabledView ? (
                 <>
-                  {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes}/>}
+                  {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes} sprints={kanbanSprints}/>}
                   {view === 'reports' && features.reports   && <ReportBuilder items={items} enabledTypes={activeTypes}/>}
                   {view === 'bot'     && features.bot       && <BotPanel items={items}/>}
                   {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
