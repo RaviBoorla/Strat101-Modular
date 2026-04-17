@@ -20,6 +20,7 @@ import GlobalAdminPanel from "./modules/Admin/GlobalAdminPanel";
 import LocalAdminPanel from "./modules/Admin/LocalAdminPanel";
 import SprintModule from "./modules/Sprint/SprintModule";
 import AgentSprintModule from "./modules/AgentSprint/AgentSprintModule";
+import { MindMapView }   from "./modules/MindMap/MindMapView";
 
 import TopNav         from "./components/TopNav";
 import DetailPanel    from "./components/DetailPanel";
@@ -230,6 +231,7 @@ function Workspace({
   const [kanbanSprints, setKanbanSprints] = useState<{id:string;name:string;status:string}[]>([]);
   const [agentItems,    setAgentItems]    = useState<any[]>([]);
   const [tenantUserNames, setTenantUserNames] = useState<string[]>([]);
+  const [loggedUserFullName, setLoggedUserFullName] = useState('');
   const [view,    setView]    = useState('kanban');
   const [workItemFilter, setWIF] = useState('all');
   const [sel,     setSel]   = useState<string|null>(null);
@@ -260,13 +262,17 @@ function Workspace({
   }, [tenantId, features.sprints]);
 
   useEffect(() => {
-    if (!tenantId) { setTenantUserNames([]); return; }
+    if (!tenantId) { setTenantUserNames([]); setLoggedUserFullName(''); return; }
     supabase.from('tenant_users').select('full_name,username').eq('tenant_id', tenantId).eq('active', true)
       .then(({ data }) => {
-        const names = (data ?? []).map((u: any) => u.full_name || u.username).filter(Boolean);
+        const rows = data ?? [];
+        const names = rows.map((u: any) => u.full_name || u.username).filter(Boolean);
         setTenantUserNames([...new Set(names)] as string[]);
+        // Resolve current user's full_name so changedBy in notifications matches
+        const me = rows.find((u: any) => u.username === loggedUser);
+        setLoggedUserFullName(me?.full_name || loggedUser || '');
       });
-  }, [tenantId]);
+  }, [tenantId, loggedUser]);
 
   useEffect(() => {
     if (!tenantId || !features.agentSprints) { setAgentItems([]); return; }
@@ -328,7 +334,7 @@ function Workspace({
       fetch('/api/on-item-changed', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ tenantId, item: s, prevItem, changedBy: LOGGED_IN }),
+        body:    JSON.stringify({ tenantId, item: s, prevItem, changedBy: loggedUserFullName || LOGGED_IN }),
       }).catch(() => { /* silent — notification failures must never surface to user */ });
     }
   };
@@ -503,6 +509,7 @@ function Workspace({
                   {view === 'ride'    && features.ride    && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
                   {view === 'sprints'      && features.sprints      && tenantId && <SprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} items={items} onItemChange={changeField}/>}
                   {view === 'agentSprints' && features.agentSprints && tenantId && <AgentSprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
+                  {view === 'mindmap' && <MindMapView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
                 </>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>

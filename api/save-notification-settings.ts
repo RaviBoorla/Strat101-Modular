@@ -40,8 +40,10 @@ export default async function handler(req: Request): Promise<Response> {
     'Prefer':        'resolution=merge-duplicates',
   };
 
+  // Supabase REST upsert requires ?on_conflict= to identify the PK column.
+  // Without it the POST treats an existing row as a duplicate key error.
   const res = await fetch(
-    `${supabaseUrl}/rest/v1/notification_settings`,
+    `${supabaseUrl}/rest/v1/notification_settings?on_conflict=tenant_id`,
     {
       method:  'POST',   // upsert via Prefer: resolution=merge-duplicates
       headers: adminHeaders,
@@ -56,8 +58,11 @@ export default async function handler(req: Request): Promise<Response> {
 
   if (!res.ok) {
     const err = await res.text();
-    console.error('[save-notification-settings] Supabase error:', err);
-    return new Response(JSON.stringify({ error: 'Failed to save settings.', detail: err }), {
+    console.error('[save-notification-settings] Supabase error status:', res.status, 'body:', err);
+    // Surface the actual Supabase error so it shows up in the UI
+    let detail = err;
+    try { detail = JSON.parse(err)?.message ?? err; } catch {}
+    return new Response(JSON.stringify({ error: `Save failed (${res.status}): ${detail}` }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
     });
   }

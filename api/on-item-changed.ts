@@ -3,6 +3,17 @@
 export const config = { runtime: 'edge' };
 
 export default async function handler(req: Request): Promise<Response> {
+  try {
+    return await handleRequest(req);
+  } catch (err: any) {
+    console.error('[on-item-changed] UNHANDLED ERROR:', err?.message ?? String(err), err?.stack ?? '');
+    return new Response(JSON.stringify({ error: 'Internal error', detail: err?.message ?? String(err) }), {
+      status: 500, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+}
+
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
   }
@@ -54,18 +65,26 @@ export default async function handler(req: Request): Promise<Response> {
   }
   console.log('[on-item-changed] Settings keys:', Object.keys(notifSettings));
 
-  // Fetch active tenant users
+  // Fetch active tenant users — include username so we can match either field
   const usersRes = await fetch(
-    `${supabaseUrl}/rest/v1/tenant_users?tenant_id=eq.${tenantId}&active=eq.true&select=full_name,email`,
+    `${supabaseUrl}/rest/v1/tenant_users?tenant_id=eq.${tenantId}&active=eq.true&select=full_name,username,email`,
     { headers: dbHeaders },
   );
-  const users: { full_name: string; email: string }[] = await usersRes.json();
-  console.log(`[on-item-changed] tenant_users found: ${users.length}`, users.map(u => u.full_name));
+  const usersRaw = await usersRes.json();
+  if (!usersRes.ok) {
+    console.error('[on-item-changed] Failed to fetch tenant_users:', JSON.stringify(usersRaw));
+    return new Response(JSON.stringify({ sent: 0, reason: 'Failed to fetch users.' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+  const users: { full_name: string; username: string; email: string }[] = Array.isArray(usersRaw) ? usersRaw : [];
+  console.log(`[on-item-changed] tenant_users found: ${users.length}`, users.map(u => `${u.full_name}(${u.username})`));
 
+  // Match by full_name OR username (items may store either depending on UserPicker fallback)
   const emailByName = (name: string | null | undefined): string | null => {
     if (!name) return null;
     const lower = name.toLowerCase();
-    return users.find(u => u.full_name?.toLowerCase() === lower)?.email ?? null;
+    return users.find(
+      u => u.full_name?.toLowerCase() === lower || u.username?.toLowerCase() === lower
+    )?.email ?? null;
   };
 
   // Detect changed events
