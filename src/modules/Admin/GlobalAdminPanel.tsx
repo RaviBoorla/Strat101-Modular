@@ -1024,13 +1024,14 @@ function NotificationsTab({ tenant, readOnly = false }: { tenant: Tenant; readOn
 }
 
 function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;onClose:()=>void;onUpdate:(t:Tenant)=>void;embedded?:boolean}){
-  const [tab,setTab]=useState<'users'|'features'|'subscription'|'invoices'|'security'>('users');
+  const [tab,setTab]=useState<'users'|'features'|'subscription'|'invoices'|'security'|'notifications'>('users');
   const TABS=[
-    {id:'users'        as const, label:'Users'},
-    {id:'features'     as const, label:'Features'},
-    {id:'subscription' as const, label:'Subscription'},
-    {id:'invoices'     as const, label:'Invoices'},
-    {id:'security'     as const, label:'🔒 Security'},
+    {id:'users'         as const, label:'Users'},
+    {id:'features'      as const, label:'Features'},
+    {id:'subscription'  as const, label:'Subscription'},
+    {id:'invoices'      as const, label:'Invoices'},
+    {id:'security'      as const, label:'🔒 Security'},
+    {id:'notifications' as const, label:'🔔 Notifications'},
   ];
   if (embedded) {
     return (
@@ -1058,6 +1059,7 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           {tab==='subscription'  &&<SubscriptionTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
           {tab==='invoices'      &&<InvoicesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
           {tab==='security'      &&<SecurityTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='notifications' &&<NotificationsTab key={tenant.id} tenant={tenant}/>}
         </div>
       </div>
     );
@@ -1093,6 +1095,7 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           {tab==='subscription'  &&<SubscriptionTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
           {tab==='invoices'      &&<InvoicesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
           {tab==='security'      &&<SecurityTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='notifications' &&<NotificationsTab key={tenant.id} tenant={tenant}/>}
         </div>
       </div>
     </div>
