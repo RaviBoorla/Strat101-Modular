@@ -18,7 +18,8 @@ const NODE_H   = 34;
 const NODE_RX  = 17;
 const ROW_H    = 68;
 const LVL_DX   = 205;
-const ROOT_R   = 54;
+const ROOT_RX  = 80;   // ellipse half-width
+const ROOT_RY  = 44;   // ellipse half-height
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,10 +58,39 @@ function layoutChildren(
   }
 }
 
-function buildTree(items: any[]): MindNode | null {
+/** Walk up the link chain to find the highest ancestor of a given item. */
+export function findHighestAncestor(items: any[], itemId: string): any | null {
+  const byId = new Map(items.map(i => [i.id, i]));
+  let current = byId.get(itemId);
+  if (!current) return null;
+  const visited = new Set<string>();
+  while (true) {
+    if (visited.has(current.id)) break;
+    visited.add(current.id);
+    const parent = items.find(p =>
+      !visited.has(p.id) &&
+      (TL[p.type] ?? 99) < (TL[current.type] ?? 99) &&
+      ((p.links ?? []).includes(current.id) || (current.links ?? []).includes(p.id))
+    );
+    if (!parent) break;
+    current = parent;
+  }
+  return current;
+}
+
+function buildTree(items: any[], rootItemId?: string): MindNode | null {
   if (!items.length) return null;
-  const roots = items.filter(i => i.type === 'vision');
-  if (!roots.length) return null;
+
+  // If a specific root is requested (triggered from a work item), use it.
+  // Otherwise fall back to all Vision items.
+  let rootItems: any[];
+  if (rootItemId) {
+    const root = items.find(i => i.id === rootItemId);
+    rootItems = root ? [root] : items.filter(i => i.type === 'vision');
+  } else {
+    rootItems = items.filter(i => i.type === 'vision');
+  }
+  if (!rootItems.length) return null;
 
   function isParentChild(parent: any, child: any): boolean {
     const pLvl = TL[parent.type] ?? -1;
@@ -79,7 +109,7 @@ function buildTree(items: any[]): MindNode | null {
     return { item, children, x: 0, y: 0, side: 'center', color: '#1e3a5f' };
   }
 
-  const vNodes = roots.map(v => mkNode(v, new Set<string>()));
+  const vNodes = rootItems.map(v => mkNode(v, new Set<string>()));
   const root: MindNode = vNodes.length === 1
     ? vNodes[0]
     : { item:{ id:'__root', type:'root', title:'Strategy', key:'', status:'', health:'' },
@@ -165,16 +195,23 @@ function MindNode({ node, isSelected, isRoot, onClick }: { node:MindNode; isSele
     return (
       <g onClick={onClick} style={{ cursor:'pointer' }}>
         {isSelected && (
-          <circle cx={0} cy={0} r={ROOT_R + 7} fill="none" stroke="#16a34a" strokeWidth={2} strokeDasharray="5 3" opacity={0.9}/>
+          <ellipse cx={0} cy={0} rx={ROOT_RX + 8} ry={ROOT_RY + 8}
+            fill="none" stroke="#16a34a" strokeWidth={2} strokeDasharray="5 3" opacity={0.9}/>
         )}
-        <circle cx={0} cy={0} r={ROOT_R} fill="#1e3a5f" stroke={isSelected ? '#16a34a' : 'rgba(255,255,255,0.25)'} strokeWidth={isSelected ? 2.5 : 1.5}/>
-        <text x={0} y={-6} textAnchor="middle" fontSize={10} fill="rgba(255,255,255,0.55)" fontFamily="system-ui" style={{pointerEvents:'none'}}>
+        <ellipse cx={0} cy={0} rx={ROOT_RX} ry={ROOT_RY}
+          fill="#1e3a5f"
+          stroke={isSelected ? '#16a34a' : 'rgba(255,255,255,0.25)'}
+          strokeWidth={isSelected ? 2.5 : 1.5}
+          style={{ filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}/>
+        <text x={0} y={-12} textAnchor="middle" fontSize={10} fill="rgba(255,255,255,0.6)"
+          fontFamily="system-ui" style={{pointerEvents:'none'}}>
           {meta?.i ?? '🔭'} {meta?.l ?? 'Vision'}
         </text>
-        <text x={0} y={8} textAnchor="middle" dominantBaseline="middle" fontSize={12} fontWeight={700} fill="white" fontFamily="system-ui" style={{pointerEvents:'none'}}>
-          {trunc(item.title, 16)}
+        <text x={0} y={4} textAnchor="middle" dominantBaseline="middle" fontSize={13}
+          fontWeight={700} fill="white" fontFamily="system-ui" style={{pointerEvents:'none'}}>
+          {trunc(item.title, 18)}
         </text>
-        {hClr && <circle cx={ROOT_R + 8} cy={0} r={5} fill={hClr} stroke="white" strokeWidth={1}/>}
+        {hClr && <circle cx={ROOT_RX + 8} cy={0} r={5} fill={hClr} stroke="white" strokeWidth={1}/>}
       </g>
     );
   }
@@ -216,27 +253,29 @@ function MindNode({ node, isSelected, isRoot, onClick }: { node:MindNode; isSele
 
 function YouAreHere({ node, isRoot }: { node: MindNode; isRoot: boolean }) {
   if (isRoot) {
-    // Badge below the root circle
-    const by = ROOT_R + 26;
+    // Badge below the root ellipse
+    const by = ROOT_RY + 28;
     return (
       <g>
-        <line x1={0} y1={ROOT_R + 3} x2={0} y2={by - 11} stroke="#16a34a" strokeWidth={1.5} strokeDasharray="3 2"/>
-        <rect x={-38} y={by - 11} width={76} height={22} rx={11} fill="#16a34a"/>
+        <line x1={0} y1={ROOT_RY + 3} x2={0} y2={by - 13} stroke="#16a34a" strokeWidth={1.5} strokeDasharray="3 2"/>
+        <rect x={-52} y={by - 13} width={104} height={26} rx={13} fill="#16a34a"/>
         <text x={0} y={by} textAnchor="middle" dominantBaseline="middle"
-          fontSize={10} fontWeight={700} fill="white" fontFamily="system-ui">📍 You are here</text>
+          fontSize={11} fontWeight={700} fill="white" fontFamily="system-ui">👉 You are here</text>
       </g>
     );
   }
   const onRight = node.side !== 'left';
-  const bx = onRight ? node.x + NODE_W / 2 + 52 : node.x - NODE_W / 2 - 52;
-  const lx1 = onRight ? node.x + NODE_W / 2 + 3  : node.x - NODE_W / 2 - 3;
-  const lx2 = onRight ? bx - 38                   : bx + 38;
+  // Finger points FROM the badge TO the node edge
+  const finger  = onRight ? '👉' : '👈';
+  const bx      = onRight ? node.x + NODE_W / 2 + 70 : node.x - NODE_W / 2 - 70;
+  const lx1     = onRight ? node.x + NODE_W / 2 + 4  : node.x - NODE_W / 2 - 4;
+  const lx2     = onRight ? bx - 52                   : bx + 52;
   return (
     <g>
       <line x1={lx1} y1={node.y} x2={lx2} y2={node.y} stroke="#16a34a" strokeWidth={1.5} strokeDasharray="3 2"/>
-      <rect x={bx - 42} y={node.y - 11} width={84} height={22} rx={11} fill="#16a34a"/>
+      <rect x={bx - 56} y={node.y - 13} width={112} height={26} rx={13} fill="#16a34a"/>
       <text x={bx} y={node.y} textAnchor="middle" dominantBaseline="middle"
-        fontSize={10} fontWeight={700} fill="white" fontFamily="system-ui">📍 You are here</text>
+        fontSize={11} fontWeight={700} fill="white" fontFamily="system-ui">{finger} You are here</text>
     </g>
   );
 }
@@ -244,12 +283,13 @@ function YouAreHere({ node, isRoot }: { node: MindNode; isRoot: boolean }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface MindMapViewProps {
-  items: any[];
-  sel:   string | null;
-  onSel: (id: string) => void;
+  items:       any[];
+  sel:         string | null;
+  onSel:       (id: string) => void;
+  rootItemId?: string;   // if set, this item is the centre; otherwise uses vision items
 }
 
-export function MindMapView({ items, sel, onSel }: MindMapViewProps) {
+export function MindMapView({ items, sel, onSel, rootItemId }: MindMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tx, setTx]       = useState(0);
   const [ty, setTy]       = useState(0);
@@ -257,7 +297,7 @@ export function MindMapView({ items, sel, onSel }: MindMapViewProps) {
   const [dragging, setDragging] = useState(false);
   const drag = useRef({ ox:0, oy:0, tx:0, ty:0 });
 
-  const tree  = useMemo(() => buildTree(items), [items]);
+  const tree  = useMemo(() => buildTree(items, rootItemId), [items, rootItemId]);
   const nodes = useMemo(() => tree ? flatNodes(tree) : [], [tree]);
   const edges = useMemo(() => tree ? collectEdges(tree) : [], [tree]);
 

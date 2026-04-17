@@ -20,7 +20,7 @@ import GlobalAdminPanel from "./modules/Admin/GlobalAdminPanel";
 import LocalAdminPanel from "./modules/Admin/LocalAdminPanel";
 import SprintModule from "./modules/Sprint/SprintModule";
 import AgentSprintModule from "./modules/AgentSprint/AgentSprintModule";
-import { MindMapView }   from "./modules/MindMap/MindMapView";
+import { MindMapView, findHighestAncestor } from "./modules/MindMap/MindMapView";
 
 import TopNav         from "./components/TopNav";
 import DetailPanel    from "./components/DetailPanel";
@@ -235,6 +235,7 @@ function Workspace({
   const [view,    setView]    = useState('kanban');
   const [workItemFilter, setWIF] = useState('all');
   const [sel,     setSel]   = useState<string|null>(null);
+  const [treeMapItemId, setTreeMapItemId] = useState<string|null>(null);
   const [dtab,    setDtab]  = useState('overview');
   const [form,    setForm]  = useState<any>(null);
   const [rideForm, setRideForm] = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'|'issue'|'assumption'}|null>(null);
@@ -530,6 +531,7 @@ function Workspace({
                 onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }} onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
                 onRmLink={rmLink} onRmDep={rmDep} onAddFile={() => fileRef.current?.click()} onRmFile={rmFile}
                 onAddComment={addComment} onRmComment={rmComment} onNav={nav}
+                onTreeMap={() => setTreeMapItemId(sel)}
                 agentOutcomes={features.agentSprints && sel ? agentItems.filter((o: any) => o.linked_work_item_id === sel) : []}/>
             </div>
           )}
@@ -575,6 +577,48 @@ function Workspace({
         </div>
       )}
       {linkDlg && selected && <LinkDlg mode={linkDlg} selected={selected} allItems={items} q={linkQ} onQ={setLinkQ} onLink={linkDlg === 'link' ? addLink : addDep} onClose={() => setLinkDlg(null)}/>}
+
+      {/* ── MIND MAP FULL-SCREEN MODAL ── */}
+      {treeMapItemId && (() => {
+        const ancestor = findHighestAncestor(items, treeMapItemId);
+        const rootId   = ancestor?.id ?? treeMapItemId;
+        return (
+          <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(14,31,53,0.82)',
+                        display:'flex', flexDirection:'column' }}
+            onKeyDown={e => e.key === 'Escape' && setTreeMapItemId(null)}
+            tabIndex={-1}>
+            {/* Header bar */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                          padding:'10px 16px', background:'#1e3a5f', flexShrink:0,
+                          borderBottom:'1px solid rgba(255,255,255,0.12)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:18 }}>🌳</span>
+                <span style={{ color:'white', fontWeight:700, fontSize:14 }}>Hierarchy Mind Map</span>
+                {ancestor && (
+                  <span style={{ color:'#8baecf', fontSize:12 }}>
+                    — rooted at <strong style={{ color:'#93c5fd' }}>{ancestor.title}</strong>
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setTreeMapItemId(null)}
+                style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)',
+                         color:'white', borderRadius:8, padding:'4px 14px', cursor:'pointer',
+                         fontSize:13, fontWeight:600 }}>
+                ✕ Close
+              </button>
+            </div>
+            {/* Mind map fills remaining space */}
+            <div style={{ flex:1, overflow:'hidden' }}>
+              <MindMapView
+                items={items}
+                sel={treeMapItemId}
+                rootItemId={rootId}
+                onSel={id => { setSel(id); setDtab('overview'); setTreeMapItemId(null); }}
+              />
+            </div>
+          </div>
+        );
+      })()}
       {cmdOpen && <CommandPalette items={items} onNav={id => { nav(id); setCmdOpen(false); }} onClose={() => setCmdOpen(false)}/>}
     </div>
   );
