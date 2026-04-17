@@ -229,6 +229,7 @@ function Workspace({
   const [loading, setLoading] = useState(true);
   const [kanbanSprints, setKanbanSprints] = useState<{id:string;name:string;status:string}[]>([]);
   const [agentItems,    setAgentItems]    = useState<any[]>([]);
+  const [tenantUserNames, setTenantUserNames] = useState<string[]>([]);
   const [view,    setView]    = useState('kanban');
   const [workItemFilter, setWIF] = useState('all');
   const [sel,     setSel]   = useState<string|null>(null);
@@ -257,6 +258,15 @@ function Workspace({
     supabase.from('sprints').select('id,name,status').eq('tenant_id', tenantId)
       .order('created_at').then(({ data }) => setKanbanSprints((data ?? []) as any));
   }, [tenantId, features.sprints]);
+
+  useEffect(() => {
+    if (!tenantId) { setTenantUserNames([]); return; }
+    supabase.from('tenant_users').select('full_name,username').eq('tenant_id', tenantId).eq('active', true)
+      .then(({ data }) => {
+        const names = (data ?? []).map((u: any) => u.full_name || u.username).filter(Boolean);
+        setTenantUserNames([...new Set(names)] as string[]);
+      });
+  }, [tenantId]);
 
   useEffect(() => {
     if (!tenantId || !features.agentSprints) { setAgentItems([]); return; }
@@ -544,7 +554,7 @@ function Workspace({
               boxShadow:'-6px 0 32px rgba(0,0,0,0.2)', display:'flex', flexDirection:'column',
               overflow:'hidden', pointerEvents:'all' }}>
             {isMobile && <div onClick={() => setForm(null)} style={{ background:'rgba(0,0,0,0.3)', height:40, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}><div style={{ width:36, height:4, borderRadius:2, background:'rgba(255,255,255,0.5)' }}/></div>}
-            <ItemForm item={form} onSave={upsert} onClose={() => setForm(null)} onAutoSave={form._autoSave ? liveUpsert : null} drawerMode={true}/>
+            <ItemForm item={form} onSave={upsert} onClose={() => setForm(null)} onAutoSave={form._autoSave ? liveUpsert : null} drawerMode={true} users={tenantUserNames}/>
           </div>
         </div>
       )}
