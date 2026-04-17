@@ -67,11 +67,15 @@ export function findHighestAncestor(items: any[], itemId: string): any | null {
   while (true) {
     if (visited.has(current.id)) break;
     visited.add(current.id);
-    const parent = items.find(p =>
-      !visited.has(p.id) &&
-      (TL[p.type] ?? 99) < (TL[current.type] ?? 99) &&
-      ((p.links ?? []).includes(current.id) || (current.links ?? []).includes(p.id))
-    );
+    // Find any item that is at a strictly higher (shallower) level AND linked
+    const parent = items
+      .filter(p =>
+        !visited.has(p.id) &&
+        (TL[p.type] ?? 99) < (TL[current.type] ?? 99) &&
+        ((p.links ?? []).includes(current.id) || (current.links ?? []).includes(p.id))
+      )
+      // Prefer the shallowest ancestor (lowest TL level) so we always get the true root
+      .sort((a, b) => (TL[a.type] ?? 0) - (TL[b.type] ?? 0))[0] ?? null;
     if (!parent) break;
     current = parent;
   }
@@ -92,24 +96,34 @@ function buildTree(items: any[], rootItemId?: string): MindNode | null {
   }
   if (!rootItems.length) return null;
 
+  // Child must be at a strictly deeper hierarchy level AND linked to parent.
+  // We allow any level gap (not just +1) to match actual link data which may
+  // skip levels (e.g. Vision linked directly to Goal).
   function isParentChild(parent: any, child: any): boolean {
     const pLvl = TL[parent.type] ?? -1;
     const cLvl = TL[child.type] ?? -1;
-    if (cLvl !== pLvl + 1) return false;
-    const pLinks = parent.links  ?? [];
-    const cLinks = child.links   ?? [];
+    if (cLvl <= pLvl) return false;                  // must be strictly deeper
+    const pLinks = parent.links ?? [];
+    const cLinks = child.links  ?? [];
+    // parent.links contains child.id  OR  child.links contains parent.id
     return pLinks.includes(child.id) || cLinks.includes(parent.id);
   }
 
-  function mkNode(item: any, visited: Set<string>): MindNode {
-    visited.add(item.id);
+  // Use a SHARED visited set so each item appears only once in the tree,
+  // even if it is linked from multiple parents.
+  const globalVisited = new Set<string>();
+
+  function mkNode(item: any): MindNode {
+    globalVisited.add(item.id);
     const children = items
-      .filter(c => !visited.has(c.id) && isParentChild(item, c))
-      .map(c => mkNode(c, new Set(visited)));
+      .filter(c => !globalVisited.has(c.id) && isParentChild(item, c))
+      // Sort children by hierarchy level so shallower items are claimed first
+      .sort((a, b) => (TL[a.type] ?? 0) - (TL[b.type] ?? 0))
+      .map(c => mkNode(c));
     return { item, children, x: 0, y: 0, side: 'center', color: '#1e3a5f' };
   }
 
-  const vNodes = rootItems.map(v => mkNode(v, new Set<string>()));
+  const vNodes = rootItems.map(v => mkNode(v));
   const root: MindNode = vNodes.length === 1
     ? vNodes[0]
     : { item:{ id:'__root', type:'root', title:'Strategy', key:'', status:'', health:'' },
