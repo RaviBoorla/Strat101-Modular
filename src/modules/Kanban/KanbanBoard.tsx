@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useResponsive } from "../../hooks/useResponsive";
-import { TC, SC, PC, HIC, RC, TYPES, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES } from "../../constants";
+import { TC, SC, PC, HIC, RC, TYPES, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES, ITEM_SUBTYPE_META } from "../../constants";
 import { gId } from "../../utils";
 
 // ─── KANBAN CONSTANTS ─────────────────────────────────────────────────────────
@@ -18,11 +18,13 @@ export const FIELD_DEFS = [
   {k:'approvedBudget',l:'Budget (£)'},{k:'actualCost',l:'Actual Cost (£)'},
   {k:'startDate',l:'Start Date'},{k:'endDate',l:'Due Date'},
   {k:'progress',l:'Progress'},{k:'tags',l:'Tags'},
+  {k:'itemSubtype',l:'Item Type'},{k:'storyPoints',l:'Story Points'},
 ];
 
 export const ALL_VIS_FIELDS = new Set(FIELD_DEFS.map(f => f.k));
 export const DEFAULT_VIS_FIELDS = new Set([
-  'badge','key','status','currentStatus','health','priority','risk','endDate','owner','tags'
+  'badge','key','status','currentStatus','health','priority','risk','endDate','owner','tags',
+  'itemSubtype','storyPoints',
 ]);
 
 // ─── FCHIP ────────────────────────────────────────────────────────────────────
@@ -70,6 +72,24 @@ export function KCard({ item, selected, isDragging, onClick, onDragStart, onDrag
         </div>
       )}
       <div className="font-semibold text-gray-800 mb-1.5 leading-snug" style={{ fontSize:12 }}>{item.title||'(Untitled)'}</div>
+      {(vf.has('itemSubtype') || vf.has('storyPoints')) && (item.itemSubtype || item.storyPoints != null) && (
+        <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+          {vf.has('itemSubtype') && item.itemSubtype && ITEM_SUBTYPE_META[item.itemSubtype] && (
+            <span style={{ fontSize:10, fontWeight:600, padding:'1px 6px', borderRadius:4,
+              background:`${ITEM_SUBTYPE_META[item.itemSubtype].color}18`,
+              color: ITEM_SUBTYPE_META[item.itemSubtype].color,
+              border:`1px solid ${ITEM_SUBTYPE_META[item.itemSubtype].color}40` }}>
+              {ITEM_SUBTYPE_META[item.itemSubtype].icon} {ITEM_SUBTYPE_META[item.itemSubtype].label}
+            </span>
+          )}
+          {vf.has('storyPoints') && item.storyPoints != null && (
+            <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:999,
+              background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd', marginLeft:'auto' }}>
+              {item.storyPoints}pt
+            </span>
+          )}
+        </div>
+      )}
       {vf.has('status') && (
         <div className="mb-1.5">
           <span className={`inline-block px-2 py-0.5 rounded-full font-medium ${SC[item.status]||'bg-gray-100 text-gray-500'}`} style={{ fontSize:10 }}>{item.status}</span>
@@ -127,12 +147,32 @@ interface KanbanBoardProps {
   onStatusChange: (id: string, status: string) => void;
   onFieldChange: (id: string, field: string, value: string) => void;
   enabledTypes?: string[];
+  sprints?: {id:string;name:string;status:string}[];
 }
 
-export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, onFieldChange, enabledTypes }: KanbanBoardProps) {
+export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, onFieldChange, enabledTypes, sprints = [] }: KanbanBoardProps) {
   const ALL_ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
   const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
   const [tf, setTf] = useState('all');
+  const [sprintOnly, setSprintOnly] = useState(false);
+
+  const exportKanbanCSV = () => {
+    const exportItems = tf==='all' ? (sprintOnly ? items.filter(i => !!i.sprintId) : items)
+      : (sprintOnly ? items.filter(i => !!i.sprintId) : items).filter(i => i.type===tf);
+    const headers = ['Key','Type','Title','Status','Priority','Health','Risk','Owner','Assigned','Start Date','Due Date','Budget','Progress'];
+    const rows = exportItems.map((it: any) => [
+      it.key, it.type, it.title, it.status, it.priority, it.health, it.risk,
+      it.owner, it.assigned, it.startDate, it.endDate,
+      it.approvedBudget ? `£${Number(it.approvedBudget).toLocaleString()}` : '',
+      `${it.progress}%`,
+    ]);
+    const csv = [headers, ...rows].map((r: any[]) => r.map((v: any) => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `kanban-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
   const [dragId, setDragId] = useState<string|null>(null);
   const [dragOver, setDragOver] = useState<string|null>(null);
   const [boards, setBoards] = useState([{id:'b1', name:'Main Board', swimlane:'status'}]);
@@ -147,6 +187,15 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
   const activeBoard = boards.find(b => b.id===activeBoardId) || boards[0];
   const swimlane = activeBoard?.swimlane || 'status';
 
+  // sprint-only filter applied first, type filter applied second
+  const sprintFilteredItems = sprintOnly ? items.filter(i => !!i.sprintId) : items;
+  const displayItems = tf==='all' ? sprintFilteredItems : sprintFilteredItems.filter(i => i.type===tf);
+
+  // Sprint columns: unique sprint IDs present in items, ordered by sprints prop
+  const sprintCols: string[] = sprints.length > 0
+    ? sprints.map(s => s.id).filter(id => sprintFilteredItems.some(i => i.sprintId === id))
+    : [...new Set(sprintFilteredItems.filter(i => i.sprintId).map(i => i.sprintId as string))];
+
   const SWIM_COLS: Record<string, string[]> = {
     status:     STATS,
     component:  TYPES.filter(t => t!=='kr' && activeTypes.includes(t)),
@@ -154,19 +203,19 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
     risk:       RSKS,
     health:     HLTHS,
     impactType: IMPACT_TYPES.filter(Boolean),
+    sprint:     sprintCols,
   };
   const cols = SWIM_COLS[swimlane] || STATS;
 
-  const applyFilters = (base: any[]) => tf==='all' ? base : base.filter(i => i.type===tf);
-
   const getColItems = (col: string) => {
-    const base = applyFilters(items);
+    const base = displayItems;
     if(swimlane==='status')     return base.filter(i => i.status===col);
     if(swimlane==='component')  return base.filter(i => i.type===col);
     if(swimlane==='priority')   return base.filter(i => i.priority===col);
     if(swimlane==='risk')       return base.filter(i => i.risk===col);
     if(swimlane==='health')     return base.filter(i => i.health===col);
     if(swimlane==='impactType') return base.filter(i => (i.impactType||'')=== col);
+    if(swimlane==='sprint')     return base.filter(i => i.sprintId===col);
     return [];
   };
 
@@ -177,6 +226,7 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
     else if(swimlane==='risk')       onFieldChange(dragId, 'risk', col);
     else if(swimlane==='health')     onFieldChange(dragId, 'health', col);
     else if(swimlane==='impactType') onFieldChange(dragId, 'impactType', col);
+    else if(swimlane==='sprint')     onFieldChange(dragId, 'sprintId', col);
     setDragId(null); setDragOver(null);
   };
 
@@ -200,6 +250,10 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
     if(swimlane==='component')  return TC[col] ? `${TC[col].i} ${TC[col].l}` : col;
     if(swimlane==='health')     return col==='Green'?'🟢 Green':col==='Amber'?'🟡 Amber':'🔴 Red';
     if(swimlane==='impactType') return col==='Revenue'?'💹 Revenue':col==='Cost'?'💰 Cost':'🛡️ Risk Mitigation';
+    if(swimlane==='sprint') {
+      const sp = sprints.find(s => s.id === col);
+      return sp ? `🏃 ${sp.name}` : `Sprint`;
+    }
     return col;
   };
 
@@ -209,6 +263,7 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
     if(swimlane==='risk')       return 'risk level';
     if(swimlane==='health')     return 'health';
     if(swimlane==='impactType') return 'impact type';
+    if(swimlane==='sprint')     return 'sprint';
     return 'column';
   };
 
@@ -219,6 +274,7 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
     ['risk','⚠️ Risk'],
     ['health','🏥 Health'],
     ['impactType','💹 Impact'],
+    ...(sprints.length > 0 ? [['sprint','🏃 Sprint'] as [string,string]] : []),
   ];
 
   const WORK_ITEM_TYPES_KANBAN = ['vision','mission','goal','okr','initiative','program','project','task','subtask'].filter(t => activeTypes.includes(t));
@@ -256,6 +312,16 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {sprints.length > 0 && (
+            <button
+              onClick={() => setSprintOnly(o => !o)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${sprintOnly?'bg-violet-600 text-white border-violet-600':'bg-white text-gray-600 border-gray-200 hover:border-violet-300'}`}
+              style={{ fontSize:12, fontWeight: sprintOnly ? 600 : 400 }}
+              title="Show only sprint items">
+              🏃 Sprint Items
+              {sprintOnly && <span className="ml-1 bg-violet-500 text-white rounded-full px-1.5" style={{ fontSize:10 }}>{sprintFilteredItems.length}</span>}
+            </button>
+          )}
           <div className="flex items-center bg-gray-100 rounded-lg p-0.5 border border-gray-200 flex-wrap gap-0.5">
             {SWIM_DEFS.map(([s,l]) => (
               <button key={s}
@@ -267,6 +333,11 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
             ))}
           </div>
 
+          <button onClick={exportKanbanCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white text-gray-600 border-gray-200 hover:border-blue-300 transition-all"
+            style={{ fontSize:12 }} title="Export visible items to CSV">
+            ⬇ CSV
+          </button>
           <div className="relative">
             <button ref={fieldBtnRef} onClick={() => setShowFieldConfig((o: boolean) => !o)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${showFieldConfig?'bg-blue-600 text-white border-blue-600':'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}
@@ -298,8 +369,8 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
       {/* Cross-filter chips */}
       <div className="flex items-center gap-2 mb-3 flex-wrap shrink-0">
         <span className="text-gray-400 font-semibold shrink-0" style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.05em' }}>Work Item:</span>
-        <FChip label="All" active={tf==='all'} cnt={applyFilters(items).length} onClick={() => setTf('all')}/>
-        {WORK_ITEM_TYPES_KANBAN.filter(t => t!=='kr').map(t => <FChip key={t} label={TC[t].l} icon={TC[t].i} active={tf===t} cnt={applyFilters(items).filter(i => i.type===t).length} onClick={() => setTf(t)}/>)}
+        <FChip label="All" active={tf==='all'} cnt={sprintFilteredItems.length} onClick={() => setTf('all')}/>
+        {WORK_ITEM_TYPES_KANBAN.filter(t => t!=='kr').map(t => <FChip key={t} label={TC[t].l} icon={TC[t].i} active={tf===t} cnt={sprintFilteredItems.filter(i => i.type===t).length} onClick={() => setTf(t)}/>)}
         {tf!=='all' && <button onClick={() => onNew(tf)} className="ml-auto bg-blue-600 text-white rounded-lg px-3 py-1 font-semibold shrink-0" style={{ fontSize:12 }}>+ New {TC[tf]?.l}</button>}
       </div>
 
@@ -353,7 +424,15 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
             <div className="mb-3">
               <label className="block text-gray-500 font-semibold mb-2" style={{ fontSize:11 }}>Swim Lanes By</label>
               <div className="grid grid-cols-2 gap-2">
-                {[['status','📊 Status','By workflow status'],['component','🧩 Work Item','By item type'],['priority','🎯 Priority','By priority level'],['risk','⚠️ Risk','By risk level'],['health','🏥 Health','By RAG health'],['impactType','💹 Impact','By impact type']].map(([v,l,d]) => (
+                {[
+                  ['status','📊 Status','By workflow status'],
+                  ['component','🧩 Work Item','By item type'],
+                  ['priority','🎯 Priority','By priority level'],
+                  ['risk','⚠️ Risk','By risk level'],
+                  ['health','🏥 Health','By RAG health'],
+                  ['impactType','💹 Impact','By impact type'],
+                  ...(sprints.length > 0 ? [['sprint','🏃 Sprint','One column per sprint']] : []),
+                ].map(([v,l,d]) => (
                   <button key={v} onClick={() => setNewBoardSwim(v)}
                     className={`p-3 rounded-xl border text-left transition-all ${newBoardSwim===v?'bg-blue-50 border-blue-400 text-blue-700':'border-gray-200 text-gray-600 hover:border-blue-200'}`}
                     style={{ fontSize:12 }}>

@@ -26,7 +26,7 @@ const FEATURE_ICONS: Record<string, string> = {
   reports:   '📊',
 };
 
-type Tab = 'users' | 'features' | 'subscription';
+type Tab = 'users' | 'features' | 'subscription' | 'notifications';
 
 // ─── SHARED STYLES ────────────────────────────────────────────────────────────
 const inp: React.CSSProperties = {
@@ -95,9 +95,10 @@ export default function LocalGlobalAdminPanel({ loggedUser, tenantId, onSignOut,
       {/* ── Tab bar ── */}
       <div style={{background:'white',borderBottom:'1px solid #e2e8f0',padding:'0 20px',display:'flex',gap:0,flexShrink:0}}>
         {([
-          {key:'users',        label:'Users',        badge:pendingCount},
-          {key:'features',     label:'Features',     badge:0},
-          {key:'subscription', label:'Subscription', badge:0},
+          {key:'users',         label:'Users',         badge:pendingCount},
+          {key:'features',      label:'Features',      badge:0},
+          {key:'subscription',  label:'Subscription',  badge:0},
+          {key:'notifications', label:'🔔 Notifications', badge:0},
         ] as {key:Tab,label:string,badge:number}[]).map(t => (
           <button key={t.key} onClick={()=>setTab(t.key)}
             style={{padding:'12px 18px',border:'none',borderBottom:tab===t.key?'2px solid #2563eb':'2px solid transparent',background:'transparent',fontSize:12,fontWeight:tab===t.key?700:500,color:tab===t.key?'#2563eb':'#64748b',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
@@ -112,9 +113,10 @@ export default function LocalGlobalAdminPanel({ loggedUser, tenantId, onSignOut,
         <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8'}}>Loading…</div>
       ) : (
         <div style={{flex:1,overflow:'auto'}}>
-          {tab === 'users'        && <UsersTab        users={users} tenantId={tenantId} tenantName={tenant?.name??''} loggedUser={loggedUser} onRefresh={loadAll}/>}
-          {tab === 'features'     && <FeaturesTab     tenant={tenant} tenantId={tenantId} loggedUser={loggedUser} onRefresh={loadAll}/>}
-          {tab === 'subscription' && <SubscriptionTab tenant={tenant} loggedUser={loggedUser}/>}
+          {tab === 'users'         && <UsersTab         users={users} tenantId={tenantId} tenantName={tenant?.name??''} loggedUser={loggedUser} onRefresh={loadAll}/>}
+          {tab === 'features'      && <FeaturesTab      tenant={tenant} tenantId={tenantId} loggedUser={loggedUser} onRefresh={loadAll}/>}
+          {tab === 'subscription'  && <SubscriptionTab  tenant={tenant} loggedUser={loggedUser}/>}
+          {tab === 'notifications' && <NotificationsTab tenantId={tenantId}/>}
         </div>
       )}
     </div>
@@ -599,6 +601,119 @@ function SubscriptionTab({ tenant, loggedUser }: { tenant: any; loggedUser: stri
           🔒 Subscription details are read-only. To upgrade your plan or update billing information, contact <strong>Support@Strat101.com</strong>.
         </div>
       )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS TAB (read-only for local admin)
+// ═══════════════════════════════════════════════════════════════════════════════
+type NotifCols = { owner: boolean; assigned: boolean; sponsor: boolean };
+type NotifSettings = Record<string, NotifCols>;
+
+const NOTIF_EVENTS_LOCAL: { id: string; label: string; group: string }[] = [
+  { id:'work_item_assignment', label:'Work item assigned to user',      group:'Work Items' },
+  { id:'work_item_ownership',  label:'Work item ownership changed',     group:'Work Items' },
+  { id:'status_completed',     label:'Item marked as complete',         group:'Work Items' },
+  { id:'risk_level_change',    label:'Risk level changed',              group:'Work Items' },
+  { id:'due_date_change',      label:'Due date changed',                group:'Work Items' },
+  { id:'due_date_3d',          label:'Due in 3 days',                   group:'Due Date Alerts' },
+  { id:'due_date_1d',          label:'Due tomorrow',                    group:'Due Date Alerts' },
+  { id:'due_date_today',       label:'Due today',                       group:'Due Date Alerts' },
+  { id:'overdue_3d',           label:'3 days overdue',                  group:'Due Date Alerts' },
+  { id:'overdue_7d',           label:'7 days overdue',                  group:'Due Date Alerts' },
+  { id:'sla_breach',           label:'SLA breached',                    group:'Due Date Alerts' },
+  { id:'mention',              label:'Mentioned in a comment',          group:'Collaboration' },
+  { id:'approval_request',     label:'Approval requested',              group:'Collaboration' },
+  { id:'escalation',           label:'Item escalated',                  group:'Collaboration' },
+  { id:'sprint_start',         label:'Sprint started',                  group:'Sprint & Planning' },
+  { id:'sprint_end',           label:'Sprint ended',                    group:'Sprint & Planning' },
+  { id:'backlog_update',       label:'Backlog updated',                 group:'Sprint & Planning' },
+  { id:'story_sprint_change',  label:'Story moved between sprints',     group:'Sprint & Planning' },
+  { id:'velocity_alert',       label:'Velocity alert triggered',        group:'Sprint & Planning' },
+  { id:'user_project_change',  label:'Added/removed from project',      group:'People & Access' },
+  { id:'role_change',          label:'Role changed',                    group:'People & Access' },
+];
+
+const NOTIF_DEFAULT_LOCAL: NotifSettings = Object.fromEntries(
+  NOTIF_EVENTS_LOCAL.map(e => [e.id, { owner: false, assigned: false, sponsor: false }])
+);
+
+const NOTIF_GROUPS_LOCAL = Array.from(new Set(NOTIF_EVENTS_LOCAL.map(e => e.group)));
+
+const GROUP_ICON_LOCAL: Record<string, string> = {
+  'Work Items':        '📦',
+  'Due Date Alerts':   '📅',
+  'Collaboration':     '💬',
+  'Sprint & Planning': '🏃',
+  'People & Access':   '👤',
+};
+
+function NotificationsTab({ tenantId }: { tenantId: string }) {
+  const [settings, setSettings] = React.useState<NotifSettings>(NOTIF_DEFAULT_LOCAL);
+  const [loading,  setLoading]  = React.useState(true);
+
+  React.useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('notification_settings')
+        .select('settings')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (data?.settings) setSettings({ ...NOTIF_DEFAULT_LOCAL, ...data.settings });
+      setLoading(false);
+    })();
+  }, [tenantId]);
+
+  if (loading) return <div style={{padding:20,color:'#94a3b8',fontSize:12}}>Loading notification settings…</div>;
+
+  const colStyle = (active: boolean): React.CSSProperties => ({
+    width:28, height:28, borderRadius:6,
+    border: active ? '2px solid #2563eb' : '1.5px solid #e2e8f0',
+    background: active ? '#eff6ff' : '#f8fafc',
+    display:'flex', alignItems:'center', justifyContent:'center',
+    color: active ? '#2563eb' : '#cbd5e1', fontSize:13,
+    cursor: 'default', flexShrink:0,
+  });
+
+  return (
+    <div style={{ padding:20, maxWidth:640 }}>
+      <div style={{ padding:'8px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, marginBottom:16, fontSize:11, color:'#92400e' }}>
+        🔒 Notification settings are managed by Global Admin. These are the current email triggers for your tenant. Contact your admin to change them.
+      </div>
+
+      {NOTIF_GROUPS_LOCAL.map(group => {
+        const events = NOTIF_EVENTS_LOCAL.filter(e => e.group === group);
+        return (
+          <div key={group} style={{ marginBottom:20 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#374151', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:8, display:'flex', alignItems:'center', gap:6 }}>
+              <span>{GROUP_ICON_LOCAL[group]}</span> {group}
+            </div>
+            <div style={{ border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 80px 80px', background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
+                <div style={{ padding:'7px 12px', fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.05em' }}>Event</div>
+                {(['Owner','Assigned','Sponsor'] as const).map(col => (
+                  <div key={col} style={{ padding:'7px 0', fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.05em', textAlign:'center' }}>{col}</div>
+                ))}
+              </div>
+              {events.map((ev, i) => {
+                const s = settings[ev.id] ?? { owner:false, assigned:false, sponsor:false };
+                return (
+                  <div key={ev.id} style={{ display:'grid', gridTemplateColumns:'1fr 80px 80px 80px', borderTop: i > 0 ? '1px solid #f1f5f9' : undefined, alignItems:'center' }}>
+                    <div style={{ padding:'9px 12px', fontSize:12, color:'#374151' }}>{ev.label}</div>
+                    {(['owner','assigned','sponsor'] as const).map(col => (
+                      <div key={col} style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'6px 0' }}>
+                        <div style={colStyle(s[col])}>{s[col] ? '✓' : ''}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

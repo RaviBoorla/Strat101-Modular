@@ -84,3 +84,24 @@ export const DEFAULT_VIS_FIELDS = new Set([
 export const WORK_ITEM_TYPES = ['vision','mission','goal','okr','initiative','program','project','task','subtask'];
 
 export const SEED: any[] = [];
+
+// ─── SPRINT CONSTANTS ─────────────────────────────────────────────────────────
+
+export const SPRINT_STATUSES = ['planning', 'active', 'completed', 'cancelled'] as const;
+
+export const SPRINT_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  planning:  { bg: 'bg-blue-50',   text: 'text-blue-700',   border: 'border-blue-200'  },
+  active:    { bg: 'bg-green-50',  text: 'text-green-700',  border: 'border-green-200' },
+  completed: { bg: 'bg-gray-100',  text: 'text-gray-600',   border: 'border-gray-200'  },
+  cancelled: { bg: 'bg-red-50',    text: 'text-red-600',    border: 'border-red-200'   },
+};
+
+export const ITEM_SUBTYPES = ['user_story', 'bug', 'spike', 'feature', 'chore'] as const;
+
+export const ITEM_SUBTYPE_META: Record<string, { label: string; icon: string; color: string }> = {
+  user_story: { label: 'Story',   icon: '📖', color: '#2563eb' },
+  bug:        { label: 'Bug',     icon: '🐛', color: '#dc2626' },
+  spike:      { label: 'Spike',   icon: '⚡', color: '#7c3aed' },
+  feature:    { label: 'Feature', icon: '✨', color: '#059669' },
+  chore:      { label: 'Chore',   icon: '🔧', color: '#92400e' },
+};

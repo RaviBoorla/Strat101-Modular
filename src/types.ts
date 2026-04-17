@@ -1,15 +1,37 @@
 // ─── SHARED TYPES ─────────────────────────────────────────────────────────────
 
-export type FeatureKey = 'kanban' | 'workitems' | 'create' | 'bot' | 'reports' | 'ride' | 'chat';
+export type FeatureKey = 'kanban' | 'workitems' | 'create' | 'bot' | 'reports' | 'ride' | 'chat' | 'sprints' | 'agentSprints';
 
 export interface TenantFeatures {
-  kanban:    boolean;
-  workitems: boolean;
-  create:    boolean;
-  bot:       boolean;
-  reports:   boolean;
-  ride:      boolean;
-  chat:      boolean;
+  kanban:       boolean;
+  workitems:    boolean;
+  create:       boolean;
+  bot:          boolean;
+  reports:      boolean;
+  ride:         boolean;
+  chat:         boolean;
+  sprints:      boolean;
+  agentSprints: boolean;
+}
+
+// ─── SPRINT TYPES ─────────────────────────────────────────────────────────────
+
+export type SprintStatus = 'planning' | 'active' | 'completed' | 'cancelled';
+export type ItemSubtype  = 'user_story' | 'bug' | 'spike' | 'feature' | 'chore';
+
+export interface Sprint {
+  id:              string;
+  tenant_id:       string;
+  project_id:      string | null;
+  name:            string;
+  goal:            string;
+  start_date:      string;
+  end_date:        string;
+  status:          SprintStatus;
+  capacity_points: number;
+  velocity_points: number;
+  created_at:      string;
+  created_by:      string;
 }
 
 export type UserRole = 'global_admin' | 'local_admin' | 'editor' | 'viewer';

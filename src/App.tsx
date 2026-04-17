@@ -18,6 +18,8 @@ import ItemForm, { LinkDlg } from "./modules/Create/ItemForm";
 import ReportBuilder from "./modules/Reports/ReportBuilder";
 import GlobalAdminPanel from "./modules/Admin/GlobalAdminPanel";
 import LocalAdminPanel from "./modules/Admin/LocalAdminPanel";
+import SprintModule from "./modules/Sprint/SprintModule";
+import AgentSprintModule from "./modules/AgentSprint/AgentSprintModule";
 
 import TopNav         from "./components/TopNav";
 import DetailPanel    from "./components/DetailPanel";
@@ -25,7 +27,7 @@ import CommandPalette from "./components/CommandPalette";
 import LOGO_SRC from './logoData';
 
 const ALL_FEATURES: TenantFeatures = {
-  kanban: true, workitems: true, create: true, bot: true, reports: true, ride: false, chat: false,
+  kanban: true, workitems: true, create: true, bot: true, reports: true, ride: false, chat: false, sprints: false, agentSprints: false,
 };
 
 // ─── SUPABASE DATA HELPERS ────────────────────────────────────────────────────
@@ -71,9 +73,14 @@ function dbRowToItem(
     endDate:    row.end_date    ?? '',
     progress:   row.progress    ?? 0,
     tags:       row.tags        ?? [],
-    keyResult:  row.key_result  ?? '',
-    updatedAt:  row.updated_at  ?? '',
-    updatedBy:  row.updated_by  ?? '',
+    keyResult:           row.key_result          ?? '',
+    updatedAt:           row.updated_at          ?? '',
+    updatedBy:           row.updated_by          ?? '',
+    storyPoints:         row.story_points        ?? null,
+    acceptanceCriteria:  row.acceptance_criteria ?? '',
+    backlogOrder:        row.backlog_order       ?? null,
+    itemSubtype:         row.item_subtype        ?? null,
+    sprintId:            row.sprint_id           ?? null,
     links, dependencies, comments, attachments,
   };
 }
@@ -117,9 +124,14 @@ async function persistItem(item: any, tenantId: string): Promise<void> {
     end_date:       item.endDate       || null,
     progress:       item.progress      ?? 0,
     tags:           item.tags          ?? [],
-    key_result:     item.keyResult     || null,
-    updated_at:     new Date().toISOString(),
-    updated_by:     item.updatedBy     || null,
+    key_result:          item.keyResult          || null,
+    story_points:        item.storyPoints        ?? null,
+    acceptance_criteria: item.acceptanceCriteria || null,
+    backlog_order:       item.backlogOrder       ?? null,
+    item_subtype:        item.itemSubtype        || null,
+    sprint_id:           item.sprintId           || null,
+    updated_at:          new Date().toISOString(),
+    updated_by:          item.updatedBy          || null,
   });
   if (error) {
     console.error('[PERSIST] FAILED:', error.message, '| code:', error.code, '| hint:', error.hint, '| details:', error.details);
@@ -215,12 +227,15 @@ function Workspace({
 
   const [items,   setItems]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kanbanSprints, setKanbanSprints] = useState<{id:string;name:string;status:string}[]>([]);
+  const [agentItems,    setAgentItems]    = useState<any[]>([]);
+  const [tenantUserNames, setTenantUserNames] = useState<string[]>([]);
   const [view,    setView]    = useState('kanban');
   const [workItemFilter, setWIF] = useState('all');
   const [sel,     setSel]   = useState<string|null>(null);
   const [dtab,    setDtab]  = useState('overview');
   const [form,    setForm]  = useState<any>(null);
-  const [rideForm, setRideForm] = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'}|null>(null);
+  const [rideForm, setRideForm] = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'|'issue'|'assumption'}|null>(null);
   const [linkDlg, setLinkDlg] = useState<string|null>(null);
   const [linkQ,   setLinkQ]   = useState('');
   const [cmdOpen,    setCmdOpen]    = useState(false);
@@ -237,6 +252,27 @@ function Workspace({
     setItems(await loadItems(tenantId));
     setLoading(false);
   }, [tenantId]);
+
+  useEffect(() => {
+    if (!tenantId || !features.sprints) { setKanbanSprints([]); return; }
+    supabase.from('sprints').select('id,name,status').eq('tenant_id', tenantId)
+      .order('created_at').then(({ data }) => setKanbanSprints((data ?? []) as any));
+  }, [tenantId, features.sprints]);
+
+  useEffect(() => {
+    if (!tenantId) { setTenantUserNames([]); return; }
+    supabase.from('tenant_users').select('full_name,username').eq('tenant_id', tenantId).eq('active', true)
+      .then(({ data }) => {
+        const names = (data ?? []).map((u: any) => u.full_name || u.username).filter(Boolean);
+        setTenantUserNames([...new Set(names)] as string[]);
+      });
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (!tenantId || !features.agentSprints) { setAgentItems([]); return; }
+    supabase.from('agent_sprint_items').select('*').eq('tenant_id', tenantId)
+      .then(({ data }) => setAgentItems(data ?? []));
+  }, [tenantId, features.agentSprints]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -398,7 +434,7 @@ function Workspace({
   const nav    = (id: string) => { const it = items.find(i => i.id === id); if (it) { setView(it.type); setSel(id); setDtab('overview'); } };
   const goView = (v: string)  => { setView(v); setSel(null); };
   const createAndOpen = (type: string) => {
-    if (type === 'risk' || type === 'decision') { setRideForm({record:null,type:type as 'risk'|'decision'}); return; }
+    if (['risk','decision','issue','assumption'].includes(type)) { setRideForm({record:null,type:type as 'risk'|'decision'|'issue'|'assumption'}); return; }
     if (isViewer) return;
     const blank = mkBlank(type, items);
     setItems(p => [...p, blank]);
@@ -406,12 +442,14 @@ function Workspace({
   };
 
   const disabledView =
-    (view === 'kanban'  && !features.kanban)   ||
-    (view === 'reports' && !features.reports)  ||
-    (view === 'bot'     && !features.bot)      ||
-    (isWorkItems        && !features.workitems)||
+    (view === 'kanban'   && !features.kanban)   ||
+    (view === 'reports'  && !features.reports)  ||
+    (view === 'bot'      && !features.bot)      ||
+    (isWorkItems         && !features.workitems)||
     (TYPES.includes(view) && !activeTypes.includes(view)) ||
-    (view === 'ride' && !features.ride);
+    (view === 'ride'    && !features.ride)      ||
+    (view === 'sprints'      && !features.sprints)      ||
+    (view === 'agentSprints' && !features.agentSprints);
 
   if (loading) {
     return (
@@ -448,12 +486,14 @@ function Workspace({
             <div className="flex-1 overflow-auto">
               {!disabledView ? (
                 <>
-                  {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes}/>}
+                  {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes} sprints={kanbanSprints}/>}
                   {view === 'reports' && features.reports   && <ReportBuilder items={items} enabledTypes={activeTypes}/>}
                   {view === 'bot'     && features.bot       && <BotPanel items={items}/>}
-                  {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
+                  {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes} loggedUser={loggedUser} onImport={async (imported) => { for (const item of imported) { await upsert(item); } }}/>}
                   {isListView                               && <ListView type={view} items={items.filter(i => i.type === view)} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
-                  {view === 'ride' && features.ride && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
+                  {view === 'ride'    && features.ride    && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
+                  {view === 'sprints'      && features.sprints      && tenantId && <SprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} items={items} onItemChange={changeField}/>}
+                  {view === 'agentSprints' && features.agentSprints && tenantId && <AgentSprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
                 </>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
@@ -473,7 +513,8 @@ function Workspace({
                 onEdit={() => setForm({ ...selected })} onDelete={() => remove(selected.id)} onClose={() => setSel(null)}
                 onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }} onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
                 onRmLink={rmLink} onRmDep={rmDep} onAddFile={() => fileRef.current?.click()} onRmFile={rmFile}
-                onAddComment={addComment} onRmComment={rmComment} onNav={nav}/>
+                onAddComment={addComment} onRmComment={rmComment} onNav={nav}
+                agentOutcomes={features.agentSprints && sel ? agentItems.filter((o: any) => o.linked_work_item_id === sel) : []}/>
             </div>
           )}
         </div>
@@ -513,7 +554,7 @@ function Workspace({
               boxShadow:'-6px 0 32px rgba(0,0,0,0.2)', display:'flex', flexDirection:'column',
               overflow:'hidden', pointerEvents:'all' }}>
             {isMobile && <div onClick={() => setForm(null)} style={{ background:'rgba(0,0,0,0.3)', height:40, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}><div style={{ width:36, height:4, borderRadius:2, background:'rgba(255,255,255,0.5)' }}/></div>}
-            <ItemForm item={form} onSave={upsert} onClose={() => setForm(null)} onAutoSave={form._autoSave ? liveUpsert : null} drawerMode={true}/>
+            <ItemForm item={form} onSave={upsert} onClose={() => setForm(null)} onAutoSave={form._autoSave ? liveUpsert : null} drawerMode={true} users={tenantUserNames}/>
           </div>
         </div>
       )}
@@ -559,7 +600,9 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
                 bot:       t.feat_bot       ?? true,
                 reports:   t.feat_reports   ?? true,
                 ride:      t.feat_ride      ?? false,
-              chat:      t.feat_chat      ?? false,
+                chat:      t.feat_chat      ?? false,
+                sprints:      t.feat_sprints        ?? false,
+                agentSprints: t.feat_agent_sprints  ?? false,
               });
               const et = t.enabled_item_types;
               setEnabledTypes(et && et.length > 0 ? et : ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask']);
@@ -568,7 +611,7 @@ function AppMain({ loggedUser }: { loggedUser: string }) {
             // Load tenant features on mount
             const { data: tenant } = await supabase
               .from('tenants')
-              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, feat_ride, feat_chat, enabled_item_types')
+              .select('name, feat_kanban, feat_workitems, feat_create, feat_bot, feat_reports, feat_ride, feat_chat, feat_sprints, feat_agent_sprints, enabled_item_types')
               .eq('id', data.tenant_id)
               .single();
 

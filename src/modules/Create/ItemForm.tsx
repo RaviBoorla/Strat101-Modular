@@ -1,7 +1,106 @@
 import React, { useState, useRef, useEffect } from "react";
-import { TC, SC, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES, SPONSOR_TYPES } from "../../constants";
+import { TC, SC, STATS, PRIS, HLTHS, RSKS, IMPACT_TYPES, SPONSOR_TYPES, ITEM_SUBTYPE_META } from "../../constants";
 import { tsNow } from "../../utils";
 import { FG } from "../../components/shared";
+
+// ─── USER PICKER ──────────────────────────────────────────────────────────────
+function UserPicker({ value, onChange, users, placeholder, className }: {
+  value: string; onChange: (v: string) => void;
+  users: string[]; placeholder?: string; className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState(value);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Sync external value changes
+  useEffect(() => { setQ(value); }, [value]);
+
+  // Close on outside click
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const filtered = users.filter(u => !q.trim() || u.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  const showList = open && (filtered.length > 0 || q.trim() === '');
+
+  return (
+    <div ref={ref} style={{ position:'relative' }}>
+      <input
+        value={q}
+        onChange={e => { setQ(e.target.value); onChange(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        className={className}
+        style={{ fontSize:13 }}
+        autoComplete="off"
+      />
+      {showList && (
+        <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:50,
+          background:'white', border:'1px solid #e2e8f0', borderRadius:8,
+          boxShadow:'0 4px 16px rgba(0,0,0,0.12)', maxHeight:200, overflowY:'auto', marginTop:2 }}>
+          {filtered.map(u => (
+            <button key={u} type="button"
+              onMouseDown={() => { onChange(u); setQ(u); setOpen(false); }}
+              style={{ width:'100%', textAlign:'left', padding:'8px 12px',
+                border:'none', background:'transparent', cursor:'pointer',
+                fontSize:13, color:'#374151', display:'flex', alignItems:'center', gap:8 }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f1f5f9')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+              <span style={{ width:24, height:24, borderRadius:'50%', background:'#e0e7ff',
+                color:'#4f46e5', fontSize:10, fontWeight:700, display:'flex',
+                alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                {u.charAt(0).toUpperCase()}
+              </span>
+              {u}
+            </button>
+          ))}
+          {q.trim() && !filtered.includes(q.trim()) && (
+            <div style={{ padding:'6px 12px', fontSize:11, color:'#94a3b8', borderTop:'1px solid #f1f5f9' }}>
+              Press Enter to use "{q.trim()}"
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Sprint fields section — shown only for task / subtask
+function SprintFields({ f, s }: { f: any; s: (k: string, v: any) => void }) {
+  if (f.type !== 'task' && f.type !== 'subtask') return null;
+  return (
+    <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+      <div className="text-violet-700 font-bold uppercase mb-2" style={{ fontSize:10, letterSpacing:'0.06em' }}>🏃 Sprint Fields</div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <FG label="Item Type">
+          <select value={f.itemSubtype || ''} onChange={e => s('itemSubtype', e.target.value || null)}
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" style={{ fontSize:13 }}>
+            <option value="">— Select type —</option>
+            {Object.entries(ITEM_SUBTYPE_META).map(([k, m]) => (
+              <option key={k} value={k}>{m.icon} {m.label}</option>
+            ))}
+          </select>
+        </FG>
+        <FG label="Story Points">
+          <input type="number" min={0} max={999}
+            value={f.storyPoints ?? ''}
+            onChange={e => s('storyPoints', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-violet-300"
+            style={{ fontSize:13 }} placeholder="e.g. 3"/>
+        </FG>
+      </div>
+      <div className="mt-2">
+        <FG label="Acceptance Criteria">
+          <textarea value={f.acceptanceCriteria || ''} onChange={e => s('acceptanceCriteria', e.target.value)}
+            rows={3} className="w-full border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white"
+            style={{ fontSize:12 }} placeholder={"Given…\nWhen…\nThen…"}/>
+        </FG>
+      </div>
+    </div>
+  );
+}
 
 // ─── ITEM FORM ────────────────────────────────────────────────────────────────
 interface ItemFormProps {
@@ -10,9 +109,10 @@ interface ItemFormProps {
   onClose: () => void;
   onAutoSave?: ((item: any) => void) | null;
   drawerMode?: boolean;
+  users?: string[];
 }
 
-export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode = false }: ItemFormProps) {
+export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode = false, users = [] }: ItemFormProps) {
   const [f, setF] = useState({...item});
   const [tin, setTin] = useState('');
   const [saved, setSaved] = useState(false);
@@ -74,6 +174,8 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
               placeholder="Describe current progress, blockers, or key updates…"/>
             <div className="text-blue-400 mt-1" style={{ fontSize:10 }}>Timestamp is captured automatically when you change this field.</div>
           </div>
+          {/* Sprint fields — task & subtask */}
+          <SprintFields f={f} s={s}/>
           {/* Priority / Health / Risk */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Priority"><select value={f.priority} onChange={e => s('priority', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{PRIS.map(p => <option key={p}>{p}</option>)}</select></FG>
@@ -99,10 +201,10 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
           )}
           {/* People */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FG label="Owner"><input value={f.owner} onChange={e => s('owner', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Owner…"/></FG>
-            <FG label="Assigned To"><input value={f.assigned||''} onChange={e => s('assigned', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Assigned person…"/></FG>
+            <FG label="Owner"><UserPicker value={f.owner} onChange={v => s('owner', v)} users={users} placeholder="Owner…" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"/></FG>
+            <FG label="Assigned To"><UserPicker value={f.assigned||''} onChange={v => s('assigned', v)} users={users} placeholder="Assigned person…" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"/></FG>
             {SPONSOR_TYPES.has(f.type)
-              ? <FG label="Sponsor"><input value={f.sponsor||''} onChange={e => s('sponsor', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Executive sponsor…"/></FG>
+              ? <FG label="Sponsor"><UserPicker value={f.sponsor||''} onChange={v => s('sponsor', v)} users={users} placeholder="Executive sponsor…" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"/></FG>
               : <FG label="Business Unit"><input value={f.businessUnit||''} onChange={e => s('businessUnit', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Business unit…"/></FG>
             }
           </div>
@@ -183,6 +285,8 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
               placeholder="Describe current progress, blockers, or key updates…"/>
             <div className="text-blue-400 mt-1" style={{ fontSize:10 }}>Timestamp is captured automatically when you change this field.</div>
           </div>
+          {/* Sprint fields — task & subtask */}
+          <SprintFields f={f} s={s}/>
           {/* Priority / Health / Risk */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <FG label="Priority"><select value={f.priority} onChange={e => s('priority', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:16 }}>{PRIS.map(p => <option key={p}>{p}</option>)}</select></FG>
@@ -208,10 +312,10 @@ export default function ItemForm({ item, onSave, onClose, onAutoSave, drawerMode
           )}
           {/* People */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FG label="Owner"><input value={f.owner} onChange={e => s('owner', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Owner…"/></FG>
-            <FG label="Assigned To"><input value={f.assigned||''} onChange={e => s('assigned', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Assigned person…"/></FG>
+            <FG label="Owner"><UserPicker value={f.owner} onChange={v => s('owner', v)} users={users} placeholder="Owner…" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"/></FG>
+            <FG label="Assigned To"><UserPicker value={f.assigned||''} onChange={v => s('assigned', v)} users={users} placeholder="Assigned person…" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"/></FG>
             {SPONSOR_TYPES.has(f.type)
-              ? <FG label="Sponsor"><input value={f.sponsor||''} onChange={e => s('sponsor', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Executive sponsor…"/></FG>
+              ? <FG label="Sponsor"><UserPicker value={f.sponsor||''} onChange={v => s('sponsor', v)} users={users} placeholder="Executive sponsor…" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"/></FG>
               : <FG label="Business Unit"><input value={f.businessUnit||''} onChange={e => s('businessUnit', e.target.value)} className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300" style={{ fontSize:13 }} placeholder="Business unit…"/></FG>
             }
           </div>

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from "react";
-import { TC, SC, PC, HIC, RC, SPONSOR_TYPES, TL } from "../constants";
+import { TC, SC, PC, HIC, RC, SPONSOR_TYPES, TL, ITEM_SUBTYPE_META } from "../constants";
 import { Lbl } from "./shared";
 
 // ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
@@ -22,6 +22,41 @@ function OverviewTab({ item }: { item: any }) {
         <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
           <div className="text-sky-700 font-bold uppercase mb-1.5" style={{ fontSize:10, letterSpacing:'0.06em' }}>🔑 Key Result Definition</div>
           <p className="text-sky-800 leading-relaxed" style={{ fontSize:12 }}>{item.keyResult}</p>
+        </div>
+      )}
+      {/* Sprint fields — always shown for task / subtask */}
+      {(item.type === 'task' || item.type === 'subtask') && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+          <div className="text-violet-700 font-bold uppercase mb-2" style={{ fontSize:10, letterSpacing:'0.06em' }}>🏃 Sprint</div>
+          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+            {item.itemSubtype && ITEM_SUBTYPE_META[item.itemSubtype] && (
+              <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:4,
+                background:`${ITEM_SUBTYPE_META[item.itemSubtype].color}18`,
+                color: ITEM_SUBTYPE_META[item.itemSubtype].color,
+                border:`1px solid ${ITEM_SUBTYPE_META[item.itemSubtype].color}40` }}>
+                {ITEM_SUBTYPE_META[item.itemSubtype].icon} {ITEM_SUBTYPE_META[item.itemSubtype].label}
+              </span>
+            )}
+            {item.storyPoints != null && (
+              <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:999,
+                background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd' }}>
+                {item.storyPoints} pt{item.storyPoints !== 1 ? 's' : ''}
+              </span>
+            )}
+            {item.sprintId && (
+              <span style={{ fontSize:10, fontWeight:600, padding:'2px 8px', borderRadius:999,
+                background:'#f0fdf4', color:'#15803d', border:'1px solid #86efac' }}>
+                In Sprint
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="text-violet-600 font-semibold uppercase mb-1 mt-1" style={{ fontSize:9, letterSpacing:'0.05em' }}>Acceptance Criteria</div>
+            {item.acceptanceCriteria
+              ? <p className="text-violet-900 whitespace-pre-line leading-relaxed" style={{ fontSize:12 }}>{item.acceptanceCriteria}</p>
+              : <p className="text-violet-400 italic" style={{ fontSize:12 }}>Not set — edit item to add acceptance criteria</p>
+            }
+          </div>
         </div>
       )}
       {item.riskStatement && (
@@ -372,9 +407,10 @@ interface DetailPanelProps {
   onAddComment: (text: string) => void;
   onRmComment: (id: string) => void;
   onNav: (id: string) => void;
+  agentOutcomes?: any[];
 }
 
-export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDelete, onClose, isViewer = false, onAddLink, onAddDep, onRmLink, onRmDep, onAddFile, onRmFile, onAddComment, onRmComment, onNav }: DetailPanelProps) {
+export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDelete, onClose, isViewer = false, onAddLink, onAddDep, onRmLink, onRmDep, onAddFile, onRmFile, onAddComment, onRmComment, onNav, agentOutcomes = [] }: DetailPanelProps) {
   const c = TC[item.type];
   const TABS = [
     ['overview','📋','Info'],
@@ -383,6 +419,7 @@ export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDele
     ['deps','⛓️',`Deps(${item.dependencies?.length||0})`],
     ['files','📎',`Files(${item.attachments.length})`],
     ['comments','💬',`Chat(${item.comments?.length||0})`],
+    ...(agentOutcomes.length > 0 ? [['agent','🤖',`Agent(${agentOutcomes.length})`]] : []),
   ];
 
   return (
@@ -419,6 +456,34 @@ export default function DetailPanel({ item, allItems, tab, onTab, onEdit, onDele
         {tab==='deps'      && <LinksTab ids={item.dependencies||[]} allItems={allItems} onAdd={onAddDep} onRm={onRmDep} onNav={onNav} label="Dependencies"/>}
         {tab==='files'     && <FilesTab item={item} onAdd={onAddFile} onRm={onRmFile}/>}
         {tab==='comments'  && <CommentsTab item={item} onAdd={onAddComment} onRm={onRmComment}/>}
+        {tab==='agent'     && (
+          <div className="p-3 space-y-2">
+            {agentOutcomes.map((o: any) => {
+              const VSTATUS: Record<string,{label:string;color:string;bg:string;icon:string}> = {
+                pending:       {label:'Pending',       color:'#64748b',bg:'#f1f5f9',icon:'⏳'},
+                generated:     {label:'Generated',     color:'#7c3aed',bg:'#f5f3ff',icon:'🤖'},
+                tests_passing: {label:'Tests Passing', color:'#0369a1',bg:'#e0f2fe',icon:'✅'},
+                in_review:     {label:'In Review',     color:'#d97706',bg:'#fffbeb',icon:'👁️'},
+                approved:      {label:'Approved',      color:'#15803d',bg:'#f0fdf4',icon:'✓'},
+                shipped:       {label:'Shipped',       color:'#475569',bg:'#f8fafc',icon:'🚀'},
+              };
+              const vs = VSTATUS[o.review_status] ?? VSTATUS.pending;
+              return (
+                <div key={o.id} className="rounded-xl border p-3 bg-white">
+                  <div className="font-semibold text-gray-800 mb-1.5 leading-snug" style={{fontSize:12}}>{o.title||'(Untitled)'}</div>
+                  <div className="flex gap-1.5 flex-wrap mb-1.5">
+                    <span style={{fontSize:10,fontWeight:600,padding:'2px 7px',borderRadius:999,background:vs.bg,color:vs.color,border:`1px solid ${vs.color}30`}}>{vs.icon} {vs.label}</span>
+                    {o.agent_confidence!=null&&<span style={{fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:999,background:'#f0fdf4',color:'#15803d',border:'1px solid #86efac'}}>{o.agent_confidence}% conf</span>}
+                    {o.test_coverage!=null&&<span style={{fontSize:10,padding:'2px 7px',borderRadius:999,background:'#eff6ff',color:'#1d4ed8',border:'1px solid #bfdbfe'}}>{o.test_coverage}% cov</span>}
+                  </div>
+                  {o.outcome_description&&<p className="text-gray-500 leading-relaxed" style={{fontSize:11}}>{o.outcome_description.slice(0,120)}{o.outcome_description.length>120?'…':''}</p>}
+                  {o.pr_url&&<a href={o.pr_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" style={{fontSize:10,display:'block',marginTop:4}}>🔀 {o.pr_url}</a>}
+                  {o.human_reviewer&&<div className="text-gray-400 mt-1" style={{fontSize:10}}>👤 {o.human_reviewer}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </aside>
   );

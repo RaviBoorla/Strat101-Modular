@@ -16,20 +16,23 @@ import {
 
 const FEATURE_LABELS: Record<string,string> = {
   kanban:'Kanban Boards', workitems:'Work Items', create:'Create Items',
-  bot:'AI Assist', reports:'Reports',
+  bot:'AI Assist', reports:'Reports', ride:'RiDe Intel', chat:'Team Chat',
+  sprints:'Sprints & Backlog', agentSprints:'Agent Sprints',
 };
 const FEATURE_DEFS: { key: FeatureKey; label: string; icon: string }[] = [
-  { key:'kanban',    label:'Kanban',     icon:'Kanban'    },
-  { key:'workitems', label:'Work Items', icon:'WorkItems' },
-  { key:'create',    label:'Create',     icon:'Create'    },
-  { key:'bot',       label:'AI Assist',  icon:'AIAssist'  },
-  { key:'reports',   label:'Reports',    icon:'Reports'   },
-  { key:'ride',      label:'RiDe Intel', icon:'RiDe'      },
-  { key:'chat',      label:'Team Chat',  icon:'Chat'      },
+  { key:'kanban',       label:'Kanban',           icon:'Kanban'       },
+  { key:'workitems',    label:'Work Items',        icon:'WorkItems'    },
+  { key:'create',       label:'Create',            icon:'Create'       },
+  { key:'bot',          label:'AI Assist',         icon:'AIAssist'     },
+  { key:'reports',      label:'Reports',           icon:'Reports'      },
+  { key:'ride',         label:'RiDe Intel',        icon:'RiDe'         },
+  { key:'chat',         label:'Team Chat',         icon:'Chat'         },
+  { key:'sprints',      label:'Sprints & Backlog', icon:'Sprints'      },
+  { key:'agentSprints', label:'Agent Sprints',     icon:'AgentSprints' },
 ];
 
 const FEATURE_EMOJI: Record<FeatureKey, string> = {
-  kanban:'🗂️', workitems:'📦', create:'➕', bot:'🤖', reports:'📈', ride:'⚡', chat:'💬',
+  kanban:'🗂️', workitems:'📦', create:'➕', bot:'🤖', reports:'📈', ride:'⚡', chat:'💬', sprints:'🏃', agentSprints:'🤖',
 };
 
 const PLAN_STYLE: Record<string, {color:string;bg:string}> = {
@@ -445,8 +448,8 @@ function FeaturesTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:700,color:'#374151',textTransform:'uppercase',letterSpacing:'0.04em'}}>Modules</div>
         <div style={{display:'flex',gap:6}}>
-          <button onClick={()=>onUpdate({...tenant,features:{kanban:true,workitems:true,create:true,bot:true,reports:true,ride:true,chat:true}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
-          <button onClick={()=>onUpdate({...tenant,features:{kanban:false,workitems:false,create:false,bot:false,reports:false,ride:false,chat:false}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
+          <button onClick={()=>onUpdate({...tenant,features:{kanban:true,workitems:true,create:true,bot:true,reports:true,ride:true,chat:true,sprints:true,agentSprints:true}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #bbf7d0',background:'#f0fdf4',color:'#16a34a',fontSize:11,fontWeight:600,cursor:'pointer'}}>All On</button>
+          <button onClick={()=>onUpdate({...tenant,features:{kanban:false,workitems:false,create:false,bot:false,reports:false,ride:false,chat:false,sprints:false,agentSprints:false}})} style={{padding:'3px 10px',borderRadius:6,border:'1px solid #fecaca',background:'#fef2f2',color:'#dc2626',fontSize:11,fontWeight:600,cursor:'pointer'}}>All Off</button>
         </div>
       </div>
       {FEATURE_DEFS.map(fd=>{
@@ -853,14 +856,182 @@ function SecurityTab({tenant,onUpdate}:{tenant:Tenant;onUpdate:(t:Tenant)=>void}
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+type NotifCols = { owner: boolean; assigned: boolean; sponsor: boolean };
+type NotifSettings = Record<string, NotifCols>;
+
+const NOTIF_EVENTS: { id: string; label: string; group: string }[] = [
+  // Work Items
+  { id:'work_item_assignment', label:'Work item assigned to user',      group:'Work Items' },
+  { id:'work_item_ownership',  label:'Work item ownership changed',     group:'Work Items' },
+  { id:'status_completed',     label:'Item marked as complete',         group:'Work Items' },
+  { id:'risk_level_change',    label:'Risk level changed',              group:'Work Items' },
+  { id:'due_date_change',      label:'Due date changed',                group:'Work Items' },
+  // Due Date Alerts
+  { id:'due_date_3d',          label:'Due in 3 days',                   group:'Due Date Alerts' },
+  { id:'due_date_1d',          label:'Due tomorrow',                    group:'Due Date Alerts' },
+  { id:'due_date_today',       label:'Due today',                       group:'Due Date Alerts' },
+  { id:'overdue_3d',           label:'3 days overdue',                  group:'Due Date Alerts' },
+  { id:'overdue_7d',           label:'7 days overdue',                  group:'Due Date Alerts' },
+  { id:'sla_breach',           label:'SLA breached',                    group:'Due Date Alerts' },
+  // Collaboration
+  { id:'mention',              label:'Mentioned in a comment',          group:'Collaboration' },
+  { id:'approval_request',     label:'Approval requested',              group:'Collaboration' },
+  { id:'escalation',           label:'Item escalated',                  group:'Collaboration' },
+  // Sprint & Planning
+  { id:'sprint_start',         label:'Sprint started',                  group:'Sprint & Planning' },
+  { id:'sprint_end',           label:'Sprint ended',                    group:'Sprint & Planning' },
+  { id:'backlog_update',       label:'Backlog updated',                 group:'Sprint & Planning' },
+  { id:'story_sprint_change',  label:'Story moved between sprints',     group:'Sprint & Planning' },
+  { id:'velocity_alert',       label:'Velocity alert triggered',        group:'Sprint & Planning' },
+  // People & Access
+  { id:'user_project_change',  label:'Added/removed from project',      group:'People & Access' },
+  { id:'role_change',          label:'Role changed',                    group:'People & Access' },
+];
+
+const NOTIF_DEFAULT: NotifSettings = Object.fromEntries(
+  NOTIF_EVENTS.map(e => [e.id, { owner: false, assigned: false, sponsor: false }])
+);
+
+const NOTIF_GROUPS = Array.from(new Set(NOTIF_EVENTS.map(e => e.group)));
+
+const GROUP_ICON: Record<string,string> = {
+  'Work Items':        '📦',
+  'Due Date Alerts':   '📅',
+  'Collaboration':     '💬',
+  'Sprint & Planning': '🏃',
+  'People & Access':   '👤',
+};
+
+function NotificationsTab({ tenant, readOnly = false }: { tenant: Tenant; readOnly?: boolean }) {
+  const [settings, setSettings] = useState<NotifSettings>(NOTIF_DEFAULT);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('notification_settings')
+        .select('settings')
+        .eq('tenant_id', tenant.id)
+        .maybeSingle();
+      if (data?.settings) {
+        setSettings({ ...NOTIF_DEFAULT, ...data.settings });
+      }
+      setLoading(false);
+    })();
+  }, [tenant.id]);
+
+  const toggle = (eventId: string, col: keyof NotifCols) => {
+    if (readOnly) return;
+    setSettings(prev => ({
+      ...prev,
+      [eventId]: { ...prev[eventId], [col]: !prev[eventId]?.[col] },
+    }));
+  };
+
+  const save = async () => {
+    setSaving(true);
+    await supabase.from('notification_settings').upsert({
+      tenant_id:  tenant.id,
+      settings,
+      updated_at: new Date().toISOString(),
+      updated_by: 'global_admin',
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  if (loading) return <div style={{padding:20,color:'#94a3b8',fontSize:12}}>Loading notification settings…</div>;
+
+  const colStyle = (active: boolean): React.CSSProperties => ({
+    width:32, height:32, borderRadius:6, border: active ? '2px solid #2563eb' : '1.5px solid #e2e8f0',
+    background: active ? '#eff6ff' : 'white', cursor: readOnly ? 'default' : 'pointer',
+    display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+    color: active ? '#2563eb' : '#cbd5e1', fontSize:14, transition:'all 0.15s',
+  });
+
+  return (
+    <div style={{ padding: 4 }}>
+      {readOnly && (
+        <div style={{ padding:'8px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, marginBottom:16, fontSize:11, color:'#92400e' }}>
+          🔒 Notification settings are managed by Global Admin. Contact your admin to change these.
+        </div>
+      )}
+
+      {!readOnly && (
+        <div style={{ marginBottom: 16, fontSize: 11, color: '#64748b' }}>
+          Configure which email notifications are sent to the Owner, Assigned-To, and Sponsor of each work item when an event occurs.
+        </div>
+      )}
+
+      {NOTIF_GROUPS.map(group => {
+        const events = NOTIF_EVENTS.filter(e => e.group === group);
+        return (
+          <div key={group} style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display:'flex', alignItems:'center', gap:6 }}>
+              <span>{GROUP_ICON[group]}</span> {group}
+            </div>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+              {/* Header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ padding: '7px 12px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Event</div>
+                {(['Owner','Assigned','Sponsor'] as const).map(col => (
+                  <div key={col} style={{ padding: '7px 0', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>{col}</div>
+                ))}
+              </div>
+              {/* Rows */}
+              {events.map((ev, i) => {
+                const s = settings[ev.id] ?? { owner: false, assigned: false, sponsor: false };
+                return (
+                  <div key={ev.id} style={{ display:'grid', gridTemplateColumns:'1fr 80px 80px 80px', borderTop: i > 0 ? '1px solid #f1f5f9' : undefined, alignItems:'center' }}>
+                    <div style={{ padding: '9px 12px', fontSize: 12, color: '#374151' }}>{ev.label}</div>
+                    {(['owner','assigned','sponsor'] as const).map(col => (
+                      <div key={col} style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'6px 0' }}>
+                        <button
+                          type="button"
+                          onClick={() => toggle(ev.id, col)}
+                          style={colStyle(s[col])}
+                          title={`${s[col] ? 'Disable' : 'Enable'} for ${col}`}
+                        >
+                          {s[col] ? '✓' : ''}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {!readOnly && (
+        <div style={{ paddingTop: 8 }}>
+          <button onClick={save} disabled={saving}
+            style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'#2563eb', color:'white', fontSize:12, fontWeight:600, cursor:'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Notifications'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;onClose:()=>void;onUpdate:(t:Tenant)=>void;embedded?:boolean}){
-  const [tab,setTab]=useState<'users'|'features'|'subscription'|'invoices'|'security'>('users');
+  const [tab,setTab]=useState<'users'|'features'|'subscription'|'invoices'|'security'|'notifications'>('users');
   const TABS=[
-    {id:'users'        as const, label:'Users'},
-    {id:'features'     as const, label:'Features'},
-    {id:'subscription' as const, label:'Subscription'},
-    {id:'invoices'     as const, label:'Invoices'},
-    {id:'security'     as const, label:'🔒 Security'},
+    {id:'users'         as const, label:'Users'},
+    {id:'features'      as const, label:'Features'},
+    {id:'subscription'  as const, label:'Subscription'},
+    {id:'invoices'      as const, label:'Invoices'},
+    {id:'security'      as const, label:'🔒 Security'},
+    {id:'notifications' as const, label:'🔔 Notifications'},
   ];
   if (embedded) {
     return (
@@ -883,11 +1054,12 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           ))}
         </div>
         <div style={{flex:1,overflowY:'auto',padding:14}}>
-          {tab==='users'        &&<UsersTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='features'     &&<FeaturesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='subscription' &&<SubscriptionTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='invoices'     &&<InvoicesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='security'     &&<SecurityTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='users'         &&<UsersTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='features'      &&<FeaturesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='subscription'  &&<SubscriptionTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='invoices'      &&<InvoicesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='security'      &&<SecurityTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='notifications' &&<NotificationsTab key={tenant.id} tenant={tenant}/>}
         </div>
       </div>
     );
@@ -918,11 +1090,12 @@ function ManageDrawer({tenant,onClose,onUpdate,embedded=false}:{tenant:Tenant;on
           ))}
         </div>
         <div style={{flex:1,overflowY:'auto',padding:18}}>
-          {tab==='users'        &&<UsersTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='features'     &&<FeaturesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='subscription' &&<SubscriptionTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='invoices'     &&<InvoicesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
-          {tab==='security'     &&<SecurityTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='users'         &&<UsersTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='features'      &&<FeaturesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='subscription'  &&<SubscriptionTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='invoices'      &&<InvoicesTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='security'      &&<SecurityTab key={tenant.id} tenant={tenant} onUpdate={onUpdate}/>}
+          {tab==='notifications' &&<NotificationsTab key={tenant.id} tenant={tenant}/>}
         </div>
       </div>
     </div>
@@ -949,7 +1122,7 @@ function TenantForm({tenant,onSave,onClose}:{tenant:Tenant|null;onSave:(t:Tenant
   const save=()=>{
     if(!name.trim()||!slug.trim()) return;
     const lim=PLAN_LIMITS[plan];
-    const base={kanban:true,workitems:true,create:true,bot:true,reports:true,ride:false,chat:false};
+    const base={kanban:true,workitems:true,create:true,bot:true,reports:true,ride:false,chat:false,sprints:false,agentSprints:false};
     const baseSub:Subscription={
       status:'trialling',trialStart:td(),trialEnd:'',currentPeriodStart:td(),currentPeriodEnd:'',
       autoRenew:true,billingEmail:'',billingName:'',

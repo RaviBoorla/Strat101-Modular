@@ -66,6 +66,8 @@ export async function saveTenant(tenant: Tenant): Promise<void> {
     feat_reports:   tenant.features.reports,
     feat_ride:      tenant.features.ride,
     feat_chat:      tenant.features.chat,
+    feat_sprints:        tenant.features.sprints,
+    feat_agent_sprints:  tenant.features.agentSprints,
     // Company profile
     industry:        tenant.industry      ?? null,
     sector:          tenant.sector        ?? null,
@@ -104,8 +106,8 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
           email:      user.email,
           username:   user.username,
           fullName:   user.fullName,
-          // sendInvite defaults to true — user gets invite email to set password
-          sendInvite: true,
+          sendInvite: user.sendInvite !== false,   // respect admin's choice
+          password:   user.tempPassword ?? undefined, // only used when sendInvite=false
         }),
       });
       const rawText = await res.text();
@@ -307,6 +309,8 @@ function dbRowToTenant(row: any, userRows: any[], invoiceRows: any[]): Tenant {
       reports:   row.feat_reports   ?? true,
       ride:      row.feat_ride      ?? false,
       chat:      row.feat_chat      ?? false,
+      sprints:      row.feat_sprints        ?? false,
+      agentSprints: row.feat_agent_sprints   ?? false,
     },
     users:          userRows.map(dbRowToUser),
     subscription,
