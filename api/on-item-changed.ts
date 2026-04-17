@@ -33,20 +33,26 @@ export default async function handler(req: Request): Promise<Response> {
     'apikey':        serviceRoleKey,
   };
 
+  console.log(`[on-item-changed] tenantId=${tenantId} item=${item.key} changedBy=${changedBy}`);
+
   // Fetch notification settings
   const nsRes = await fetch(
     `${supabaseUrl}/rest/v1/notification_settings?tenant_id=eq.${tenantId}&select=settings`,
     { headers: dbHeaders },
   );
   const nsData = await nsRes.json();
+  console.log(`[on-item-changed] nsRes.status=${nsRes.status} nsData=`, JSON.stringify(nsData));
+
   const notifSettings: Record<string, { owner: boolean; assigned: boolean; sponsor: boolean }> =
     nsData?.[0]?.settings ?? null;
 
   if (!notifSettings) {
+    console.log('[on-item-changed] No notification settings row found — exiting.');
     return new Response(JSON.stringify({ sent: 0, reason: 'No notification settings.' }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
   }
+  console.log('[on-item-changed] Settings keys:', Object.keys(notifSettings));
 
   // Fetch active tenant users
   const usersRes = await fetch(
@@ -54,6 +60,7 @@ export default async function handler(req: Request): Promise<Response> {
     { headers: dbHeaders },
   );
   const users: { full_name: string; email: string }[] = await usersRes.json();
+  console.log(`[on-item-changed] tenant_users found: ${users.length}`, users.map(u => u.full_name));
 
   const emailByName = (name: string | null | undefined): string | null => {
     if (!name) return null;
@@ -69,8 +76,11 @@ export default async function handler(req: Request): Promise<Response> {
   const itemEndDate     = item.endDate ?? item.end_date ?? null;
   const prevEndDate     = prevItem ? (prevItem.endDate ?? prevItem.end_date ?? null) : null;
 
+  console.log(`[on-item-changed] assigned: prev="${prevItem?.assigned}" cur="${item.assigned}"`);
+  console.log(`[on-item-changed] owner:    prev="${prevItem?.owner}"    cur="${item.owner}"`);
+  console.log(`[on-item-changed] isNew:    ${prevItem === null || prevItem === undefined}`);
+
   if (prevItem === null || prevItem === undefined) {
-    // New item
     if (item.assigned) events.push('work_item_assignment');
     if (item.owner)    events.push('work_item_ownership');
   } else {
@@ -82,33 +92,51 @@ export default async function handler(req: Request): Promise<Response> {
     if (itemSprintId !== prevSprintId)                                  events.push('story_sprint_change');
   }
 
-  if (events.length === 0 || !resendKey) {
+  console.log('[on-item-changed] events detected:', events);
+
+  if (events.length === 0) {
+    console.log('[on-item-changed] No events detected — exiting.');
     return new Response(JSON.stringify({ sent: 0, events }), {
       status: 200, headers: { 'Content-Type': 'application/json' },
     });
   }
 
+  if (!resendKey) {
+    console.log('[on-item-changed] RESEND_API_KEY not set — cannot send emails.');
+    return new Response(JSON.stringify({ sent: 0, reason: 'No RESEND_API_KEY', events }), {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const changedByEmail = emailByName(changedBy);
+  console.log(`[on-item-changed] changedByEmail="${changedByEmail}" (will be excluded)`);
   let sentCount = 0;
 
   for (const event of events) {
     const cfg = notifSettings[event];
-    if (!cfg) continue;
+    console.log(`[on-item-changed] event="${event}" cfg=`, JSON.stringify(cfg));
+    if (!cfg) { console.log(`[on-item-changed] No config for event "${event}" — skipping.`); continue; }
 
     const recipientEmails = new Set<string>();
-    if (cfg.owner    && item.owner)    { const e = emailByName(item.owner);    if (e) recipientEmails.add(e); }
-    if (cfg.assigned && item.assigned) { const e = emailByName(item.assigned); if (e) recipientEmails.add(e); }
-    if (cfg.sponsor  && item.sponsor)  { const e = emailByName(item.sponsor);  if (e) recipientEmails.add(e); }
+    if (cfg.owner    && item.owner)    { const e = emailByName(item.owner);    console.log(`[on-item-changed] owner "${item.owner}" → email "${e}"`);    if (e) recipientEmails.add(e); }
+    if (cfg.assigned && item.assigned) { const e = emailByName(item.assigned); console.log(`[on-item-changed] assigned "${item.assigned}" → email "${e}"`); if (e) recipientEmails.add(e); }
+    if (cfg.sponsor  && item.sponsor)  { const e = emailByName(item.sponsor);  console.log(`[on-item-changed] sponsor "${item.sponsor}" → email "${e}"`);  if (e) recipientEmails.add(e); }
 
-    // Skip sending to the person who made the change
-    if (changedByEmail) recipientEmails.delete(changedByEmail);
+    if (changedByEmail) {
+      if (recipientEmails.has(changedByEmail)) {
+        console.log(`[on-item-changed] Excluding changedBy email "${changedByEmail}" from recipients`);
+      }
+      recipientEmails.delete(changedByEmail);
+    }
+
+    console.log(`[on-item-changed] Final recipients for "${event}":`, [...recipientEmails]);
 
     for (const recipientEmail of recipientEmails) {
       const recipientName = users.find(u => u.email === recipientEmail)?.full_name ?? recipientEmail;
       const subject = buildSubject(event, item);
       const html    = buildItemEmail(event, item, recipientName, changedBy, appUrl, itemEndDate, prevItem);
 
-      await fetch('https://api.resend.com/emails', {
+      const emailRes = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -118,10 +146,13 @@ export default async function handler(req: Request): Promise<Response> {
           html,
         }),
       });
-      sentCount++;
+      const emailData = await emailRes.json();
+      console.log(`[on-item-changed] Resend → to="${recipientEmail}" status=${emailRes.status}`, JSON.stringify(emailData));
+      if (emailRes.ok) sentCount++;
     }
   }
 
+  console.log(`[on-item-changed] Done. sent=${sentCount}`);
   return new Response(JSON.stringify({ sent: sentCount, events }), {
     status: 200, headers: { 'Content-Type': 'application/json' },
   });
