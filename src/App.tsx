@@ -489,7 +489,7 @@ function Workspace({
                   {view === 'kanban'  && features.kanban    && <KanbanBoard items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} onNew={t => setForm(mkBlank(t, items))} onStatusChange={changeStatus} onFieldChange={changeField} enabledTypes={activeTypes} sprints={kanbanSprints}/>}
                   {view === 'reports' && features.reports   && <ReportBuilder items={items} enabledTypes={activeTypes}/>}
                   {view === 'bot'     && features.bot       && <BotPanel items={items}/>}
-                  {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes}/>}
+                  {isWorkItems        && features.workitems && <WorkItemsView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }} filter={workItemFilter} enabledTypes={activeTypes} loggedUser={loggedUser} onImport={async (imported) => { for (const item of imported) { await upsert(item); } }}/>}
                   {isListView                               && <ListView type={view} items={items.filter(i => i.type === view)} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
                   {view === 'ride'    && features.ride    && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
                   {view === 'sprints'      && features.sprints      && tenantId && <SprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} items={items} onItemChange={changeField}/>}
