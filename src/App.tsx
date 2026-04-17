@@ -318,10 +318,19 @@ function Workspace({
 
   const upsert = async (it: any) => {
     if (isViewer) return;
+    const prevItem = items.find((x: any) => x.id === it.id) ?? null;
     const s = stamp(it);
     await applyAndPersist(s);
     setForm(null); setSel(s.id);
     if (isListView || view === 'kanban') setView(s.type);
+    // Fire notification check — fire-and-forget, never blocks the UI
+    if (tenantId) {
+      fetch('/api/on-item-changed', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tenantId, item: s, prevItem, changedBy: LOGGED_IN }),
+      }).catch(() => { /* silent — notification failures must never surface to user */ });
+    }
   };
 
   const remove = async (id: string) => {
