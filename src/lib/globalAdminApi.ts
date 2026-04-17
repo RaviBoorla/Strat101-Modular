@@ -106,8 +106,8 @@ export async function saveUser(user: TenantUser, tenantId: string): Promise<void
           email:      user.email,
           username:   user.username,
           fullName:   user.fullName,
-          // sendInvite defaults to true — user gets invite email to set password
-          sendInvite: true,
+          sendInvite: user.sendInvite !== false,   // respect admin's choice
+          password:   user.tempPassword ?? undefined, // only used when sendInvite=false
         }),
       });
       const rawText = await res.text();
