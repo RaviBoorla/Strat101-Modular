@@ -48,6 +48,24 @@ export default function WorkItemsView({ items, sel, onSel, filter, enabledTypes 
   const sorted = sortItems(base, sortCol, sortDir);
   const fmt = (v: any) => v ? `£${Number(v).toLocaleString()}` : '—';
 
+  const exportCSV = () => {
+    const headers = ['Key','Type','Title','Status','Priority','Health','Risk','Impact Type','Owner','Assigned','Sponsor','Business Unit','Progress','Start Date','Due Date','Budget','Actual Cost','Updated At','Updated By'];
+    const rows = sorted.map(it => [
+      it.key, it.type, it.title, it.status, it.priority, it.health, it.risk,
+      it.impactType, it.owner, it.assigned, it.sponsor, it.businessUnit,
+      `${it.progress}%`, it.startDate, it.endDate,
+      it.approvedBudget ? `£${Number(it.approvedBudget).toLocaleString()}` : '',
+      it.actualCost ? `£${Number(it.actualCost).toLocaleString()}` : '',
+      it.updatedAt, it.updatedBy,
+    ]);
+    const csv = [headers, ...rows].map(r => r.map((v: any) => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `work-items-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
   if (!sorted.length) return (
     <div className="flex flex-col items-center justify-center h-full text-gray-400">
       <div style={{ fontSize:48 }}>{filter!=='all' ? TC[filter]?.i : '📦'}</div>
@@ -57,6 +75,14 @@ export default function WorkItemsView({ items, sel, onSel, filter, enabledTypes 
 
   return (
     <div className="p-2 h-full overflow-auto" style={{ WebkitOverflowScrolling:'touch' }}>
+      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:6 }}>
+        <button onClick={exportCSV}
+          style={{ padding:'5px 14px', borderRadius:7, border:'1px solid #e2e8f0', background:'white',
+            fontSize:12, color:'#374151', cursor:'pointer', display:'flex', alignItems:'center', gap:5,
+            boxShadow:'0 1px 2px rgba(0,0,0,0.05)' }}>
+          ⬇ Export CSV
+        </button>
+      </div>
       <div className="bg-white rounded-xl border shadow-sm overflow-hidden" style={{ minWidth:'max-content', width:'max-content', maxWidth:'none' }}>
         <table className="w-full" style={{ fontSize:12 }}>
           <thead><tr className="bg-gray-50 border-b">

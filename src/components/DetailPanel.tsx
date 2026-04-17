@@ -24,8 +24,8 @@ function OverviewTab({ item }: { item: any }) {
           <p className="text-sky-800 leading-relaxed" style={{ fontSize:12 }}>{item.keyResult}</p>
         </div>
       )}
-      {/* Sprint fields — shown for task / subtask */}
-      {(item.type === 'task' || item.type === 'subtask') && (item.itemSubtype || item.storyPoints != null || item.acceptanceCriteria) && (
+      {/* Sprint fields — always shown for task / subtask */}
+      {(item.type === 'task' || item.type === 'subtask') && (
         <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
           <div className="text-violet-700 font-bold uppercase mb-2" style={{ fontSize:10, letterSpacing:'0.06em' }}>🏃 Sprint</div>
           <div className="flex items-center gap-2 flex-wrap mb-1.5">
@@ -50,12 +50,13 @@ function OverviewTab({ item }: { item: any }) {
               </span>
             )}
           </div>
-          {item.acceptanceCriteria && (
-            <div>
-              <div className="text-violet-600 font-semibold uppercase mb-1" style={{ fontSize:9, letterSpacing:'0.05em' }}>Acceptance Criteria</div>
-              <p className="text-violet-900 whitespace-pre-line leading-relaxed" style={{ fontSize:12 }}>{item.acceptanceCriteria}</p>
-            </div>
-          )}
+          <div>
+            <div className="text-violet-600 font-semibold uppercase mb-1 mt-1" style={{ fontSize:9, letterSpacing:'0.05em' }}>Acceptance Criteria</div>
+            {item.acceptanceCriteria
+              ? <p className="text-violet-900 whitespace-pre-line leading-relaxed" style={{ fontSize:12 }}>{item.acceptanceCriteria}</p>
+              : <p className="text-violet-400 italic" style={{ fontSize:12 }}>Not set — edit item to add acceptance criteria</p>
+            }
+          </div>
         </div>
       )}
       {item.riskStatement && (

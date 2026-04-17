@@ -234,7 +234,7 @@ function Workspace({
   const [sel,     setSel]   = useState<string|null>(null);
   const [dtab,    setDtab]  = useState('overview');
   const [form,    setForm]  = useState<any>(null);
-  const [rideForm, setRideForm] = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'}|null>(null);
+  const [rideForm, setRideForm] = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'|'issue'|'assumption'}|null>(null);
   const [linkDlg, setLinkDlg] = useState<string|null>(null);
   const [linkQ,   setLinkQ]   = useState('');
   const [cmdOpen,    setCmdOpen]    = useState(false);
@@ -424,7 +424,7 @@ function Workspace({
   const nav    = (id: string) => { const it = items.find(i => i.id === id); if (it) { setView(it.type); setSel(id); setDtab('overview'); } };
   const goView = (v: string)  => { setView(v); setSel(null); };
   const createAndOpen = (type: string) => {
-    if (type === 'risk' || type === 'decision') { setRideForm({record:null,type:type as 'risk'|'decision'}); return; }
+    if (['risk','decision','issue','assumption'].includes(type)) { setRideForm({record:null,type:type as 'risk'|'decision'|'issue'|'assumption'}); return; }
     if (isViewer) return;
     const blank = mkBlank(type, items);
     setItems(p => [...p, blank]);

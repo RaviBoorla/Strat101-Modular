@@ -155,6 +155,24 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
   const activeTypes = (enabledTypes && enabledTypes.length > 0) ? enabledTypes : ALL_ITEM_TYPES;
   const [tf, setTf] = useState('all');
   const [sprintOnly, setSprintOnly] = useState(false);
+
+  const exportKanbanCSV = () => {
+    const exportItems = tf==='all' ? (sprintOnly ? items.filter(i => !!i.sprintId) : items)
+      : (sprintOnly ? items.filter(i => !!i.sprintId) : items).filter(i => i.type===tf);
+    const headers = ['Key','Type','Title','Status','Priority','Health','Risk','Owner','Assigned','Start Date','Due Date','Budget','Progress'];
+    const rows = exportItems.map((it: any) => [
+      it.key, it.type, it.title, it.status, it.priority, it.health, it.risk,
+      it.owner, it.assigned, it.startDate, it.endDate,
+      it.approvedBudget ? `£${Number(it.approvedBudget).toLocaleString()}` : '',
+      `${it.progress}%`,
+    ]);
+    const csv = [headers, ...rows].map((r: any[]) => r.map((v: any) => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type:'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `kanban-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
   const [dragId, setDragId] = useState<string|null>(null);
   const [dragOver, setDragOver] = useState<string|null>(null);
   const [boards, setBoards] = useState([{id:'b1', name:'Main Board', swimlane:'status'}]);
@@ -315,6 +333,11 @@ export default function KanbanBoard({ items, sel, onSel, onNew, onStatusChange, 
             ))}
           </div>
 
+          <button onClick={exportKanbanCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-white text-gray-600 border-gray-200 hover:border-blue-300 transition-all"
+            style={{ fontSize:12 }} title="Export visible items to CSV">
+            ⬇ CSV
+          </button>
           <div className="relative">
             <button ref={fieldBtnRef} onClick={() => setShowFieldConfig((o: boolean) => !o)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${showFieldConfig?'bg-blue-600 text-white border-blue-600':'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}

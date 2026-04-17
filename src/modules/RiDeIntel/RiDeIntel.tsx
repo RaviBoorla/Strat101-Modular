@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 
 const RISK_STATUSES     = ['Open','In Treatment','Escalated','Mitigated','Accepted','Closed'];
 const DECISION_STATUSES = ['Proposed','Under Review','Approved','Implemented','Deferred','Reversed','Superseded'];
+const ISSUE_STATUSES    = ['Open','In Progress','Escalated','Resolved','Closed'];
+const ASSUMPTION_STATUSES = ['Identified','Being Validated','Validated','Invalid','Accepted'];
 const RISK_LEVELS       = ['Critical','High','Medium','Low'];
 const PROBABILITIES     = ['High','Medium','Low'];
 const IMPACTS           = ['High','Medium','Low'];
@@ -12,6 +14,10 @@ const RISK_CATEGORIES   = ['Strategic','Operational','Financial','Compliance','T
 const RISK_RESPONSES    = ['Avoid','Mitigate','Transfer','Accept'];
 const DECISION_TYPES    = ['Strategic','Operational','Technical','Financial','HR','Procurement'];
 const OUTCOME_STATUSES  = ['Pending','Implemented','Deferred','Reversed','Superseded'];
+const ISSUE_PRIORITIES  = ['Critical','High','Medium','Low'];
+const ASSUMPTION_CATEGORIES = ['Business','Technical','Resource','Regulatory','Market'];
+
+type RiDeTabType = 'risk'|'decision'|'issue'|'assumption';
 
 const ITEM_TYPES = ['vision','mission','goal','okr','kr','initiative','program','project','task','subtask'];
 const ITEM_ICONS: Record<string,string> = {
@@ -47,11 +53,19 @@ export const DEC_STATUS_COLOR: Record<string,string> = {
   Implemented:'#2563eb',Deferred:'#8b5cf6',Reversed:'#dc2626',Superseded:'#94a3b8',
 };
 
+export const ISSUE_STATUS_COLOR: Record<string,string> = {
+  Open:'#dc2626','In Progress':'#f59e0b',Escalated:'#8b5cf6',Resolved:'#2563eb',Closed:'#16a34a',
+};
+
+export const ASSUMP_STATUS_COLOR: Record<string,string> = {
+  Identified:'#64748b','Being Validated':'#f59e0b',Validated:'#16a34a',Invalid:'#dc2626',Accepted:'#2563eb',
+};
+
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 export interface RiDeRecord {
   id: string;
-  record_type: 'risk'|'decision';
+  record_type: RiDeTabType;
   ref_key?: string;
   title: string;
   description?: string;
@@ -82,6 +96,16 @@ export interface RiDeRecord {
   review_trigger?: string;
   outcome_status?: string;
   outcome_notes?: string;
+  // Issue fields
+  issue_priority?: string;
+  issue_category?: string;
+  issue_impact?: string;
+  resolution?: string;
+  // Assumption fields
+  assumption_category?: string;
+  validation_approach?: string;
+  validation_date?: string;
+  if_invalid_impact?: string;
 }
 
 // ─── SHARED FIELD HELPERS ─────────────────────────────────────────────────────
@@ -105,13 +129,14 @@ const ta  = { ...inp,resize:'none' as const,lineHeight:1.6 };
 export function RecordForm({
   record, type, tenantId, loggedUser, workItems, onSave, onClose,
 }: {
-  record: Partial<RiDeRecord>|null; type:'risk'|'decision';
+  record: Partial<RiDeRecord>|null; type: RiDeTabType;
   tenantId:string; loggedUser:string; workItems:any[];
   onSave:(r:RiDeRecord)=>void; onClose:()=>void;
 }) {
   const isEdit = !!record?.id;
+  const defaultStatus = type==='risk'?'Open':type==='decision'?'Proposed':type==='issue'?'Open':'Identified';
   const [f, setF] = useState<Partial<RiDeRecord>>({
-    record_type:type, status:type==='risk'?'Open':'Proposed',
+    record_type:type, status:defaultStatus,
     probability:'Medium', impact:'Medium', risk_level:'Medium',
     outcome_status:'Pending', raised_by:loggedUser,
     raised_date: new Date().toISOString().slice(0,10), ...record,
@@ -152,7 +177,13 @@ export function RecordForm({
       rationale:f.rationale||null, decision_made:f.decision_made||null,
       decided_by:f.decided_by||null, decision_date:f.decision_date||null,
       review_trigger:f.review_trigger||null, outcome_status:f.outcome_status||null,
-      outcome_notes:f.outcome_notes||null, updated_at:new Date().toISOString(),
+      outcome_notes:f.outcome_notes||null,
+      issue_priority:f.issue_priority||null, issue_category:f.issue_category||null,
+      issue_impact:f.issue_impact||null, resolution:f.resolution||null,
+      assumption_category:f.assumption_category||null,
+      validation_approach:f.validation_approach||null,
+      validation_date:f.validation_date||null, if_invalid_impact:f.if_invalid_impact||null,
+      updated_at:new Date().toISOString(),
     };
     if (!isEdit) payload.tenant_id = tenantId;
 
@@ -176,13 +207,13 @@ export function RecordForm({
 
         <div style={{padding:'14px 18px',borderBottom:'1px solid #f1f5f9',display:'flex',
           alignItems:'center',justifyContent:'space-between',flexShrink:0,
-          background:type==='risk'?'#fef2f2':'#eef2ff'}}>
+          background:type==='risk'?'#fef2f2':type==='decision'?'#eef2ff':type==='issue'?'#fff7ed':'#f0fdfa'}}>
           <div>
             <div style={{fontSize:14,fontWeight:700,color:'#111827'}}>
-              {isEdit?'Edit':'New'} {type==='risk'?'⚡ Risk':'🎯 Decision'}
+              {isEdit?'Edit':'New'} {type==='risk'?'⚡ Risk':type==='decision'?'🎯 Decision':type==='issue'?'🔥 Issue':'💡 Assumption'}
             </div>
             <div style={{fontSize:11,color:'#64748b',marginTop:2}}>
-              {type==='risk'?'Risk Register — ISO 31000 aligned':'Decision Log — PMI PMBOK aligned'}
+              {type==='risk'?'Risk Register — ISO 31000 aligned':type==='decision'?'Decision Log — PMI PMBOK aligned':type==='issue'?'Issue Log — track blockers and problems':'Assumption Register — track and validate assumptions'}
             </div>
           </div>
           <button onClick={onClose} style={{border:'none',background:'none',fontSize:20,cursor:'pointer',color:'#94a3b8'}}>×</button>
@@ -191,7 +222,7 @@ export function RecordForm({
         <div style={{flex:1,overflowY:'auto',padding:18}}>
           <FL label="Title *">
             <input value={f.title||''} onChange={e=>s('title',e.target.value)} style={inp} autoFocus
-              placeholder={type==='risk'?'e.g. Budget overrun due to vendor delays':'e.g. Select cloud platform vendor'}/>
+              placeholder={type==='risk'?'e.g. Budget overrun due to vendor delays':type==='decision'?'e.g. Select cloud platform vendor':type==='issue'?'e.g. Integration with payment gateway failing':'e.g. User adoption will reach 80% in Q1'}/>
           </FL>
           <FL label="Description">
             <textarea value={f.description||''} onChange={e=>s('description',e.target.value)} rows={2} style={ta}/>
@@ -214,8 +245,8 @@ export function RecordForm({
 
           <FL label="Status">
             <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
-              {(type==='risk'?RISK_STATUSES:DECISION_STATUSES).map(st => {
-                const c = type==='risk'?RISK_STATUS_COLOR[st]:DEC_STATUS_COLOR[st];
+              {(type==='risk'?RISK_STATUSES:type==='decision'?DECISION_STATUSES:type==='issue'?ISSUE_STATUSES:ASSUMPTION_STATUSES).map(st => {
+                const c = type==='risk'?RISK_STATUS_COLOR[st]:type==='decision'?DEC_STATUS_COLOR[st]:type==='issue'?ISSUE_STATUS_COLOR[st]:ASSUMP_STATUS_COLOR[st];
                 const active = f.status===st;
                 return (
                   <button key={st} onClick={()=>s('status',st)}
@@ -364,6 +395,61 @@ export function RecordForm({
             </FL>
           </>)}
 
+          {type==='issue' && (<>
+            <div style={{margin:'12px 0 10px',padding:'8px 12px',background:'#fff7ed',borderRadius:8,
+              borderLeft:'3px solid #ea580c',fontSize:11,fontWeight:600,color:'#ea580c'}}>
+              🔥 Issue Details
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <FL label="Priority">
+                <select value={f.issue_priority||''} onChange={e=>s('issue_priority',e.target.value)} style={sel}>
+                  <option value="">— Select —</option>
+                  {ISSUE_PRIORITIES.map(p=><option key={p}>{p}</option>)}
+                </select>
+              </FL>
+              <FL label="Category">
+                <select value={f.issue_category||''} onChange={e=>s('issue_category',e.target.value)} style={sel}>
+                  <option value="">— Select —</option>
+                  {['Scope','Schedule','Budget','Resource','Technical','Process','External'].map(c=><option key={c}>{c}</option>)}
+                </select>
+              </FL>
+            </div>
+            <FL label="Impact Description">
+              <textarea value={f.issue_impact||''} onChange={e=>s('issue_impact',e.target.value)} rows={2} style={ta}
+                placeholder="What is affected if this issue is not resolved?"/>
+            </FL>
+            <FL label="Resolution / Action Taken">
+              <textarea value={f.resolution||''} onChange={e=>s('resolution',e.target.value)} rows={2} style={ta}
+                placeholder="How was / will this issue be resolved?"/>
+            </FL>
+          </>)}
+
+          {type==='assumption' && (<>
+            <div style={{margin:'12px 0 10px',padding:'8px 12px',background:'#f0fdfa',borderRadius:8,
+              borderLeft:'3px solid #0d9488',fontSize:11,fontWeight:600,color:'#0d9488'}}>
+              💡 Assumption Details
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <FL label="Category">
+                <select value={f.assumption_category||''} onChange={e=>s('assumption_category',e.target.value)} style={sel}>
+                  <option value="">— Select —</option>
+                  {ASSUMPTION_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+                </select>
+              </FL>
+              <FL label="Validation Date">
+                <input type="date" value={f.validation_date||''} onChange={e=>s('validation_date',e.target.value)} style={inp}/>
+              </FL>
+            </div>
+            <FL label="Validation Approach">
+              <textarea value={f.validation_approach||''} onChange={e=>s('validation_approach',e.target.value)} rows={2} style={ta}
+                placeholder="How will this assumption be validated?"/>
+            </FL>
+            <FL label="Impact if Invalid">
+              <textarea value={f.if_invalid_impact||''} onChange={e=>s('if_invalid_impact',e.target.value)} rows={2} style={ta}
+                placeholder="What happens to the plan if this assumption is wrong?"/>
+            </FL>
+          </>)}
+
           <FL label="Notes">
             <textarea value={f.notes||''} onChange={e=>s('notes',e.target.value)} rows={2} style={ta}/>
           </FL>
@@ -375,10 +461,10 @@ export function RecordForm({
             background:'white',fontSize:12,cursor:'pointer',color:'#374151'}}>Cancel</button>
           <button onClick={save} disabled={saving||!f.title?.trim()}
             style={{padding:'7px 16px',borderRadius:7,border:'none',
-              background:type==='risk'?'#dc2626':'#6366f1',
+              background:type==='risk'?'#dc2626':type==='decision'?'#6366f1':type==='issue'?'#ea580c':'#0d9488',
               color:'white',fontSize:12,fontWeight:600,cursor:'pointer',
               opacity:(saving||!f.title?.trim())?0.5:1}}>
-            {saving?'Saving…':isEdit?'Save Changes':`Add ${type==='risk'?'Risk':'Decision'}`}
+            {saving?'Saving…':isEdit?'Save Changes':`Add ${type==='risk'?'Risk':type==='decision'?'Decision':type==='issue'?'Issue':'Assumption'}`}
           </button>
         </div>
       </div>
@@ -389,9 +475,9 @@ export function RecordForm({
 // ─── RIDE BOARD ───────────────────────────────────────────────────────────────
 
 function RiDeBoard({ records, tab, workItems, onEdit }:
-  { records:RiDeRecord[]; tab:'risk'|'decision'; workItems:any[]; onEdit:(r:RiDeRecord)=>void }) {
+  { records:RiDeRecord[]; tab:RiDeTabType; workItems:any[]; onEdit:(r:RiDeRecord)=>void }) {
   const [groupBy, setGroupBy] = useState<'item_type'|'level'|'category'|'owner'>('item_type');
-  const statusList = tab==='risk'?RISK_STATUSES:DECISION_STATUSES;
+  const statusList = tab==='risk'?RISK_STATUSES:tab==='decision'?DECISION_STATUSES:tab==='issue'?ISSUE_STATUSES:ASSUMPTION_STATUSES;
   const filtered   = records.filter(r=>r.record_type===tab);
 
   const rowKeys: string[] = (() => {
@@ -438,7 +524,7 @@ function RiDeBoard({ records, tab, workItems, onEdit }:
                 {groupBy==='item_type'?'Work Item Type':groupBy==='level'?'Risk Level':groupBy==='category'?'Category':'Owner'}
               </th>
               {statusList.map(st=>{
-                const col=tab==='risk'?RISK_STATUS_COLOR[st]:DEC_STATUS_COLOR[st];
+                const col=tab==='risk'?RISK_STATUS_COLOR[st]:tab==='decision'?DEC_STATUS_COLOR[st]:tab==='issue'?ISSUE_STATUS_COLOR[st]:ASSUMP_STATUS_COLOR[st];
                 return (
                   <th key={st} style={{padding:'10px 12px',
                     borderBottom:`2px solid ${col}`,fontSize:11,fontWeight:700,
@@ -476,7 +562,7 @@ function RiDeBoard({ records, tab, workItems, onEdit }:
                   </td>
                   {statusList.map(st=>{
                     const cellRecs = rowRecs.filter(r=>r.status===st);
-                    const col = tab==='risk'?RISK_STATUS_COLOR[st]:DEC_STATUS_COLOR[st];
+                    const col = tab==='risk'?RISK_STATUS_COLOR[st]:tab==='decision'?DEC_STATUS_COLOR[st]:tab==='issue'?ISSUE_STATUS_COLOR[st]:ASSUMP_STATUS_COLOR[st];
                     return (
                       <td key={st} style={{padding:8,borderBottom:'1px solid #f1f5f9',verticalAlign:'top',minWidth:180}}>
                         <div style={{display:'flex',flexDirection:'column',gap:5}}>
@@ -527,7 +613,7 @@ function RiDeBoard({ records, tab, workItems, onEdit }:
 // ─── LIST VIEW ────────────────────────────────────────────────────────────────
 
 function RiDeList({ records, tab, onEdit, onDelete }:
-  { records:RiDeRecord[]; tab:'risk'|'decision'; onEdit:(r:RiDeRecord)=>void; onDelete:(id:string)=>void }) {
+  { records:RiDeRecord[]; tab:RiDeTabType; onEdit:(r:RiDeRecord)=>void; onDelete:(id:string)=>void }) {
   const [sortCol,setSortCol]         = useState('raised_date');
   const [sortDir,setSortDir]         = useState<'asc'|'desc'>('desc');
   const [filterStatus,setFilterStatus] = useState('');
@@ -560,7 +646,7 @@ function RiDeList({ records, tab, onEdit, onDelete }:
         <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}
           style={{border:'1px solid #e2e8f0',borderRadius:6,padding:'4px 8px',fontSize:12,color:'#374151',background:'white'}}>
           <option value="">All Statuses</option>
-          {(tab==='risk'?RISK_STATUSES:DECISION_STATUSES).map(s=><option key={s}>{s}</option>)}
+          {(tab==='risk'?RISK_STATUSES:tab==='decision'?DECISION_STATUSES:tab==='issue'?ISSUE_STATUSES:ASSUMPTION_STATUSES).map(s=><option key={s}>{s}</option>)}
         </select>
         {tab==='risk'&&(
           <select value={filterLevel} onChange={e=>setFilterLevel(e.target.value)}
@@ -582,6 +668,10 @@ function RiDeList({ records, tab, onEdit, onDelete }:
               {tab==='risk'&&<Th col="risk_level"    label="Risk Level"/>}
               {tab==='risk'&&<Th col="risk_category"  label="Category"/>}
               {tab==='decision'&&<Th col="decision_type" label="Type"/>}
+              {tab==='issue'&&<Th col="issue_priority" label="Priority"/>}
+              {tab==='issue'&&<Th col="issue_category" label="Category"/>}
+              {tab==='assumption'&&<Th col="assumption_category" label="Category"/>}
+              {tab==='assumption'&&<Th col="validation_date" label="Validate By"/>}
               <Th col="status"  label="Status"/>
               <Th col="owner"   label="Owner"/>
               <Th col="due_date" label="Due"/>
@@ -590,13 +680,14 @@ function RiDeList({ records, tab, onEdit, onDelete }:
           </thead>
           <tbody>
             {sorted.length===0&&(
-              <tr><td colSpan={8} style={{textAlign:'center',padding:40,color:'#94a3b8',fontSize:12}}>
-                No {tab==='risk'?'risks':'decisions'} yet — click + New to add one.
+              <tr><td colSpan={9} style={{textAlign:'center',padding:40,color:'#94a3b8',fontSize:12}}>
+                No {tab==='risk'?'risks':tab==='decision'?'decisions':tab==='issue'?'issues':'assumptions'} yet — click + New to add one.
               </td></tr>
             )}
             {sorted.map((r,i)=>{
               const rl=r.risk_level?RISK_LEVEL_STYLE[r.risk_level]:null;
-              const sc=tab==='risk'?RISK_STATUS_COLOR[r.status]:DEC_STATUS_COLOR[r.status];
+              const sc=tab==='risk'?RISK_STATUS_COLOR[r.status]:tab==='decision'?DEC_STATUS_COLOR[r.status]:tab==='issue'?(ISSUE_STATUS_COLOR[r.status]||'#64748b'):(ASSUMP_STATUS_COLOR[r.status]||'#64748b');
+              const ipStyle = r.issue_priority ? RISK_LEVEL_STYLE[r.issue_priority] : null;
               return (
                 <tr key={r.id} onClick={()=>onEdit(r)}
                   style={{background:i%2===0?'white':'#fafafa',cursor:'pointer'}}
@@ -623,6 +714,21 @@ function RiDeList({ records, tab, onEdit, onDelete }:
                   {tab==='decision'&&(
                     <td style={{padding:'9px 12px',fontSize:11,color:'#64748b',borderBottom:'1px solid #f1f5f9'}}>{r.decision_type||'—'}</td>
                   )}
+                  {tab==='issue'&&(
+                    <td style={{padding:'9px 12px',borderBottom:'1px solid #f1f5f9'}}>
+                      {ipStyle&&r.issue_priority?<span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:999,
+                        background:ipStyle.bg,color:ipStyle.text,border:`1px solid ${ipStyle.border}`}}>{r.issue_priority}</span>:<span style={{color:'#94a3b8',fontSize:11}}>—</span>}
+                    </td>
+                  )}
+                  {tab==='issue'&&(
+                    <td style={{padding:'9px 12px',fontSize:11,color:'#64748b',borderBottom:'1px solid #f1f5f9'}}>{r.issue_category||'—'}</td>
+                  )}
+                  {tab==='assumption'&&(
+                    <td style={{padding:'9px 12px',fontSize:11,color:'#64748b',borderBottom:'1px solid #f1f5f9'}}>{r.assumption_category||'—'}</td>
+                  )}
+                  {tab==='assumption'&&(
+                    <td style={{padding:'9px 12px',fontSize:11,color:'#94a3b8',borderBottom:'1px solid #f1f5f9',whiteSpace:'nowrap'}}>{r.validation_date||'—'}</td>
+                  )}
                   <td style={{padding:'9px 12px',borderBottom:'1px solid #f1f5f9'}}>
                     <span style={{fontSize:11,fontWeight:600,padding:'2px 8px',borderRadius:999,
                       background:`${sc}18`,color:sc,border:`1px solid ${sc}44`}}>{r.status}</span>
@@ -647,8 +753,10 @@ function RiDeList({ records, tab, onEdit, onDelete }:
 // ─── SUMMARY BAR ─────────────────────────────────────────────────────────────
 
 function SummaryBar({ records }: { records:RiDeRecord[] }) {
-  const risks = records.filter(r=>r.record_type==='risk');
-  const decs  = records.filter(r=>r.record_type==='decision');
+  const risks   = records.filter(r=>r.record_type==='risk');
+  const decs    = records.filter(r=>r.record_type==='decision');
+  const issues  = records.filter(r=>r.record_type==='issue');
+  const assumes = records.filter(r=>r.record_type==='assumption');
   return (
     <div style={{display:'flex',gap:8,padding:'8px 16px',background:'#f8fafc',
       borderBottom:'1px solid #e2e8f0',flexShrink:0,flexWrap:'wrap',alignItems:'center'}}>
@@ -671,6 +779,12 @@ function SummaryBar({ records }: { records:RiDeRecord[] }) {
       <span style={{fontSize:11,color:'#64748b'}}>
         <span style={{fontWeight:700,color:'#f59e0b'}}>{decs.filter(r=>['Proposed','Under Review'].includes(r.status)).length}</span> pending decisions
       </span>
+      {issues.length>0&&<span style={{fontSize:11,color:'#64748b'}}>
+        <span style={{fontWeight:700,color:'#ea580c'}}>{issues.filter(r=>['Open','In Progress','Escalated'].includes(r.status)).length}</span> open issues
+      </span>}
+      {assumes.length>0&&<span style={{fontSize:11,color:'#64748b'}}>
+        <span style={{fontWeight:700,color:'#0d9488'}}>{assumes.filter(r=>!['Validated','Accepted'].includes(r.status)).length}</span> unvalidated assumptions
+      </span>}
     </div>
   );
 }
@@ -682,9 +796,9 @@ export default function RiDeIntel({ tenantId, loggedUser, isViewer=false, workIt
 }) {
   const [records, setRecords] = useState<RiDeRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab,     setTab]     = useState<'risk'|'decision'>('risk');
+  const [tab,     setTab]     = useState<RiDeTabType>('risk');
   const [viewMode,setViewMode]= useState<'list'|'board'>('list');
-  const [form,    setForm]    = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'}|null>(null);
+  const [form,    setForm]    = useState<{record:Partial<RiDeRecord>|null;type:RiDeTabType}|null>(null);
   const [delId,   setDelId]   = useState<string|null>(null);
 
   const load = useCallback(async () => {
@@ -724,17 +838,22 @@ export default function RiDeIntel({ tenantId, loggedUser, isViewer=false, workIt
       <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',
         borderBottom:'1px solid #e2e8f0',flexShrink:0,background:'white',flexWrap:'wrap'}}>
         {/* Tabs */}
-        <div style={{display:'flex',background:'#f1f5f9',borderRadius:8,padding:2,gap:1}}>
-          {(['risk','decision'] as const).map(t=>(
+        <div style={{display:'flex',background:'#f1f5f9',borderRadius:8,padding:2,gap:1,flexWrap:'wrap'}}>
+          {([
+            ['risk','⚡ Risk Register','#dc2626','#fef2f2'],
+            ['decision','🎯 Decision Log','#6366f1','#eef2ff'],
+            ['issue','🔥 Issue Log','#ea580c','#fff7ed'],
+            ['assumption','💡 Assumptions','#0d9488','#f0fdfa'],
+          ] as const).map(([t,label,color,bg])=>(
             <button key={t} onClick={()=>setTab(t)}
               style={{padding:'5px 14px',borderRadius:6,border:'none',cursor:'pointer',fontSize:12,
                 fontWeight:tab===t?700:400,background:tab===t?'white':'transparent',
-                color:tab===t?(t==='risk'?'#dc2626':'#6366f1'):'#64748b',
+                color:tab===t?color:'#64748b',
                 boxShadow:tab===t?'0 1px 3px rgba(0,0,0,0.1)':'none'}}>
-              {t==='risk'?'⚡ Risk Register':'🎯 Decision Log'}
+              {label}
               <span style={{marginLeft:5,fontSize:10,fontWeight:700,
-                background:tab===t?(t==='risk'?'#fef2f2':'#eef2ff'):'#e2e8f0',
-                color:tab===t?(t==='risk'?'#dc2626':'#6366f1'):'#94a3b8',
+                background:tab===t?bg:'#e2e8f0',
+                color:tab===t?color:'#94a3b8',
                 padding:'1px 5px',borderRadius:999}}>
                 {records.filter(r=>r.record_type===t).length}
               </span>
@@ -756,9 +875,9 @@ export default function RiDeIntel({ tenantId, loggedUser, isViewer=false, workIt
         {!isViewer&&(
           <button onClick={()=>setForm({record:null,type:tab})}
             style={{marginLeft:'auto',padding:'6px 14px',borderRadius:8,border:'none',
-              background:tab==='risk'?'#dc2626':'#6366f1',
+              background:tab==='risk'?'#dc2626':tab==='decision'?'#6366f1':tab==='issue'?'#ea580c':'#0d9488',
               color:'white',fontSize:12,fontWeight:700,cursor:'pointer'}}>
-            + New {tab==='risk'?'Risk':'Decision'}
+            + New {tab==='risk'?'Risk':tab==='decision'?'Decision':tab==='issue'?'Issue':'Assumption'}
           </button>
         )}
       </div>
