@@ -580,14 +580,21 @@ function Workspace({
 
       {/* ── MIND MAP FULL-SCREEN MODAL ── */}
       {treeMapItemId && (() => {
-        const ancestor = findHighestAncestor(items, treeMapItemId);
-        const rootId   = ancestor?.id ?? treeMapItemId;
+        const ancestor  = findHighestAncestor(items, treeMapItemId);
+        const rootId    = ancestor?.id ?? treeMapItemId;
+        const panelItem = selected; // detail panel shows for currently selected item
         return (
           <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(14,31,53,0.82)',
                         display:'flex', flexDirection:'column' }}
-            onKeyDown={e => e.key === 'Escape' && setTreeMapItemId(null)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') {
+                if (panelItem) setSel(null);       // Esc first closes detail panel
+                else setTreeMapItemId(null);        // second Esc closes the map
+              }
+            }}
             tabIndex={-1}>
-            {/* Header bar */}
+
+            {/* ── Header ─────────────────────────────────────────────────── */}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                           padding:'10px 16px', background:'#1e3a5f', flexShrink:0,
                           borderBottom:'1px solid rgba(255,255,255,0.12)' }}>
@@ -600,21 +607,77 @@ function Workspace({
                   </span>
                 )}
               </div>
-              <button onClick={() => setTreeMapItemId(null)}
-                style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)',
-                         color:'white', borderRadius:8, padding:'4px 14px', cursor:'pointer',
-                         fontSize:13, fontWeight:600 }}>
-                ✕ Close
-              </button>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                {panelItem && (
+                  <button onClick={() => setSel(null)}
+                    style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.18)',
+                             color:'#93c5fd', borderRadius:8, padding:'4px 12px', cursor:'pointer',
+                             fontSize:12, fontWeight:600 }}>
+                    ✕ Close Panel
+                  </button>
+                )}
+                <button onClick={() => setTreeMapItemId(null)}
+                  style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)',
+                           color:'white', borderRadius:8, padding:'4px 14px', cursor:'pointer',
+                           fontSize:13, fontWeight:600 }}>
+                  ✕ Close
+                </button>
+              </div>
             </div>
-            {/* Mind map fills remaining space */}
-            <div style={{ flex:1, overflow:'hidden' }}>
-              <MindMapView
-                items={items}
-                sel={treeMapItemId}
-                rootItemId={rootId}
-                onSel={id => { setSel(id); setDtab('overview'); setTreeMapItemId(null); }}
-              />
+
+            {/* ── Body: map (left) + detail panel (right, slides in on click) ── */}
+            <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+
+              {/* Mind map — shrinks to 58 % when detail panel is open */}
+              <div style={{
+                width:      panelItem ? '58%' : '100%',
+                flexShrink: 0,
+                overflow:   'hidden',
+                transition: 'width 0.25s ease',
+              }}>
+                <MindMapView
+                  items={items}
+                  sel={sel}
+                  rootItemId={rootId}
+                  onSel={id => { setSel(id); setDtab('overview'); }}
+                />
+              </div>
+
+              {/* Detail panel — 42 % wide, slides in from right */}
+              {panelItem && (
+                <div style={{
+                  width:          '42%',
+                  flexShrink:     0,
+                  display:        'flex',
+                  flexDirection:  'column',
+                  overflow:       'hidden',
+                  background:     'white',
+                  borderLeft:     '1px solid rgba(255,255,255,0.08)',
+                  boxShadow:      '-4px 0 16px rgba(0,0,0,0.25)',
+                }}>
+                  <DetailPanel
+                    item={panelItem}
+                    allItems={items}
+                    tab={dtab}
+                    onTab={setDtab}
+                    onEdit={() => setForm({ ...panelItem })}
+                    onDelete={() => { remove(panelItem.id); setSel(null); }}
+                    onClose={() => setSel(null)}
+                    onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }}
+                    onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
+                    onRmLink={rmLink}
+                    onRmDep={rmDep}
+                    onAddFile={() => fileRef.current?.click()}
+                    onRmFile={rmFile}
+                    onAddComment={addComment}
+                    onRmComment={rmComment}
+                    onNav={nav}
+                    onTreeMap={() => setTreeMapItemId(sel)}
+                    agentOutcomes={features.agentSprints && sel
+                      ? agentItems.filter((o: any) => o.linked_work_item_id === sel) : []}
+                  />
+                </div>
+              )}
             </div>
           </div>
         );
