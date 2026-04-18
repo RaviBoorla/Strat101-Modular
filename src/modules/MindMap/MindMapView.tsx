@@ -13,13 +13,17 @@ const PALETTE = [
   '#6366f1','#dc2626','#0369a1','#15803d',
 ];
 const HEALTH_CLR: Record<string,string> = { Green:'#16a34a', Amber:'#f59e0b', Red:'#dc2626' };
-const NODE_W   = 145;
-const NODE_H   = 34;
+const NODE_W   = 150;
 const NODE_RX  = 17;
-const ROW_H    = 68;
-const LVL_DX   = 205;
-const ROOT_RX  = 80;   // ellipse half-width
-const ROOT_RY  = 44;   // ellipse half-height
+const ROW_H    = 88;   // taller to accommodate wrapped text
+const LVL_DX   = 210;
+const ROOT_RX  = 82;   // ellipse half-width
+const ROOT_RY  = 46;   // ellipse half-height
+const LINE_H   = 13;   // text line-height inside nodes
+const FONT_SZ  = 11;   // node title font size
+const MAX_LINES = 3;   // max wrapped lines per node
+// approximate chars that fit per line: NODE_W minus padding / charWidth
+const CHARS_PER_LINE = Math.floor((NODE_W - 20) / (FONT_SZ * 0.58));
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -176,120 +180,147 @@ function collectEdges(root: MindNode): Edge[] {
   return edges;
 }
 
-function trunc(s: string, max: number) {
-  if (!s) return '';
-  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+/** Wrap title into lines of ≤ CHARS_PER_LINE chars, max MAX_LINES lines. */
+function wrapTitle(title: string): string[] {
+  if (!title) return [''];
+  const words = title.split(' ');
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (test.length <= CHARS_PER_LINE) { cur = test; }
+    else {
+      if (cur) lines.push(cur);
+      cur = w.length > CHARS_PER_LINE ? w.slice(0, CHARS_PER_LINE) : w;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines.slice(0, MAX_LINES);
+}
+
+/** Compute node height from wrapped line count. */
+function nodeHeight(title: string): number {
+  const n = wrapTitle(title).length;
+  return Math.max(n * LINE_H + 16, 30);
 }
 
 // ─── Edge ─────────────────────────────────────────────────────────────────────
 
 function EdgePath({ x1, y1, x2, y2, color, side }: Edge) {
-  const ctrl = LVL_DX * 0.55;
-  const cx1 = side === 'right' ? x1 + ctrl : x1 - ctrl;
-  const cx2 = side === 'right' ? x2 - ctrl : x2 + ctrl;
-  // Root → first level: side may be 'center', treat as right for control points
+  const ctrl = LVL_DX * 0.52;
   const cx1r = side === 'left' ? x1 - ctrl : x1 + ctrl;
   const cx2r = side === 'left' ? x2 + ctrl : x2 - ctrl;
   const d = `M ${x1} ${y1} C ${cx1r} ${y1} ${cx2r} ${y2} ${x2} ${y2}`;
-  return <path d={d} fill="none" stroke={color} strokeWidth={2.5} opacity={0.65}/>;
+  return <path d={d} fill="none" stroke={color} strokeWidth={1} opacity={0.6}/>;
 }
 
 // ─── Node ─────────────────────────────────────────────────────────────────────
 
-function MindNode({ node, isSelected, isRoot, onClick }: { node:MindNode; isSelected:boolean; isRoot:boolean; onClick:()=>void }) {
+function MindNode({ node, isSelected, isRoot, onClick }: {
+  node:MindNode; isSelected:boolean; isRoot:boolean; onClick:()=>void
+}) {
   const { item, color } = node;
   const completed = item.status === 'Completed';
   const meta      = TC[item.type as keyof typeof TC];
   const hClr      = item.health ? (HEALTH_CLR[item.health] ?? '#94a3b8') : null;
   const fill      = completed ? '#dcfce7' : '#ffffff';
   const stroke    = isSelected ? '#16a34a' : color;
-  const strokeW   = isSelected ? 2.5 : 1.5;
+  const strokeW   = isSelected ? 1.5 : 0.8;
 
   if (isRoot) {
+    const lines  = wrapTitle(item.title);
+    const tH     = lines.length * LINE_H;
+    const startY = -(tH / 2) + LINE_H * 0.75;
     return (
       <g onClick={onClick} style={{ cursor:'pointer' }}>
+        {/* Type label OUTSIDE / above the ellipse */}
+        <text x={0} y={-(ROOT_RY + 10)} textAnchor="middle" fontSize={9} fontWeight={700}
+          fill="#4a6fa5" fontFamily="system-ui" style={{pointerEvents:'none',letterSpacing:'0.05em'}}>
+          {meta?.i ?? '🔭'} {(meta?.l ?? 'Vision').toUpperCase()}
+        </text>
         {isSelected && (
-          <ellipse cx={0} cy={0} rx={ROOT_RX + 8} ry={ROOT_RY + 8}
-            fill="none" stroke="#16a34a" strokeWidth={2} strokeDasharray="5 3" opacity={0.9}/>
+          <ellipse cx={0} cy={0} rx={ROOT_RX + 6} ry={ROOT_RY + 6}
+            fill="none" stroke="#16a34a" strokeWidth={1.5} strokeDasharray="4 3" opacity={0.85}/>
         )}
         <ellipse cx={0} cy={0} rx={ROOT_RX} ry={ROOT_RY}
           fill="#1e3a5f"
-          stroke={isSelected ? '#16a34a' : 'rgba(255,255,255,0.25)'}
-          strokeWidth={isSelected ? 2.5 : 1.5}
-          style={{ filter:'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}/>
-        <text x={0} y={-12} textAnchor="middle" fontSize={10} fill="rgba(255,255,255,0.6)"
+          stroke={isSelected ? '#16a34a' : 'rgba(255,255,255,0.2)'}
+          strokeWidth={isSelected ? 1.5 : 1}
+          style={{ filter:'drop-shadow(0 3px 8px rgba(0,0,0,0.25))' }}/>
+        {/* Wrapped title inside ellipse */}
+        <text textAnchor="middle" fontSize={12} fontWeight={700} fill="white"
           fontFamily="system-ui" style={{pointerEvents:'none'}}>
-          {meta?.i ?? '🔭'} {meta?.l ?? 'Vision'}
+          {lines.map((ln, i) => (
+            <tspan key={i} x={0} dy={i === 0 ? startY : LINE_H + 1}>{ln}</tspan>
+          ))}
         </text>
-        <text x={0} y={4} textAnchor="middle" dominantBaseline="middle" fontSize={13}
-          fontWeight={700} fill="white" fontFamily="system-ui" style={{pointerEvents:'none'}}>
-          {trunc(item.title, 18)}
-        </text>
-        {hClr && <circle cx={ROOT_RX + 8} cy={0} r={5} fill={hClr} stroke="white" strokeWidth={1}/>}
+        {/* Health dot — partly overlapping the right edge of ellipse */}
+        {hClr && <circle cx={ROOT_RX + 3} cy={-(ROOT_RY * 0.4)} r={5} fill={hClr} stroke="white" strokeWidth={0.8}/>}
       </g>
     );
   }
 
+  // Dynamic node height based on wrapped line count
+  const lines  = wrapTitle(item.title);
+  const NH     = nodeHeight(item.title);
+  const tH     = lines.length * LINE_H;
+  const startY = -(tH / 2) + LINE_H * 0.75;
+
   return (
     <g transform={`translate(${node.x},${node.y})`} onClick={onClick} style={{ cursor:'pointer' }}>
-      {/* Type label */}
+      {/* Type label above bubble (always outside) */}
       {meta && (
-        <text x={0} y={-(NODE_H / 2 + 10)} textAnchor="middle" fontSize={9} fontWeight={700} fill={color}
+        <text x={0} y={-(NH / 2 + 9)} textAnchor="middle" fontSize={8.5} fontWeight={700} fill={color}
           fontFamily="system-ui" style={{pointerEvents:'none',letterSpacing:'0.04em'}}>
           {meta.i} {meta.l.toUpperCase()}
         </text>
       )}
       {/* Selection ring */}
       {isSelected && (
-        <rect x={-NODE_W/2 - 5} y={-NODE_H/2 - 5} width={NODE_W + 10} height={NODE_H + 10}
-          rx={NODE_RX + 5} fill="none" stroke="#16a34a" strokeWidth={2} strokeDasharray="5 3"/>
+        <rect x={-NODE_W/2 - 4} y={-NH/2 - 4} width={NODE_W + 8} height={NH + 8}
+          rx={NODE_RX + 4} fill="none" stroke="#16a34a" strokeWidth={1.5} strokeDasharray="4 3"/>
       )}
       {/* Bubble */}
-      <rect x={-NODE_W/2} y={-NODE_H/2} width={NODE_W} height={NODE_H}
+      <rect x={-NODE_W/2} y={-NH/2} width={NODE_W} height={NH}
         rx={NODE_RX} fill={fill} stroke={stroke} strokeWidth={strokeW}
-        style={{filter: isSelected ? 'drop-shadow(0 0 6px rgba(22,163,74,0.4))' : 'drop-shadow(0 1px 4px rgba(0,0,0,0.12))'}}/>
+        style={{filter: isSelected ? 'drop-shadow(0 0 5px rgba(22,163,74,0.35))' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.1))'}}/>
       {/* Completed tick */}
       {completed && (
-        <text x={-NODE_W/2 + 9} y={1} dominantBaseline="middle" fontSize={11} fill="#16a34a" style={{pointerEvents:'none'}}>✓</text>
+        <text x={-NODE_W/2 + 8} y={startY} fontSize={10} fill="#16a34a" style={{pointerEvents:'none'}}>✓</text>
       )}
-      {/* Title */}
-      <text x={completed ? 2 : 0} y={0} textAnchor="middle" dominantBaseline="middle"
-        fontSize={11} fontWeight={600} fill="#1e293b" fontFamily="system-ui" style={{pointerEvents:'none'}}>
-        {trunc(item.title, 17)}
+      {/* Wrapped title */}
+      <text textAnchor="middle" fontSize={FONT_SZ} fontWeight={600} fill="#1e293b"
+        fontFamily="system-ui" style={{pointerEvents:'none'}}>
+        {lines.map((ln, i) => (
+          <tspan key={i} x={completed ? 4 : 0} dy={i === 0 ? startY : LINE_H}>{ln}</tspan>
+        ))}
       </text>
-      {/* Health dot */}
-      {hClr && <circle cx={NODE_W/2 + 8} cy={0} r={5} fill={hClr} stroke="white" strokeWidth={1}/>}
+      {/* Health dot — centre on the right bubble edge (partly inside, partly outside) */}
+      {hClr && <circle cx={NODE_W/2} cy={0} r={5} fill={hClr} stroke="white" strokeWidth={0.8}/>}
     </g>
   );
 }
 
-// ─── "You are here" badge ─────────────────────────────────────────────────────
+// ─── "You are here" — red finger to the LEFT of any bubble ───────────────────
 
 function YouAreHere({ node, isRoot }: { node: MindNode; isRoot: boolean }) {
+  // Always placed to the LEFT of the item
   if (isRoot) {
-    // Badge below the root ellipse
-    const by = ROOT_RY + 28;
+    const fx = -(ROOT_RX + 22);
     return (
       <g>
-        <line x1={0} y1={ROOT_RY + 3} x2={0} y2={by - 13} stroke="#16a34a" strokeWidth={1.5} strokeDasharray="3 2"/>
-        <rect x={-52} y={by - 13} width={104} height={26} rx={13} fill="#16a34a"/>
-        <text x={0} y={by} textAnchor="middle" dominantBaseline="middle"
-          fontSize={11} fontWeight={700} fill="white" fontFamily="system-ui">👉 You are here</text>
+        <circle cx={fx} cy={0} r={14} fill="#dc2626" opacity={0.9}/>
+        <text x={fx} y={0} textAnchor="middle" dominantBaseline="middle"
+          fontSize={15} style={{pointerEvents:'none'}}>👉</text>
       </g>
     );
   }
-  const onRight = node.side !== 'left';
-  // Finger points FROM the badge TO the node edge
-  const finger  = onRight ? '👉' : '👈';
-  const bx      = onRight ? node.x + NODE_W / 2 + 70 : node.x - NODE_W / 2 - 70;
-  const lx1     = onRight ? node.x + NODE_W / 2 + 4  : node.x - NODE_W / 2 - 4;
-  const lx2     = onRight ? bx - 52                   : bx + 52;
+  const fx = node.x - NODE_W / 2 - 22;
   return (
     <g>
-      <line x1={lx1} y1={node.y} x2={lx2} y2={node.y} stroke="#16a34a" strokeWidth={1.5} strokeDasharray="3 2"/>
-      <rect x={bx - 56} y={node.y - 13} width={112} height={26} rx={13} fill="#16a34a"/>
-      <text x={bx} y={node.y} textAnchor="middle" dominantBaseline="middle"
-        fontSize={11} fontWeight={700} fill="white" fontFamily="system-ui">{finger} You are here</text>
+      <circle cx={fx} cy={node.y} r={14} fill="#dc2626" opacity={0.9}/>
+      <text x={fx} y={node.y} textAnchor="middle" dominantBaseline="middle"
+        fontSize={15} style={{pointerEvents:'none'}}>👉</text>
     </g>
   );
 }
@@ -324,8 +355,8 @@ export function MindMapView({ items, sel, onSel, rootItemId }: MindMapViewProps)
     const pad = 60;
     const minX = Math.min(...xs) - NODE_W - pad;
     const maxX = Math.max(...xs) + NODE_W + 30 + pad;
-    const minY = Math.min(...ys) - NODE_H * 3 - pad;
-    const maxY = Math.max(...ys) + NODE_H * 3 + pad;
+    const minY = Math.min(...ys) - ROW_H * 2 - pad;
+    const maxY = Math.max(...ys) + ROW_H * 2 + pad;
     const s = Math.min((width * 0.95) / (maxX - minX), (height * 0.95) / (maxY - minY), 1.2);
     setScale(s);
     setTx(width  / 2 - ((minX + maxX) / 2) * s);
@@ -385,7 +416,7 @@ export function MindMapView({ items, sel, onSel, rootItemId }: MindMapViewProps)
               const xs = nodes.map(n => n.x); const ys = nodes.map(n => n.y);
               const pad = 60;
               const minX = Math.min(...xs)-NODE_W-pad; const maxX = Math.max(...xs)+NODE_W+30+pad;
-              const minY = Math.min(...ys)-NODE_H*3-pad; const maxY = Math.max(...ys)+NODE_H*3+pad;
+              const minY = Math.min(...ys)-ROW_H*2-pad; const maxY = Math.max(...ys)+ROW_H*2+pad;
               const s = Math.min((width*.95)/(maxX-minX),(height*.95)/(maxY-minY),1.2);
               setScale(s); setTx(width/2-((minX+maxX)/2)*s); setTy(height/2-((minY+maxY)/2)*s);
             }},
