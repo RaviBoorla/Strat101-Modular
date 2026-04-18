@@ -914,6 +914,16 @@ function NotificationsTab({ tenant, readOnly = false }: { tenant: Tenant; readOn
   useEffect(() => {
     (async () => {
       setLoading(true);
+      // Use service-role API to load — bypasses RLS so global admins can
+      // read any tenant's settings (not just their own tenant_id)
+      try {
+        const res = await fetch(`/api/save-notification-settings?tenantId=${tenant.id}`, {
+          method: 'GET',
+        });
+        // GET not supported — fall back to supabase client for reads
+      } catch {}
+      // Load via supabase (SELECT policy allows tenant members; global admins
+      // may get empty result if not in that tenant — handled gracefully below)
       const { data } = await supabase
         .from('notification_settings')
         .select('settings')
@@ -934,17 +944,30 @@ function NotificationsTab({ tenant, readOnly = false }: { tenant: Tenant; readOn
     }));
   };
 
+  const [saveErr, setSaveErr] = useState('');
+
   const save = async () => {
     setSaving(true);
-    await supabase.from('notification_settings').upsert({
-      tenant_id:  tenant.id,
-      settings,
-      updated_at: new Date().toISOString(),
-      updated_by: 'global_admin',
-    });
+    setSaveErr('');
+    try {
+      // Use the backend API so service role key is used — bypasses RLS
+      // (global admin saving settings for another tenant would be blocked by RLS)
+      const res = await fetch('/api/save-notification-settings', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tenantId: tenant.id, settings, updatedBy: 'global_admin' }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setSaveErr(err.error ?? 'Save failed');
+      } else {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+      }
+    } catch (e: any) {
+      setSaveErr(e.message ?? 'Network error');
+    }
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
   };
 
   if (loading) return <div style={{padding:20,color:'#94a3b8',fontSize:12}}>Loading notification settings…</div>;
@@ -1014,9 +1037,14 @@ function NotificationsTab({ tenant, readOnly = false }: { tenant: Tenant; readOn
       {!readOnly && (
         <div style={{ paddingTop: 8 }}>
           <button onClick={save} disabled={saving}
-            style={{ padding:'8px 20px', borderRadius:8, border:'none', background:'#2563eb', color:'white', fontSize:12, fontWeight:600, cursor:'pointer', opacity: saving ? 0.7 : 1 }}>
+            style={{ padding:'8px 20px', borderRadius:8, border:'none', background: saved ? '#16a34a' : '#2563eb', color:'white', fontSize:12, fontWeight:600, cursor:'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Notifications'}
           </button>
+          {saveErr && (
+            <div style={{ marginTop:8, fontSize:11, color:'#dc2626', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:6, padding:'6px 10px' }}>
+              ❌ {saveErr}
+            </div>
+          )}
         </div>
       )}
     </div>

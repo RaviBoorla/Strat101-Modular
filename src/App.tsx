@@ -20,6 +20,7 @@ import GlobalAdminPanel from "./modules/Admin/GlobalAdminPanel";
 import LocalAdminPanel from "./modules/Admin/LocalAdminPanel";
 import SprintModule from "./modules/Sprint/SprintModule";
 import AgentSprintModule from "./modules/AgentSprint/AgentSprintModule";
+import { MindMapView, findHighestAncestor } from "./modules/MindMap/MindMapView";
 
 import TopNav         from "./components/TopNav";
 import DetailPanel    from "./components/DetailPanel";
@@ -230,9 +231,11 @@ function Workspace({
   const [kanbanSprints, setKanbanSprints] = useState<{id:string;name:string;status:string}[]>([]);
   const [agentItems,    setAgentItems]    = useState<any[]>([]);
   const [tenantUserNames, setTenantUserNames] = useState<string[]>([]);
+  const [loggedUserFullName, setLoggedUserFullName] = useState('');
   const [view,    setView]    = useState('kanban');
   const [workItemFilter, setWIF] = useState('all');
   const [sel,     setSel]   = useState<string|null>(null);
+  const [treeMapItemId, setTreeMapItemId] = useState<string|null>(null);
   const [dtab,    setDtab]  = useState('overview');
   const [form,    setForm]  = useState<any>(null);
   const [rideForm, setRideForm] = useState<{record:Partial<RiDeRecord>|null;type:'risk'|'decision'|'issue'|'assumption'}|null>(null);
@@ -260,13 +263,17 @@ function Workspace({
   }, [tenantId, features.sprints]);
 
   useEffect(() => {
-    if (!tenantId) { setTenantUserNames([]); return; }
+    if (!tenantId) { setTenantUserNames([]); setLoggedUserFullName(''); return; }
     supabase.from('tenant_users').select('full_name,username').eq('tenant_id', tenantId).eq('active', true)
       .then(({ data }) => {
-        const names = (data ?? []).map((u: any) => u.full_name || u.username).filter(Boolean);
+        const rows = data ?? [];
+        const names = rows.map((u: any) => u.full_name || u.username).filter(Boolean);
         setTenantUserNames([...new Set(names)] as string[]);
+        // Resolve current user's full_name so changedBy in notifications matches
+        const me = rows.find((u: any) => u.username === loggedUser);
+        setLoggedUserFullName(me?.full_name || loggedUser || '');
       });
-  }, [tenantId]);
+  }, [tenantId, loggedUser]);
 
   useEffect(() => {
     if (!tenantId || !features.agentSprints) { setAgentItems([]); return; }
@@ -318,10 +325,19 @@ function Workspace({
 
   const upsert = async (it: any) => {
     if (isViewer) return;
+    const prevItem = items.find((x: any) => x.id === it.id) ?? null;
     const s = stamp(it);
     await applyAndPersist(s);
     setForm(null); setSel(s.id);
     if (isListView || view === 'kanban') setView(s.type);
+    // Fire notification check — fire-and-forget, never blocks the UI
+    if (tenantId) {
+      fetch('/api/on-item-changed', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ tenantId, item: s, prevItem, changedBy: loggedUserFullName || LOGGED_IN }),
+      }).catch(() => { /* silent — notification failures must never surface to user */ });
+    }
   };
 
   const remove = async (id: string) => {
@@ -494,6 +510,7 @@ function Workspace({
                   {view === 'ride'    && features.ride    && <RiDeIntel tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
                   {view === 'sprints'      && features.sprints      && tenantId && <SprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} items={items} onItemChange={changeField}/>}
                   {view === 'agentSprints' && features.agentSprints && tenantId && <AgentSprintModule tenantId={tenantId} loggedUser={loggedUser} isViewer={isViewer} workItems={items}/>}
+                  {view === 'mindmap' && <MindMapView items={items} sel={sel} onSel={id => { setSel(id); setDtab('overview'); }}/>}
                 </>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', gap:12 }}>
@@ -514,6 +531,7 @@ function Workspace({
                 onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }} onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
                 onRmLink={rmLink} onRmDep={rmDep} onAddFile={() => fileRef.current?.click()} onRmFile={rmFile}
                 onAddComment={addComment} onRmComment={rmComment} onNav={nav}
+                onTreeMap={() => setTreeMapItemId(sel)}
                 agentOutcomes={features.agentSprints && sel ? agentItems.filter((o: any) => o.linked_work_item_id === sel) : []}/>
             </div>
           )}
@@ -559,6 +577,111 @@ function Workspace({
         </div>
       )}
       {linkDlg && selected && <LinkDlg mode={linkDlg} selected={selected} allItems={items} q={linkQ} onQ={setLinkQ} onLink={linkDlg === 'link' ? addLink : addDep} onClose={() => setLinkDlg(null)}/>}
+
+      {/* ── MIND MAP FULL-SCREEN MODAL ── */}
+      {treeMapItemId && (() => {
+        const ancestor  = findHighestAncestor(items, treeMapItemId);
+        const rootId    = ancestor?.id ?? treeMapItemId;
+        const panelItem = selected; // detail panel shows for currently selected item
+        return (
+          <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(14,31,53,0.82)',
+                        display:'flex', flexDirection:'column' }}
+            onKeyDown={e => {
+              if (e.key === 'Escape') {
+                if (panelItem) setSel(null);       // Esc first closes detail panel
+                else setTreeMapItemId(null);        // second Esc closes the map
+              }
+            }}
+            tabIndex={-1}>
+
+            {/* ── Header ─────────────────────────────────────────────────── */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                          padding:'10px 16px', background:'#1e3a5f', flexShrink:0,
+                          borderBottom:'1px solid rgba(255,255,255,0.12)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:18 }}>🌳</span>
+                <span style={{ color:'white', fontWeight:700, fontSize:14 }}>Hierarchy Mind Map</span>
+                {ancestor && (
+                  <span style={{ color:'#8baecf', fontSize:12 }}>
+                    — rooted at <strong style={{ color:'#93c5fd' }}>{ancestor.title}</strong>
+                  </span>
+                )}
+              </div>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                {panelItem && (
+                  <button onClick={() => setSel(null)}
+                    style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.18)',
+                             color:'#93c5fd', borderRadius:8, padding:'4px 12px', cursor:'pointer',
+                             fontSize:12, fontWeight:600 }}>
+                    ✕ Close Panel
+                  </button>
+                )}
+                <button onClick={() => setTreeMapItemId(null)}
+                  style={{ background:'rgba(255,255,255,0.1)', border:'1px solid rgba(255,255,255,0.2)',
+                           color:'white', borderRadius:8, padding:'4px 14px', cursor:'pointer',
+                           fontSize:13, fontWeight:600 }}>
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            {/* ── Body: map (left) + detail panel (right, slides in on click) ── */}
+            <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+
+              {/* Mind map — shrinks to 58 % when detail panel is open */}
+              <div style={{
+                width:      panelItem ? '58%' : '100%',
+                flexShrink: 0,
+                overflow:   'hidden',
+                transition: 'width 0.25s ease',
+              }}>
+                <MindMapView
+                  items={items}
+                  sel={sel}
+                  rootItemId={rootId}
+                  onSel={id => { setSel(id); setDtab('overview'); }}
+                />
+              </div>
+
+              {/* Detail panel — 42 % wide, slides in from right */}
+              {panelItem && (
+                <div style={{
+                  width:          '42%',
+                  flexShrink:     0,
+                  display:        'flex',
+                  flexDirection:  'column',
+                  overflow:       'hidden',
+                  background:     'white',
+                  borderLeft:     '1px solid rgba(255,255,255,0.08)',
+                  boxShadow:      '-4px 0 16px rgba(0,0,0,0.25)',
+                }}>
+                  <DetailPanel
+                    item={panelItem}
+                    allItems={items}
+                    tab={dtab}
+                    onTab={setDtab}
+                    onEdit={() => setForm({ ...panelItem })}
+                    onDelete={() => { remove(panelItem.id); setSel(null); }}
+                    onClose={() => setSel(null)}
+                    onAddLink={() => { setLinkQ(''); setLinkDlg('link'); }}
+                    onAddDep={() => { setLinkQ(''); setLinkDlg('dep'); }}
+                    onRmLink={rmLink}
+                    onRmDep={rmDep}
+                    onAddFile={() => fileRef.current?.click()}
+                    onRmFile={rmFile}
+                    onAddComment={addComment}
+                    onRmComment={rmComment}
+                    onNav={nav}
+                    onTreeMap={() => setTreeMapItemId(sel)}
+                    agentOutcomes={features.agentSprints && sel
+                      ? agentItems.filter((o: any) => o.linked_work_item_id === sel) : []}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
       {cmdOpen && <CommandPalette items={items} onNav={id => { nav(id); setCmdOpen(false); }} onClose={() => setCmdOpen(false)}/>}
     </div>
   );

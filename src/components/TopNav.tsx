@@ -129,13 +129,14 @@ export default function TopNav({
     ...(features.ride      ? [{id:'ride',      label:'RiDe Intel', icon:'⚡'}] : []),
     ...(features.sprints      ? [{id:'sprints',      label:'Sprints',       icon:'🏃'}] : []),
     ...(features.agentSprints ? [{id:'agentSprints', label:'Agent Sprints',  icon:'🤖'}] : []),
+    {id:'mindmap', label:'Mind Map', icon:'🌳'},
   ];
 
   // FIX: Work Items click → go to workitems view directly (no dropdown)
   // Work Items ARROW click → toggle dropdown
   // Create click → toggle dropdown (unchanged)
   const handleNavClick=(id:string)=>{
-    if(id==='kanban'||id==='bot'||id==='reports'||id==='ride'||id==='sprints'||id==='agentSprints'){ setWiOpen(false); setCreate(false); setMobileCreate(false); setView(id); }
+    if(id==='kanban'||id==='bot'||id==='reports'||id==='ride'||id==='sprints'||id==='agentSprints'||id==='mindmap'){ setWiOpen(false); setCreate(false); setMobileCreate(false); setView(id); }
     else if(id==='workitems'){ setCreate(false); setMobileCreate(false); setWiOpen(false); setView('workitems'); setWorkItemFilter('all'); }
     else if(id==='create'){ setWiOpen(false); if(!isViewer) setCreate((o:boolean)=>!o); }
   };
